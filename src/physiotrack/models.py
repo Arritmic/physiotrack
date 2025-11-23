@@ -19,6 +19,9 @@ class Models:
                 m_face = "yolov11m-face.pt"
                 l_face = "yolov11l-face.pt"
 
+            class VRFACE(Enum):
+                l_vrface = "yolov12l-face.pt"
+
             class VR(Enum):
                 m_VR = "yolo11m_vr.pt"
                 l_VR = "yolo11l_vr.pt"
@@ -74,6 +77,7 @@ class Models:
 
         class FaceOrientation(Enum):
             default = '6DRepNet360_Full-Rotation_300W_LP+Panoptic.pth'
+            VR = 'CMVS-FO-VR_epoch80.pth'
 
         class Canonicalizer:
             class Models(Enum):

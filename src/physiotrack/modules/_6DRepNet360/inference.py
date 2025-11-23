@@ -179,8 +179,9 @@ class HeadPoseEstimator:
                 rot_matrix.unsqueeze(0)
             ) * 180 / np.pi
             
-            pitch = float(euler[0, 0].cpu().numpy())
-            yaw = float(euler[0, 1].cpu().numpy())
+            # Apply sign corrections for proper visualization alignment
+            pitch = -float(euler[0, 0].cpu().numpy())
+            yaw = -float(euler[0, 1].cpu().numpy())
             roll = float(euler[0, 2].cpu().numpy())
             
             detection = {
@@ -305,8 +306,9 @@ class HeadPoseEstimator:
                 rot_matrix.unsqueeze(0)
             ) * 180 / np.pi
             
-            pitch = float(euler[0, 0].cpu().numpy())
-            yaw = float(euler[0, 1].cpu().numpy())
+            # Apply sign corrections for proper visualization alignment
+            pitch = -float(euler[0, 0].cpu().numpy())
+            yaw = -float(euler[0, 1].cpu().numpy())
             roll = float(euler[0, 2].cpu().numpy())
             
             detection = {

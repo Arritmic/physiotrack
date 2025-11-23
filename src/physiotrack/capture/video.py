@@ -8,6 +8,7 @@ from tqdm import tqdm
 from physiotrack.modules.Yolo.classes_and_palettes import COLORS
 from physiotrack.core.radar_view import RadarView
 from physiotrack.signals.plotting.keypoint_plotter import KeypointMotionPlotter
+from physiotrack.utils import get_screen_size, resize_frame_for_display
 
 
 class Video:
@@ -34,6 +35,7 @@ class Video:
                  plot_keypoint_name: Optional[str] = None,
                  verbose: bool = False,
                  show_fps: bool = False,
+                 show_output: bool = False,
                  batch_size: int = 1):  # New parameter for batch processing
 
         self.video_path = video_path
@@ -46,11 +48,18 @@ class Video:
         self.face_orientation = face_orientation
         self.verbose = verbose
         self.show_fps = show_fps
+        self.show_output = show_output
         self.required_fps = required_fps
         self.frame_resize = frame_resize
         self.frame_rotate = frame_rotate
         self.floor_map = floor_map
         self.batch_size = max(1, batch_size)  # Ensure batch size is at least 1
+
+        # Get screen size for display if show_output is enabled
+        self.screen_width = None
+        self.screen_height = None
+        if self.show_output:
+            self.screen_width, self.screen_height = get_screen_size(verbose=self.verbose)
 
         # Initialize radar view with background mode and rotation
         self.radar_view = RadarView(
@@ -134,7 +143,7 @@ class Video:
         else:
             self.source_identifier = 'unknown_source'
             self.total_frames = None
-    
+
     @staticmethod
     def select_frames(camera_fps: int, required_fps: Optional[int]) -> List[int]:
         """
@@ -627,7 +636,16 @@ class Video:
                     
                     if out_writer:
                         out_writer.write(result_frame)
-                    
+
+                    # Show output in real-time if enabled
+                    if self.show_output:
+                        display_frame = resize_frame_for_display(result_frame, self.screen_width, self.screen_height)
+                        cv2.imshow('PhysioTrack - Full Inference', display_frame)
+                        # Wait 1ms and check if user pressed 'q' to quit
+                        if cv2.waitKey(1) & 0xFF == ord('q'):
+                            print("\nUser interrupted processing (pressed 'q')")
+                            break
+
                     if progress_callback:
                         progress_callback(metadata['frame_id'], self.total_frames, pose_results)
                 
@@ -693,7 +711,11 @@ class Video:
         self.cap.release()
         if out_writer:
             out_writer.release()
-            
+
+        # Close display window if show_output was enabled
+        if self.show_output:
+            cv2.destroyAllWindows()
+
         total_time = time.time() - start_time
         avg_fps = frame_count / total_time if total_time > 0 else 0
 

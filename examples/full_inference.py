@@ -1,9 +1,9 @@
 """
-Full inference pipeline: Detection -> Tracking -> Pose Estimation -> Segmentation -> Face Orientation
+Full inference pipeline: Detection -> Tracking -> Pose Estimation -> Segmentation -> (Optional) Face Orientation
 Processes a video and outputs all results overlaid on the same frame
 """
 
-from physiotrack import Pose, Video, Models, Detection, Tracker, Segmentation, Face, FaceOrientation
+from physiotrack import Pose, Video, Models, Detection, Tracker, Segmentation, Face, VRFace, FaceOrientation
 from physiotrack.face import draw_axis
 from physiotrack.trackers import Config
 from pathlib import Path
@@ -12,9 +12,10 @@ import cv2
 import numpy as np
 
 
-def run_full_inference(video_path, output_dir='output/full_inference', floor_map=None, 
-                       floor_map_background=None, floor_map_rotation=0, 
-                       plot_keypoint=None, plot_keypoint_name=None, batch_size=1):
+def run_full_inference(video_path, output_dir='output/full_inference', floor_map=None,
+                       floor_map_background=None, floor_map_rotation=0,
+                       plot_keypoint=None, plot_keypoint_name=None, batch_size=1,
+                       enable_face_detection=False, enable_face_orientation=False, show_output=False):
     """
     Run full inference pipeline on a video
 
@@ -30,6 +31,9 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
         plot_keypoint: COCO keypoint ID to plot motion (e.g., 9=left_wrist, 10=right_wrist)
         plot_keypoint_name: Name of keypoint for plot label
         batch_size: Number of frames to process in batch (default: 1)
+        enable_face_detection: Enable face detection only (default: False)
+        enable_face_orientation: Enable face detection and orientation estimation (default: False)
+        show_output: Display output in real-time during processing (default: False)
     """
 
     # Setup paths
@@ -48,6 +52,7 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
     print(f"Output video: {output_video_path}")
     print(f"Output JSON: {output_json_path}")
     print(f"Batch size: {batch_size}")
+    print(f"Real-time display: {'Enabled (press q to quit)' if show_output else 'Disabled'}")
     print("="*60)
 
     # Initialize models
@@ -106,13 +111,25 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
     # Combine multiple segmentators
     segmentors = [segmentor_person, segmentor_vrhead]
 
-    print("[5/5] Initializing Face Orientation Estimator...")
-    face_detector = Face(device=0, verbose=False)
-    face_orientation = FaceOrientation(device=0, render_pose=False, verbose=False)
+    # Initialize face detection and/or orientation if enabled
+    face_detector = None
+    face_orientation = None
+
+    if enable_face_orientation:
+        # Face orientation requires face detection
+        print("[5/5] Initializing Face Detector + Orientation Estimator...")
+        face_detector = VRFace(device=0, render_box_detections=True, verbose=False)
+        face_orientation = FaceOrientation(model=Models.Pose3D.FaceOrientation.VR,
+                                           device=0, render_pose=False, verbose=False)
+    elif enable_face_detection:
+        # Face detection only (no orientation)
+        print("[5/5] Initializing Face Detector...")
+        face_detector = VRFace(device=0, render_box_detections=True, verbose=False)
 
     print("\n✓ All models initialized successfully!")
     print(f"  - Segmentators: {len(segmentors)} (Person + VRHEAD)")
-    print(f"  - Face Orientation: Enabled")
+    print(f"  - Face Detection: {'Enabled' if face_detector else 'Disabled'}")
+    print(f"  - Face Orientation: {'Enabled' if face_orientation else 'Disabled'}")
 
     # Process video using Video processor
     print("\n" + "="*60)
@@ -138,6 +155,7 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
         output_path=output_dir,
         verbose=True,
         show_fps=True,
+        show_output=show_output,  # Display output in real-time
         batch_size=batch_size  # Enable batch processing
     )
 
@@ -159,15 +177,27 @@ if __name__ == "__main__":
                 Examples:
                 # Basic: Floor map with radar view
                 python full_inference.py video.mp4 --floor_map "314,824,778,402,1140,456,936,1035"
-                
+
                 # With auto-extracted floor and motion plotting (left wrist)
                 python full_inference.py video.mp4 --floor_map "314,824,778,402,1140,456,936,1035" \\
                     --floor_map_background "auto" --floor_map_rotation 90 \\
                     --plot_keypoint 9 --plot_keypoint_name "left_wrist"
-                
+
                 # Motion plotting only (without floor map)
                 python full_inference.py video.mp4 --plot_keypoint 9 --plot_keypoint_name "left_wrist"
-                
+
+                # With face detection only
+                python full_inference.py video.mp4 --face
+
+                # With face orientation estimation (includes face detection)
+                python full_inference.py video.mp4 --face-orientation
+
+                # Display output in real-time while processing
+                python full_inference.py video.mp4 --show
+
+                # Combine multiple options
+                python full_inference.py --floor_map "314,824,778,402,1140,456,936,1035" "kinect_s1_v3.mkv" --batch_size 2 --plot_keypoint 9 --plot_keypoint_name "left_wrist" --show --face-orientation
+
                 Common COCO Keypoint IDs:
                   0=nose, 5=left_shoulder, 6=right_shoulder, 7=left_elbow, 8=right_elbow
                   9=left_wrist, 10=right_wrist, 11=left_hip, 12=right_hip
@@ -189,6 +219,12 @@ if __name__ == "__main__":
                         help='Name of keypoint for plot label (default: auto-detected)')
     parser.add_argument('--batch_size', type=int, default=1,
                         help='Number of frames to process in batch (default: 1)')
+    parser.add_argument('--face', action='store_true',
+                        help='Enable face detection only (without orientation)')
+    parser.add_argument('--face-orientation', action='store_true',
+                        help='Enable face detection and orientation estimation (includes face detection)')
+    parser.add_argument('--show', action='store_true',
+                        help='Display output in real-time during processing (press q to quit)')
 
     args = parser.parse_args()
 
@@ -201,6 +237,7 @@ if __name__ == "__main__":
         else:
             print("Warning: floor_map must have 8 values (4 points with x,y). Ignoring floor_map.")
 
-    run_full_inference(args.video_path, args.output_dir, floor_map, 
+    run_full_inference(args.video_path, args.output_dir, floor_map,
                       args.floor_map_background, args.floor_map_rotation,
-                      args.plot_keypoint, args.plot_keypoint_name, args.batch_size)
+                      args.plot_keypoint, args.plot_keypoint_name, args.batch_size,
+                      args.face, args.face_orientation, args.show)
