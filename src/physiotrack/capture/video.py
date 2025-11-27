@@ -7,6 +7,8 @@ from typing import Optional, Union, List, Dict, Any, Tuple
 from tqdm import tqdm
 from physiotrack.modules.Yolo.classes_and_palettes import COLORS
 from physiotrack.core.radar_view import RadarView
+from physiotrack.core.depth_view import DepthView
+from physiotrack.core.ego_view import EgoVideoView
 from physiotrack.signals.plotting.keypoint_plotter import KeypointMotionPlotter
 from physiotrack.utils import get_screen_size, resize_frame_for_display
 
@@ -24,6 +26,8 @@ class Video:
                  tracker=None,
                  face_detector=None,
                  face_orientation=None,
+                 depth_estimator=None,
+                 ego_video_path: Optional[Union[str, Path]] = None,
                  output_path: Optional[Union[str, Path]] = None,
                  required_fps: Optional[int] = None,
                  frame_resize: Optional[Tuple[int, int]] = None,
@@ -31,6 +35,7 @@ class Video:
                  floor_map: Optional[List[Tuple[int, int]]] = None,
                  floor_map_background: Optional[Union[str, np.ndarray]] = None,
                  floor_map_rotation: int = 90,
+                 depth_colormap: str = 'inferno',
                  plot_keypoint: Optional[int] = None,
                  plot_keypoint_name: Optional[str] = None,
                  verbose: bool = False,
@@ -46,6 +51,8 @@ class Video:
         self.pose_estimator = pose_estimator
         self.face_detector = face_detector
         self.face_orientation = face_orientation
+        self.depth_estimator = depth_estimator
+        self.ego_video_path = ego_video_path
         self.verbose = verbose
         self.show_fps = show_fps
         self.show_output = show_output
@@ -67,7 +74,35 @@ class Video:
             background=floor_map_background,
             rotation=floor_map_rotation
         ) if floor_map else None
-        
+
+        # Initialize depth view if depth estimator is provided
+        # Match width to radar view if available, otherwise use default
+        self.depth_view = None
+        if depth_estimator is not None:
+            depth_max_width = 320  # default
+            if self.radar_view is not None:
+                depth_max_width = self.radar_view.canvas_size[0]
+            self.depth_view = DepthView(
+                max_width=depth_max_width,
+                max_height=600,  # Allow taller to preserve aspect ratio
+                colormap=depth_colormap,
+                show_title=True
+            )
+
+        # Initialize ego video view if ego video path is provided
+        # Match width to radar view if available, otherwise use default
+        self.ego_view = None
+        if ego_video_path is not None:
+            ego_max_width = 320  # default
+            if self.radar_view is not None:
+                ego_max_width = self.radar_view.canvas_size[0]
+            self.ego_view = EgoVideoView(
+                ego_video_path=str(ego_video_path),
+                max_width=ego_max_width,
+                max_height=600,  # Allow taller to preserve aspect ratio
+                show_title=True
+            )
+
         # Initialize keypoint motion plotter
         self.motion_plotter = None
         if plot_keypoint is not None:
@@ -438,9 +473,32 @@ class Video:
                     )
 
             batch_results.append((vis_frame, orientation_results))
-        
+
         return batch_results
-        
+
+    def process_batch_depth(self, frames_batch: List[np.ndarray]) -> List[np.ndarray]:
+        """
+        Process a batch of frames for depth estimation.
+
+        Returns:
+            List of depth maps (HxW numpy arrays)
+        """
+        if self.depth_estimator is None:
+            return [None for _ in frames_batch]
+
+        depth_maps = []
+
+        # Check if depth estimator supports batch processing
+        if hasattr(self.depth_estimator, 'estimate_batch'):
+            depth_maps = self.depth_estimator.estimate_batch(frames_batch, normalize=False, colormap=None)
+        else:
+            # Fallback to per-frame processing
+            for frame in frames_batch:
+                depth_map = self.depth_estimator.estimate(frame, normalize=False, colormap=None)
+                depth_maps.append(depth_map)
+
+        return depth_maps
+
     def run(self, 
             output_video_path: Optional[Union[str, Path]] = None,
             output_json_path: Optional[Union[str, Path]] = None,
@@ -599,21 +657,52 @@ class Video:
                 else:
                     frames_with_face_orientation = frames_after_seg
                     face_orientation_results_batch = [[] for _ in frame_batch]
-                
-                # Step 7: Process radar view and save results
-                for idx, (result_frame, metadata, pose_results, online_targets, face_orientation_results) in enumerate(
-                        zip(frames_with_face_orientation, frame_batch_metadata, pose_results_batch, online_targets_batch, face_orientation_results_batch)):
+
+                # Step 7: Batch depth estimation
+                depth_maps_batch = []
+                if self.depth_estimator is not None:
+                    depth_maps_batch = self.process_batch_depth(frame_batch)
+                else:
+                    depth_maps_batch = [None for _ in frame_batch]
+
+                # Step 8: Process overlays (radar view, depth view) and save results
+                for idx, (result_frame, metadata, pose_results, online_targets, face_orientation_results, depth_map) in enumerate(
+                        zip(frames_with_face_orientation, frame_batch_metadata, pose_results_batch, online_targets_batch, face_orientation_results_batch, depth_maps_batch)):
                     
                     # Update and attach motion plotter (top right corner)
                     if self.motion_plotter and self.pose_estimator is not None:
                         self.motion_plotter.update(pose_results, metadata['timestamp'])
                         result_frame = self.motion_plotter.attach_to_frame(result_frame, position='top_right')
                     
-                    # Update and attach radar view
+                    # Update and attach radar view (bottom right)
+                    radar_view_height = 0
                     if self.radar_view and self.tracker is not None and self.pose_estimator is not None:
                         self.radar_view.update(online_targets, pose_results)
                         result_frame = self.radar_view.attach_to_frame(result_frame)
-                    
+                        radar_view_height = self.radar_view.canvas_size[1] + 10  # height + margin
+
+                    # Update and attach depth view (above radar view on bottom right)
+                    depth_view_height = 0
+                    if self.depth_view and depth_map is not None:
+                        self.depth_view.update(depth_map)
+                        result_frame = self.depth_view.attach_to_frame(
+                            result_frame,
+                            position='bottom_right',
+                            margin=10,
+                            above_element_height=radar_view_height
+                        )
+                        depth_view_height = self.depth_view.get_canvas_height() + 10  # height + margin
+
+                    # Update and attach ego video view (above depth view or radar view on bottom right)
+                    if self.ego_view is not None:
+                        self.ego_view.read_frame(metadata['frame_id'])
+                        result_frame = self.ego_view.attach_to_frame(
+                            result_frame,
+                            position='bottom_right',
+                            margin=10,
+                            above_element_height=radar_view_height + depth_view_height
+                        )
+
                     # Store frame data
                     frame_data = {
                         'frame_id': metadata['frame_id'],
@@ -687,7 +776,11 @@ class Video:
                         if self.face_orientation and hasattr(self.face_orientation, 'get_avg_fps'):
                             face_fps = self.face_orientation.get_avg_fps()
                             fps_dict["Face"] = f"{face_fps:.2f}"
-                        
+
+                        if self.depth_estimator and hasattr(self.depth_estimator, 'get_avg_fps'):
+                            depth_fps = self.depth_estimator.get_avg_fps()
+                            fps_dict["Depth"] = f"{depth_fps:.2f}"
+
                         fps_dict["Batch"] = f"{self.batch_size}"
                         
                         if pbar:
@@ -711,6 +804,10 @@ class Video:
         self.cap.release()
         if out_writer:
             out_writer.release()
+
+        # Release ego video view if used
+        if self.ego_view is not None:
+            self.ego_view.release()
 
         # Close display window if show_output was enabled
         if self.show_output:
@@ -765,6 +862,11 @@ class Video:
                 face_orient_fps = self.face_orientation.get_avg_fps()
                 face_orient_time = self.face_orientation.get_avg_inference_time()
                 print(f"Face Orientation FPS: {face_orient_fps:.2f} ({face_orient_time:.2f}ms per frame)")
+
+            if self.depth_estimator and hasattr(self.depth_estimator, 'get_avg_fps'):
+                depth_fps = self.depth_estimator.get_avg_fps()
+                depth_time = self.depth_estimator.get_avg_inference_time()
+                print(f"Depth Estimator FPS: {depth_fps:.2f} ({depth_time:.2f}ms per frame)")
 
             print("="*60)
                   

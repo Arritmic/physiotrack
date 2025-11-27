@@ -1,7 +1,16 @@
-ultralytics
+--index-url https://download.pytorch.org/whl/cu126
+xformers
+torch==2.9.1
+torchvision==0.24.1
+--index-url https://pypi.org/simple
+triton-windows
+ultralytics==8.3.232
+pandas
+gdown
+imageio
+einops
+timm
 easydict
 cython_bbox
 openpyxl
 lap
-filterpy
-fastdtw

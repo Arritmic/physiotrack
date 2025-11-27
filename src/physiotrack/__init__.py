@@ -7,6 +7,8 @@ from .modules import YoloPose
 
 from .modules import VitInference
 
+from .modules import DepthAnythingV2Inference
+
 from .trackers import BYTETracker
 from .trackers import StrongSORT
 from .trackers import OCSort
@@ -17,6 +19,7 @@ from .models import Models
 from .detect import Detection
 from .segment import Segmentation
 from .pose import Pose
+from .depth import Depth
 from .face import Face, VRFace, FaceOrientation
 
 from .capture.video import Video

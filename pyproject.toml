@@ -11,13 +11,7 @@ license = { "text" = "GPL-3.0 license" }
 authors = [
   { name = "Tharindu Ekanayake", email = "physiotrack@gmail.com" }
 ]
-dependencies = [
-  "ultralytics",
-  "easydict",
-  "cython_bbox",
-  "openpyxl",
-  "lap",
-]
+
 [project.urls]
 "Homepage" = "https://github.com/physiotrack/physiotrack"
 

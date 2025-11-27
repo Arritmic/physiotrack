@@ -6,3 +6,5 @@ from .Yolo import Segmentor
 from .Yolo import YoloPose
 
 from .ViTPose import VitInference
+
+from .DepthAnythingV2 import DepthAnythingV2Inference

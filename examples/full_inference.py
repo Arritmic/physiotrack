@@ -1,9 +1,9 @@
 """
-Full inference pipeline: Detection -> Tracking -> Pose Estimation -> Segmentation -> (Optional) Face Orientation
+Full inference pipeline: Detection -> Tracking -> Pose Estimation -> Segmentation -> (Optional) Face Orientation -> (Optional) Depth
 Processes a video and outputs all results overlaid on the same frame
 """
 
-from physiotrack import Pose, Video, Models, Detection, Tracker, Segmentation, Face, VRFace, FaceOrientation
+from physiotrack import Pose, Video, Models, Detection, Tracker, Segmentation, Face, VRFace, FaceOrientation, Depth
 from physiotrack.face import draw_axis
 from physiotrack.trackers import Config
 from pathlib import Path
@@ -15,7 +15,8 @@ import numpy as np
 def run_full_inference(video_path, output_dir='output/full_inference', floor_map=None,
                        floor_map_background=None, floor_map_rotation=0,
                        plot_keypoint=None, plot_keypoint_name=None, batch_size=1,
-                       enable_face_detection=False, enable_face_orientation=False, show_output=False):
+                       enable_face_detection=False, enable_face_orientation=False,
+                       enable_depth=False, ego_video_path=None, show_output=False):
     """
     Run full inference pipeline on a video
 
@@ -33,6 +34,8 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
         batch_size: Number of frames to process in batch (default: 1)
         enable_face_detection: Enable face detection only (default: False)
         enable_face_orientation: Enable face detection and orientation estimation (default: False)
+        enable_depth: Enable depth estimation (default: False)
+        ego_video_path: Path to ego-centric video to overlay (default: None)
         show_output: Display output in real-time during processing (default: False)
     """
 
@@ -117,19 +120,32 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
 
     if enable_face_orientation:
         # Face orientation requires face detection
-        print("[5/5] Initializing Face Detector + Orientation Estimator...")
+        print("[5/6] Initializing Face Detector + Orientation Estimator...")
         face_detector = VRFace(device=0, render_box_detections=True, verbose=False)
         face_orientation = FaceOrientation(model=Models.Pose3D.FaceOrientation.VR,
                                            device=0, render_pose=False, verbose=False)
     elif enable_face_detection:
         # Face detection only (no orientation)
-        print("[5/5] Initializing Face Detector...")
+        print("[5/6] Initializing Face Detector...")
         face_detector = VRFace(device=0, render_box_detections=True, verbose=False)
+
+    # Initialize depth estimator if enabled
+    depth_estimator = None
+    if enable_depth:
+        print("[6/6] Initializing Depth Estimator (DepthAnythingV2)...")
+        depth_estimator = Depth.Custom(
+            model=Models.Depth.DepthAnythingV2.vitb,
+            device=0,
+            input_size=518,
+            verbose=False
+        )
 
     print("\n✓ All models initialized successfully!")
     print(f"  - Segmentators: {len(segmentors)} (Person + VRHEAD)")
     print(f"  - Face Detection: {'Enabled' if face_detector else 'Disabled'}")
     print(f"  - Face Orientation: {'Enabled' if face_orientation else 'Disabled'}")
+    print(f"  - Depth Estimation: {'Enabled' if depth_estimator else 'Disabled'}")
+    print(f"  - Ego Video Overlay: {'Enabled' if ego_video_path else 'Disabled'}")
 
     # Process video using Video processor
     print("\n" + "="*60)
@@ -144,6 +160,8 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
         segmentator=segmentors,  # Pass list of segmentators (Person + VRHEAD)
         face_detector=face_detector,  # Face detector for face orientation
         face_orientation=face_orientation,  # Face orientation estimator
+        depth_estimator=depth_estimator,  # Depth estimator (DepthAnythingV2)
+        ego_video_path=ego_video_path,  # Ego-centric video overlay
         required_fps=None,
         frame_resize=None,
         frame_rotate=False,
@@ -192,11 +210,19 @@ if __name__ == "__main__":
                 # With face orientation estimation (includes face detection)
                 python full_inference.py video.mp4 --face-orientation
 
+                # With depth estimation
+                python full_inference.py video.mp4 --depth
+
+                # With ego video overlay
+                python full_inference.py video.mp4 --ego_video path/to/ego_video.mp4
+
                 # Display output in real-time while processing
                 python full_inference.py video.mp4 --show
 
                 # Combine multiple options
-                python full_inference.py --floor_map "314,824,778,402,1140,456,936,1035" "kinect_s1_v3.mkv" --batch_size 2 --plot_keypoint 9 --plot_keypoint_name "left_wrist" --show --face-orientation
+                python full_inference.py --floor_map "314,824,778,402,1140,456,936,1035" "kinect_s1_v3.mkv" \\
+                    --batch_size 2 --plot_keypoint 9 --plot_keypoint_name "left_wrist" \\
+                    --show --face-orientation --depth --ego_video ego.mp4
 
                 Common COCO Keypoint IDs:
                   0=nose, 5=left_shoulder, 6=right_shoulder, 7=left_elbow, 8=right_elbow
@@ -223,6 +249,10 @@ if __name__ == "__main__":
                         help='Enable face detection only (without orientation)')
     parser.add_argument('--face-orientation', action='store_true',
                         help='Enable face detection and orientation estimation (includes face detection)')
+    parser.add_argument('--depth', action='store_true',
+                        help='Enable depth estimation using DepthAnythingV2')
+    parser.add_argument('--ego_video', type=str, default=None,
+                        help='Path to ego-centric video to overlay on output')
     parser.add_argument('--show', action='store_true',
                         help='Display output in real-time during processing (press q to quit)')
 
@@ -240,4 +270,5 @@ if __name__ == "__main__":
     run_full_inference(args.video_path, args.output_dir, floor_map,
                       args.floor_map_background, args.floor_map_rotation,
                       args.plot_keypoint, args.plot_keypoint_name, args.batch_size,
-                      args.face, args.face_orientation, args.show)
+                      args.face, getattr(args, 'face_orientation', False),
+                      args.depth, args.ego_video, args.show)

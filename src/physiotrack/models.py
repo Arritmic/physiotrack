@@ -95,6 +95,19 @@ class Models:
                 LEFT_SIDE = "left_side"
                 RIGHT_SIDE = "right_side"
 
+    class Depth:
+        class DepthAnythingV2(Enum):
+            vits = "depth_anything_v2_vits.pth"
+            vitb = "depth_anything_v2_vitb.pth"
+            vitl = "depth_anything_v2_vitl.pth"
+
+        # Model configurations for each encoder type
+        MODEL_CONFIGS = {
+            'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
+            'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
+            'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
+        }
+
     class Segmentation:
         class Sapiens:
             class BodyPart(Enum):
@@ -118,7 +131,7 @@ class Models:
         if not isinstance(model_enum, Enum):
             return None
             
-        for category_name in ['Detection', 'Pose', 'Segmentation', 'Pose3D']:
+        for category_name in ['Detection', 'Pose', 'Segmentation', 'Pose3D', 'Depth']:
             category = getattr(Models, category_name, None)
             if not category:
                 continue
@@ -144,8 +157,8 @@ class Models:
                             if enum_class_name.startswith('_'):
                                 continue
                             enum_class = getattr(backend, enum_class_name)
-                            if (inspect.isclass(enum_class) and 
-                                issubclass(enum_class, Enum) and 
+                            if (inspect.isclass(enum_class) and
+                                issubclass(enum_class, Enum) and
                                 isinstance(model_enum, enum_class)):
                                 return {
                                     'category': category_name,
@@ -154,6 +167,16 @@ class Models:
                                     'model_name': model_enum.name,
                                     'file_name': model_enum.value
                                 }
+                elif category_name == "Depth":
+                    # Depth has enums directly under the category (e.g., Depth.DepthAnythingV2)
+                    if issubclass(backend, Enum) and isinstance(model_enum, backend):
+                        return {
+                            'category': category_name,
+                            'backend': backend_name,  # e.g., 'DepthAnythingV2'
+                            'enum_class': backend_name,
+                            'model_name': model_enum.name,  # e.g., 'vitl'
+                            'file_name': model_enum.value  # e.g., 'depth_anything_v2_vitl.pth'
+                        }
                 else:
                     for enum_class_name in dir(backend):
                         if enum_class_name.startswith('_'):
@@ -260,42 +283,44 @@ class Models:
         return model_path
 
     @staticmethod
+    def _download_depth_model(model_info, download_path):
+        """Download DepthAnythingV2 models from tharindu326/physiotrack HuggingFace repo"""
+        file_name = model_info['file_name']
+        base_url = f"https://huggingface.co/tharindu326/physiotrack/resolve/main"
+        download_url = f"{base_url}/{file_name}?download=true"
+        return Models._download_file(download_url, file_name, download_path)
+
+    @staticmethod
     def _download_file(url, file_name, download_path):
         """Generic file download with progress bar"""
         os.makedirs(download_path, exist_ok=True)
         file_path = os.path.join(download_path, file_name)
-        
+
         if os.path.exists(file_path):
             print(f"File {file_name} already exists at {file_path}")
             return file_path
-                
+
         try:
             headers = {
-                'Authorization': 'Bearer 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',
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
             }
 
             response = requests.get(url, stream=True, headers=headers)
             response.raise_for_status()
-            
+
             total_size = int(response.headers.get('content-length', 0))
             block_size = 8192  # 8KB blocks
-            
+
             with tqdm(total=total_size, unit='iB', unit_scale=True, desc=file_name) as pbar:
                 with open(file_path, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=block_size):
                         if chunk:  # Filter out keep-alive chunks
                             f.write(chunk)
                             pbar.update(len(chunk))
-            
+
             # print(f"Successfully downloaded {file_name} to {file_path}")
             return file_path
-            
+
         except requests.exceptions.RequestException as e:
             print(f"Failed to download {file_name}: {e}")
             if os.path.exists(file_path):
@@ -341,6 +366,8 @@ class Models:
         elif model_info['backend'] == 'FaceOrientation':
             # FaceOrientation uses HuggingFace download like DDH
             return Models._download_ddh_model(model_info, download_path)
+        elif model_info['backend'] == 'DepthAnythingV2':
+            return Models._download_depth_model(model_info, download_path)
         else:
             raise ValueError(f"Unknown backend: {model_info['backend']}")
 
@@ -513,6 +540,53 @@ class Models:
             f"Expected a valid enum member from Models.Pose3D.<Backend>.<model_name>\n"
             f"Valid models are:\n  {valid_str}"
         )
+
+    @staticmethod
+    def validate_depth_model(model):
+        """Validates whether the given model is one of the defined depth enum members"""
+        if not isinstance(model, Enum):
+            raise ValueError(f"Expected an Enum instance, got {type(model)}")
+
+        # Check if model is from Depth category
+        for attr_name in dir(Models.Depth):
+            if attr_name.startswith('_'):
+                continue
+
+            backend = getattr(Models.Depth, attr_name)
+            if not inspect.isclass(backend):
+                continue
+
+            if issubclass(backend, Enum) and isinstance(model, backend):
+                return  # ✅ Valid model found
+
+        # If we reach here, the model is not valid
+        valid_models = []
+        for attr_name in dir(Models.Depth):
+            if attr_name.startswith('_'):
+                continue
+            backend = getattr(Models.Depth, attr_name)
+            if inspect.isclass(backend) and issubclass(backend, Enum):
+                for member in backend:
+                    valid_models.append(f"Models.Depth.{attr_name}.{member.name}")
+
+        valid_str = "\n  ".join(valid_models)
+        raise ValueError(
+            f"Invalid depth model: {repr(model)}.\n"
+            f"Expected a valid enum member from Models.Depth.<Backend>.<model_name>\n"
+            f"Valid models are:\n  {valid_str}"
+        )
+
+    @staticmethod
+    def get_depth_config(model):
+        """Get the model configuration for a DepthAnythingV2 model"""
+        if not isinstance(model, Models.Depth.DepthAnythingV2):
+            raise ValueError(f"Expected a Models.Depth.DepthAnythingV2 enum member, got {type(model)}")
+
+        encoder_name = model.name  # 'vits', 'vitb', or 'vitl'
+        if encoder_name not in Models.Depth.MODEL_CONFIGS:
+            raise ValueError(f"Unknown encoder: {encoder_name}")
+
+        return Models.Depth.MODEL_CONFIGS[encoder_name]
 
 
 if __name__ == "__main__":
