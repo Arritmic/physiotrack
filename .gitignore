@@ -19,8 +19,6 @@ main.py
 *.avi
 *.mp4
 *.wav
-*.jpg
-*.png
 *.json
 
 # other
