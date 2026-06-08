@@ -256,11 +256,13 @@ If you use Physiotrack in your research, please cite the relevant papers:
   organization={Springer}
 }
 
-@article{ekanayake20253dpcnet,
-  title={3DPCNet: Pose Canonicalization for Robust Viewpoint-Invariant 3D Kinematic Analysis from Monocular RGB cameras},
-  author={Ekanayake, Tharindu and Casado, Constantino Alvarez and L{\'o}pez, Miguel Bordallo},
-  journal={arXiv preprint arXiv:2509.23455},
-  year={2025}
+@inproceedings{ekanayake20263dpcnet,
+  title={3DPCNet: Pose Canonicalization for Robust Viewpoint-Invariant 3D Kinematic Analysis from Monocular RGB Cameras},
+  author={Ekanayake, Tharindu and Casado, Constantino {\'A}lvarez and L{\'o}pez, Miguel Bordallo},
+  booktitle={ICASSP 2026-2026 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages={11007--11011},
+  year={2026},
+  organization={IEEE}
 }
 
 @article{casado2023face2ppg,
