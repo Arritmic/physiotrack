@@ -2,13 +2,14 @@ import time
 from collections import deque, defaultdict
 import numpy as np
 import cv2
-from .config import Config
+from .config import TrackerConfig
+from ..results import TrackResult, Instance
 
 
 class Tracker:
     def __init__(self, config=None):
         """Initialize tracker with configuration and tracking variables."""
-        self.config = config if config is not None else Config()
+        self.config = config if config is not None else TrackerConfig()
         self.frame_ID = 0
         self.id_list = []
         self.avg_fps = deque(maxlen=100)
@@ -299,7 +300,18 @@ class Tracker:
             self.track_history[track_id].append(bbox)
     
     # ===== Main Tracking Method =====
-    def track(self, frame, detections):
+    def track(self, frame, detections) -> TrackResult:
+        """Update tracks with the current frame's detections.
+
+        Args:
+            frame: the current BGR frame.
+            detections: detection rows ``[x1,y1,x2,y2,conf,cls]`` (e.g.
+                ``detection_result.to_dict()`` boxes, or a YOLO det array).
+
+        Returns:
+            A :class:`~physiotrack.results.TrackResult`; ``.instances`` carry persistent
+            ``id``s, ``.rendered`` is the overlay frame, ``result.plot()`` returns it.
+        """
         start = time.time()
 
         detected_items = self.process_detections(detections)
@@ -311,12 +323,22 @@ class Tracker:
         if self.config.enable_student_tracking:
             self.update_student_track(online_targets)
 
-        frame = self.draw_tracks(frame, online_targets, detected_items)
+        rendered = self.draw_tracks(frame, online_targets, detected_items)
 
         inference_time = time.time() - start
         self.inference_times.append(inference_time)
 
-        return frame, online_targets
+        instances = []
+        for t in online_targets:
+            t = list(t)
+            instances.append(Instance(
+                id=int(t[4]) if len(t) > 4 else None,
+                box=np.array(t[:4], dtype=np.float32),
+                cls=int(t[5]) if len(t) > 5 else None,
+                confidence=float(t[6]) if len(t) > 6 else None,
+            ))
+        return TrackResult(instances=instances, orig_img=frame,
+                           rendered=rendered, raw=online_targets)
 
     def get_avg_inference_time(self):
         """Get average inference time in milliseconds."""

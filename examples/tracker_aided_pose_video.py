@@ -1,35 +1,31 @@
-from physiotrack import Pose, Video, Models, Detection, Tracker
-from physiotrack.trackers import Config
+from physiotrack import Pose, Video, Models, Detection, Tracker, TrackerConfig
 from pathlib import Path
 
 
-# pose estimator with no detector
-pose_estimator = Pose.Custom(model=Models.Pose.ViTPose.WholeBody.b_WHOLEBODY, render_box_detections=False, render_labels=True, overlay_keypoints=True, verbose=False, device=0)  
-detector = Detection.VRStudent(model=Models.Detection.YOLO.VRSTUDENT.m_VRstudent, render_box_detections=False, render_labels=False, verbose=False, device=0)
-TrackerConfig = Config()
-TrackerConfig.tracker_type = 'ocsort'
-TrackerConfig.debug_mode = True
-TrackerConfig.classes = [0]
-TrackerConfig.enable_student_tracking =True
-tracker = Tracker(config=TrackerConfig)
+# pose estimator with explicit detector + tracker
+pose_estimator = Pose.Custom(model=Models.Pose.ViTPose.WholeBody.b_wholebody, verbose=False, device=0)
+detector = Detection.VRStudent(model=Models.Detection.YOLO.VRSTUDENT.m_vrstudent, verbose=False, device=0)
+tracker_config = TrackerConfig()
+tracker_config.tracker_type = 'ocsort'
+tracker_config.debug_mode = True
+tracker_config.classes = [0]
+tracker_config.enable_student_tracking = True
+tracker = Tracker(config=tracker_config)
 
 input_video = 'BV_S17_cut1.mp4'
 output_directory = 'output'
 input_path = Path(input_video)
 video_name = input_path.stem
-required_fps=None,
-frame_resize=None,
-frame_rotate=False,
 
 video_processor = Video(
-    video_path=input_video,
-    pose_estimator=pose_estimator,
+    source=input_video,
+    pose=pose_estimator,
     detector=detector,
     tracker=tracker,
-    required_fps=None,
-    frame_resize=None,
-    frame_rotate=False,
-    output_path=output_directory,
+    fps=None,
+    resize=None,
+    rotate=False,
+    output_dir=output_directory,
     verbose=True
 )
 

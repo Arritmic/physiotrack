@@ -6,7 +6,7 @@ from scipy import signal
 from scipy.signal import find_peaks, stft, lfilter, butter, welch, hilbert, firwin
 
 
-def BPfilter(x, minHz, maxHz, fs, order=6):
+def bandpass_filter(x, minHz, maxHz, fs, order=6):
     """Band Pass filter (using BPM band)"""
 
     # nyq = fs * 0.5
@@ -33,7 +33,7 @@ def BPfilter(x, minHz, maxHz, fs, order=6):
     return y
 
 
-def zeroMeanSTDnorm(x):
+def zero_mean_std_norm(x):
     # -- normalization along rows (1-3 channels)
     mx = x.mean(axis=1).reshape(-1, 1)
     sx = x.std(axis=1).reshape(-1, 1)
@@ -41,7 +41,7 @@ def zeroMeanSTDnorm(x):
     return y
 
 
-def zeroMeanSTDnorm1CH(x):
+def zero_mean_std_norm_1ch(x):
     # -- normalization along rows (1-3 channels)
     mx = x.mean().reshape(-1, 1)
     sx = x.std().reshape(-1, 1)

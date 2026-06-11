@@ -2,12 +2,12 @@ from scipy import signal
 import numpy as np
 
 
-class chrom_method:
+class CHROM:
     """ This method is described in the following paper:
         "Remote heart rate variability for emotional state monitoring"
         by Y. Benezeth, P. Li, R. Macwan, K. Nakamura, R. Gomez, F. Yang
     """
-    methodName = 'CHROM'
+    method_name = 'CHROM'
 
     def __init__(self, fps):
         self.frameRate = fps

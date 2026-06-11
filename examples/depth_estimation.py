@@ -45,8 +45,10 @@ def run_depth_estimation(image_path: str, device: int = 0, save_output: bool = T
     # Run depth estimation
     print("\nRunning depth estimation...")
 
-    # Get raw depth and colored depth map
-    raw_depth, colored_depth = depth_estimator.estimate(image, normalize=True, colormap='inferno')
+    # Get the depth result; derive normalized (0-255) and colored maps from it
+    result = depth_estimator.predict(image)
+    raw_depth = (result.normalized() * 255).astype(np.uint8)   # normalized 0-255 map
+    colored_depth = result.plot(colormap='inferno')            # colored depth map
 
     print(f"Inference time: {depth_estimator.get_avg_inference_time():.2f}ms")
     print(f"FPS: {depth_estimator.get_avg_fps():.2f}")
@@ -137,7 +139,8 @@ def run_video_depth_estimation(video_path: str, device: int = 0, show: bool = Tr
         frame_count += 1
 
         # Run depth estimation
-        raw_depth, colored_depth = depth_estimator.estimate(frame, normalize=True, colormap='inferno')
+        result = depth_estimator.predict(frame)
+        colored_depth = result.plot(colormap='inferno')
 
         # Resize to original size
         colored_depth_resized = cv2.resize(colored_depth, (w, h))

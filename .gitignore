@@ -4,25 +4,51 @@ __pycache__
 model_data
 src/physiotrack.egg-info
 examples/output
-physiotrack/
+# downloaded model weights at repo root (leading slash => NOT src/physiotrack)
+/physiotrack/
+# dataset / generated evaluation outputs
+examples/CVSSP3D/
+examples/cananon_evaluation_outputs/
 
 # model files
 *.pt
 *.engine
 *.onnx
+*.pth
+*.bin
+*.pt2
 
 # scripts
 test.py
 main.py
 
-# media 
+# media
 *.avi
 *.mp4
 *.wav
 *.json
 
+# data / arrays
+*.npz
+*.npy
+*.csv
+
+# binaries / fonts / archives / shortcuts
+*.dll
+*.bz2
+*.ttf
+*.lnk
+
+# generated docs / diagrams / scratch
+*.html
+*.svg
+*.pdf
+
+# duplicates / backups
+* - Copy.*
+*_old.*
+
 # other
 *.ovpn
-*.npz
 
 

@@ -1,9 +1,17 @@
 import os 
 
 
-class Config:
-    """Single configuration class for all Tracker settings"""
-    def __init__(self):
+class TrackerConfig:
+    """Configuration for :class:`~physiotrack.Tracker`.
+
+    Every setting has a sensible default and can be set two ways:
+
+        cfg = TrackerConfig(tracker="ocsort", classes=[0])   # via kwargs
+        cfg.debug_mode = True                                # via attribute
+
+    ``tracker=`` is a friendly alias for ``tracker_type``.
+    """
+    def __init__(self, **kwargs):
         # General settings
         self.device = 'cuda'
         self.colors = {
@@ -72,6 +80,14 @@ class Config:
         self.boosttrack_use_dlo_boost = True
         self.boosttrack_use_duo_boost = True
         self.boosttrack_max_age = 30
+
+        # Apply keyword overrides. `tracker` is an alias for `tracker_type`.
+        if 'tracker' in kwargs:
+            kwargs['tracker_type'] = kwargs.pop('tracker')
+        for key, value in kwargs.items():
+            if not hasattr(self, key):
+                raise TypeError(f"Unknown TrackerConfig setting: {key!r}")
+            setattr(self, key, value)
 
     def print(self):
         """Print all configuration settings in an organized format."""

@@ -1,8 +1,7 @@
 """
 Plotting utilities for signal visualization.
 """
-from .VHRTPlotter import RT2DPlotter
+from .realtime_plotter import RealTimePlotter
 from .keypoint_plotter import KeypointMotionPlotter
 
-__all__ = ['RT2DPlotter', 'KeypointMotionPlotter']
-
+__all__ = ['RealTimePlotter', 'KeypointMotionPlotter']

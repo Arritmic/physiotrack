@@ -23,14 +23,14 @@ class Models:
                 l_vrface = "yolov12l-face.pt"
 
             class VR(Enum):
-                m_VR = "yolo11m_vr.pt"
-                l_VR = "yolo11l_vr.pt"
+                m_vr = "yolo11m_vr.pt"
+                l_vr = "yolo11l_vr.pt"
 
             class VRSTUDENT(Enum):
-                m_VRstudent = "yolo11m_VRstudent.pt"
-                l_VRstudent = "yolo11l_VRstudent.pt"
+                m_vrstudent = "yolo11m_VRstudent.pt"
+                l_vrstudent = "yolo11l_VRstudent.pt"
 
-        class RLDETR:
+        class RTDETR:
             class PERSON(Enum):
                 x_person = "rtdetr-x.pt"
                 l_person = "rtdetr-l.pt"
@@ -54,23 +54,23 @@ class Models:
             
         class ViTPose:
             class WholeBody(Enum):
-                s_WHOLEBODY = "vitpose-s-wholebody.pth"
-                b_WHOLEBODY = "vitpose-b-wholebody.pth"
-                l_WHOLEBODY = "vitpose-l-wholebody.pth"
-                h_WHOLEBODY = "vitpose-h-wholebody.pth"
-                
+                s_wholebody = "vitpose-s-wholebody.pth"
+                b_wholebody = "vitpose-b-wholebody.pth"
+                l_wholebody = "vitpose-l-wholebody.pth"
+                h_wholebody = "vitpose-h-wholebody.pth"
+
             class COCO(Enum):
-                b_COCO = "vitpose-b-coco.pth"
-                h_COCO = "vitpose-h-coco.pth"
-                l_COCO = "vitpose-l-coco.pth"
-                s_COCO = "vitpose-s-coco.pth"
+                b_coco = "vitpose-b-coco.pth"
+                h_coco = "vitpose-h-coco.pth"
+                l_coco = "vitpose-l-coco.pth"
+                s_coco = "vitpose-s-coco.pth"
 
     class Pose3D:
         class MotionBERT(Enum):
-            MB_ft_h36m_global_lite = 'FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin'
-            MB_ft_h36m = 'FT_MB_release_MB_ft_h36m/best_epoch.bin'
-            # MB_ft_h36m_global = ''
-            MB_train_h36m = 'MB_train_h36m/best_epoch.bin'
+            mb_ft_h36m_global_lite = 'FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin'
+            mb_ft_h36m = 'FT_MB_release_MB_ft_h36m/best_epoch.bin'
+            # mb_ft_h36m_global = ''
+            mb_train_h36m = 'MB_train_h36m/best_epoch.bin'
 
         class DDH(Enum):
             best = 'best_epoch_DDHPose.bin'
@@ -83,11 +83,15 @@ class Models:
             class Models(Enum):
                 _3DPCNetS2 = 'best_model_3DPCNetS2.pth'
                 _3DPCNetS3 = 'best_model_3DPCNetS3.pth'
+                _3DPCNetTC48_byCam = 'best_model_3DPCNetTC48_byCam.pth'
+                _3DPCNetTC48_byAction = 'best_model_3DPCNetTC48_byAction.pth'
                 GEOMETRIC = ''
 
             class Configs(Enum):
                 _3DPCNetS2 = 'best_model_3DPCNetS2.yaml'
                 _3DPCNetS3 = 'best_model_3DPCNetS3.yaml'
+                _3DPCNetTC48_byCam = 'best_model_3DPCNetTC48_byCam.yaml'
+                _3DPCNetTC48_byAction = 'best_model_3DPCNetTC48_byAction.yaml'
             
             class View(Enum):
                 FRONT = "front"
@@ -115,7 +119,7 @@ class Models:
                 B06_TS_SEG = "sapiens_0.6b_goliath_best_goliath_mIoU_7777_epoch_178_torchscript.pt2"
                 B03_TS_SEG = "sapiens_0.3b_goliath_best_goliath_mIoU_7673_epoch_194_torchscript.pt2"
 
-        class Yolo: 
+        class YOLO:
             class VRHEAD(Enum):
                 M11 = "yolo11m_VR_head.pt"
                 M8_251029 =  'yolo8m_VR_head_251029.pt'
@@ -340,19 +344,12 @@ class Models:
             raise ValueError(f"Could not determine model information for {model_enum}")
         
         # print(f"Downloading {model_info['category']} model: {model_info['backend']}.{model_info['enum_class']}.{model_info['model_name']}")
-        if model_info['backend'] == 'YOLO' or model_info['backend'] == 'RLDETR':
-            if model_info['category'] == 'Pose' or (model_info['category'] == 'Detection' and model_info['enum_class'] == 'PERSON'):
+        if model_info['backend'] in ('YOLO', 'RTDETR'):
+            # Pose-YOLO and any PERSON variant (detection or segmentation) auto-download
+            # via ultralytics; everything else (FACE/VR/VRSTUDENT/VRHEAD/...) is hosted.
+            if model_info['category'] == 'Pose' or model_info['enum_class'] == 'PERSON':
                 return None
-            else:
-                return Models._download_yolo_model(model_info, download_path)
-        elif model_info['backend'] == 'Yolo':
-            # Handle Segmentation.Yolo backend (note the capital 'Y')
-            if model_info['category'] == 'Segmentation':
-                # VRHEAD needs custom download, PERSON uses standard ultralytics
-                if model_info['enum_class'] == 'PERSON':
-                    return None  # Standard YOLO segmentation models auto-download
-                else:
-                    return Models._download_yolo_model(model_info, download_path)
+            return Models._download_yolo_model(model_info, download_path)
         elif model_info['backend'] == 'Sapiens':
             return Models._download_sapiens_model(model_info, download_path)
         elif model_info['backend'] == 'ViTPose':
@@ -378,11 +375,11 @@ class Models:
             raise ValueError(f"Expected an Enum member for `model`, got {type(model).__name__}")
         target = expected_subclass.strip().upper()
         enum_classes = []
-        for backend in (Models.Detection.YOLO, Models.Detection.RLDETR):
+        for backend in (Models.Detection.YOLO, Models.Detection.RTDETR):
             if hasattr(backend, target):
                 enum_classes.append(getattr(backend, target))
         if not enum_classes:
-            raise ValueError(f"No detection subclass named '{expected_subclass}' in YOLO or RLDETR.")
+            raise ValueError(f"No detection subclass named '{expected_subclass}' in YOLO or RTDETR.")
         for enum_cls in enum_classes:
             if isinstance(model, enum_cls):
                 return  # ✅ valid
@@ -406,14 +403,14 @@ class Models:
         if expected_subclass:
             target = expected_subclass.strip().upper()
             enum_classes = []
-            for backend in (Models.Segmentation.Yolo, Models.Segmentation.Sapiens):
+            for backend in (Models.Segmentation.YOLO, Models.Segmentation.Sapiens):
                 # Check if the target exists in the backend
                 for attr_name in dir(backend):
                     if attr_name.upper() == target:
                         enum_classes.append(getattr(backend, attr_name))
 
             if not enum_classes:
-                raise ValueError(f"No segmentation subclass named '{expected_subclass}' in Yolo or Sapiens.")
+                raise ValueError(f"No segmentation subclass named '{expected_subclass}' in YOLO or Sapiens.")
 
             for enum_cls in enum_classes:
                 if isinstance(model, enum_cls):
@@ -591,9 +588,9 @@ class Models:
 
 if __name__ == "__main__":
     try:
-        vitpose_path = Models.download_model(Models.Pose.ViTPose.WholeBody.s_WHOLEBODY)
+        vitpose_path = Models.download_model(Models.Pose.ViTPose.WholeBody.s_wholebody)
         sapiens_path = Models.download_model(Models.Pose.Sapiens.WholeBody.B03_TS_COCOHB)
-        yolo_path = Models.download_model(Models.Detection.YOLO.VRSTUDENT.m_VRstudent)
+        yolo_path = Models.download_model(Models.Detection.YOLO.VRSTUDENT.m_vrstudent)
         
     except Exception as e:
         print(f"Error: {e}")

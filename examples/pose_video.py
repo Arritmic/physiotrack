@@ -1,22 +1,19 @@
 from physiotrack import Pose, Video
 from pathlib import Path
 
-processor = Pose.VRStudent(render_box_detections=False, render_labels=True, overlay_keypoints=True, verbose=False, device=0)  
+processor = Pose.VRStudent(verbose=False, device=0)
 input_video = 'BV_S17_cut1.mp4'
 output_directory = 'output'
 input_path = Path(input_video)
 video_name = input_path.stem
-required_fps=None,
-frame_resize=None,
-frame_rotate=False,
 
 video_processor = Video(
-    video_path=input_video,
-    pose_estimator=processor,
-    required_fps=None,
-    frame_resize=None,
-    frame_rotate=False,
-    output_path=output_directory,
+    source=input_video,
+    pose=processor,
+    fps=None,
+    resize=None,
+    rotate=False,
+    output_dir=output_directory,
     verbose=True
 )
 

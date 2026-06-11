@@ -16,34 +16,31 @@ def run_segmentation_example():
     # ===================================================================
     print("Initializing segmentors...")
 
-    # Option 1: Using YOLO VRHEAD preset for VR head/face/neck segmentation
+    # Option 1: Using YOLO VRHead preset for VR head/face/neck segmentation
     # This is similar to Detection.Person() or Detection.VRStudent()
-    segmentor_vrhead = Segmentation.VRHEAD(
+    segmentor_vrhead = Segmentation.VRHead(
         device='cpu',
-        OBJECTNESS_CONFIDENCE=0.24,
-        NMS_THRESHOLD=0.4,
+        conf=0.24,
+        iou=0.4,
         classes=[0, 1, 2],  # VR head, face, neck classes
-        render_segmenttion_map=True,
         verbose=False
     )
 
     # Option 2: Using YOLO Person preset for general person segmentation
     segmentor_person = Segmentation.Person(
         device='cpu',
-        OBJECTNESS_CONFIDENCE=0.24,
-        NMS_THRESHOLD=0.4,
-        render_segmenttion_map=True,
+        conf=0.24,
+        iou=0.4,
         verbose=False
     )
 
     # Option 3: Using Custom with explicit model (like Pose.Custom())
     segmentor_custom = Segmentation.Custom(
-        model=Models.Segmentation.Yolo.VRHEAD.M11,
+        model=Models.Segmentation.YOLO.VRHEAD.M11,
         device='cpu',
-        OBJECTNESS_CONFIDENCE=0.24,
-        NMS_THRESHOLD=0.4,
+        conf=0.24,
+        iou=0.4,
         classes=[0, 1, 2],
-        render_segmenttion_map=True,
         verbose=False
     )
 
@@ -52,11 +49,10 @@ def run_segmentation_example():
     # Uncomment to use:
     # segmentor_bodypart = Segmentation.BodyPart(
     #     device='cpu',  # or 'cuda' for GPU
-    #     render_segmenttion_map=True,
     #     verbose=False
     # )
 
-    print("✓ All segmentors initialized successfully!")
+    print("All segmentors initialized successfully!")
 
     # ===================================================================
     # Example Usage with an Image
@@ -68,22 +64,22 @@ def run_segmentation_example():
     #     print(f"\nProcessing image: {input_image_path}")
     #     frame = cv2.imread(input_image_path)
     #
-    #     # Perform segmentation (similar to detector.detect() or pose.estimate())
-    #     segmentation_img, segmentation_map = segmentor_vrhead.segment(frame)
+    #     # Perform segmentation (similar to detector.predict() or pose.predict())
+    #     result = segmentor_vrhead.predict(frame)
     #
-    #     # Overlay the segmentation on the original image
-    #     output_image = cv2.addWeighted(frame, 0.5, segmentation_img, 0.5, 0)
+    #     # Render the segmentation overlay on the original image
+    #     output_image = result.plot()
     #
     #     # Save the result
     #     output_path = 'output/segmented_output.jpg'
     #     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     #     cv2.imwrite(output_path, output_image)
-    #     print(f"✓ Segmentation complete! Saved to: {output_path}")
+    #     print(f"Segmentation complete! Saved to: {output_path}")
     #
-    #     # The segmentation_map is a 2D numpy array where each pixel value
-    #     # represents the class ID of the segmented region
-    #     print(f"Segmentation map shape: {segmentation_map.shape}")
-    #     print(f"Unique classes found: {np.unique(segmentation_map)}")
+    #     # result.seg_map is a 2D numpy array where each pixel value
+    #     # represents the class index of the segmented region
+    #     print(f"Segmentation map shape: {result.seg_map.shape}")
+    #     print(f"Unique classes found: {np.unique(result.seg_map)}")
     # else:
     #     print(f"Note: Sample image not found at {input_image_path}")
 
@@ -97,24 +93,20 @@ def run_segmentation_example():
     from physiotrack import Segmentation, Models
 
     # Initialize segmentor (similar to detector)
-    segmentor = Segmentation.VRHEAD(
+    segmentor = Segmentation.VRHead(
         device='cuda',
-        OBJECTNESS_CONFIDENCE=0.24,
-        NMS_THRESHOLD=0.4,
+        conf=0.24,
+        iou=0.4,
         classes=[0, 1, 2],
-        render_segmenttion_map=True,
         verbose=False
     )
 
     # Or use Sapiens for body parts
-    segmentor = Segmentation.BodyPart(
-        device='cuda',
-        render_segmenttion_map=True
-    )
+    segmentor = Segmentation.BodyPart(device='cuda')
 
     # Or use Custom with any model
     segmentor = Segmentation.Custom(
-        model=Models.Segmentation.Yolo.VRHEAD.M11,
+        model=Models.Segmentation.YOLO.VRHEAD.M11,
         device='cuda'
     )
 
@@ -126,17 +118,17 @@ def run_segmentation_example():
             break
 
         # Perform segmentation
-        seg_img, seg_map = segmentor.segment(frame)
+        result = segmentor.predict(frame)
 
         # Process segmentation results...
-        # seg_map contains class IDs for each pixel
-        # seg_img contains the colored segmentation overlay
+        # result.seg_map contains class indices for each pixel
+        # result.plot() returns the colored segmentation overlay
     """)
     print("="*60)
 
     print("\n=== Segmentation Example Complete ===")
     print("\nAvailable Segmentation Options:")
-    print("  1. Segmentation.VRHEAD()     - YOLO VR head/face/neck segmentation")
+    print("  1. Segmentation.VRHead()     - YOLO VR head/face/neck segmentation")
     print("  2. Segmentation.Person()     - YOLO person segmentation")
     print("  3. Segmentation.BodyPart()   - Sapiens body part segmentation (27 parts)")
     print("  4. Segmentation.Custom()     - Custom model selection")

@@ -139,77 +139,127 @@ pip install -e .
 
 ---
 
-## Quick Start Guide
+## The unified API
 
-### Model Access
+Every image predictor — `Detection`, `Pose`, `Segmentation`, `Depth`, `Face` —
+follows the **same pattern**:
 
-Physiotrack provides a unified interface for accessing all available models:
+```python
+model  = Detection.Person(conf=0.25, iou=0.45, device=0)   # configure the model
+result = model.predict(image)                              # or just: model(image)
+data   = result.boxes                                      # structured data
+frame  = result.plot()                                     # draw the overlay
+```
+
+`predict()` accepts a single image **or a list** of images (returning a list of
+results). Rendering lives on the *result* (`result.plot(...)`), not on the model.
+
+---
+
+## Model registry
 
 ```python
 from physiotrack import Models
 
-# Accessing YOLO face detection model
-face_model = Models.Detection.YOLO.FACE.m_face
-
-# Accessing RT-DETR person detection model
-rtdetr_model = Models.Detection.RLDETR.PERSON.x_person
-
-# ViTPose WholeBody model
-vitpose_model = Models.Pose.ViTPose.WholeBody.b_WHOLEBODY
-
-# Sapiens Pose model
-sapiens_model = Models.Pose.Sapiens.WholeBody.B1_TS_COCOHB
+Models.Detection.YOLO.FACE.m_face           # YOLO face detector
+Models.Detection.RTDETR.PERSON.x_person     # RT-DETR person detector
+Models.Pose.ViTPose.WholeBody.b_wholebody   # ViTPose whole-body
+Models.Pose.Sapiens.WholeBody.B1_TS_COCOHB  # Sapiens whole-body
+Models.Depth.DepthAnythingV2.vitb           # Depth-Anything-V2 base
 ```
 
-### Detection Usage
+---
 
-#### Built-in Person Detector
-```python
-from physiotrack import Detection
+## Detection
 
-# Initialize default person detector
-detector = Detection.Person()
-results, frame = detector.detect(image)
-```
-
-#### Custom Detection Model
 ```python
 from physiotrack import Detection, Models
 
-# Use a custom VR detection model
-custom_model = Models.Detection.YOLO.VR.m_VR
-custom_detector = Detection.Custom(model=custom_model)
-results, frame = custom_detector.detect(image)
+det = Detection.Person()                       # also .Face() .VR() .VRStudent()
+result = det.predict(image)
+print(result.boxes)                            # (N, 4)
+for inst in result:
+    print(inst.box, inst.confidence, inst.cls_name)
+cv2.imwrite("out.png", result.plot())
+
+# Custom model
+det = Detection.Custom(model=Models.Detection.YOLO.VR.m_vr)
 ```
 
-### Pose Estimation Usage
+---
 
-#### Built-in VRStudent Pose Estimator
-```python
-from physiotrack import Pose
+## Pose estimation
 
-# Initialize VR-specific pose estimator
-pose_estimator = Pose.VRStudent()
-pose_image, data = pose_estimator.estimate(image)
-```
-
-#### Custom Pose Model
 ```python
 from physiotrack import Pose, Models
 
-# Use ViTPose large model for whole-body estimation
-model = Models.Pose.ViTPose.WholeBody.l_WHOLEBODY
-pose_estimator = Pose.Custom(model=model)
-pose_image, data = pose_estimator.estimate(image)
+pose = Pose.Person()                           # or Pose.VRStudent(), Pose.Custom(model=...)
+result = pose.predict(image)                   # auto-detects people if no boxes given
+print(result.architecture)                     # "WHOLEBODY" or "COCO"
+
+for person in result:
+    wrist = person.keypoints.by_name("left_wrist")
+    if wrist:
+        print(wrist.x, wrist.y, wrist.confidence)
+cv2.imwrite("pose.png", result.plot())
+
+# Custom model
+pose = Pose.Custom(model=Models.Pose.ViTPose.WholeBody.l_wholebody)
 ```
 
-#### Auto-Detection Integration
-If no bounding boxes are provided, ViTPose and Sapiens estimators automatically detect people:
+---
+
+## Segmentation, Depth, Face
 
 ```python
-# Automatically detects person bounding boxes before pose estimation
-pose_image, data = pose_estimator.estimate(image)
+from physiotrack import Segmentation, Depth, VRFace, FaceOrientation, Models
+
+seg = Segmentation.Person()
+seg_map = seg.predict(image).seg_map           # (H, W) class map
+
+depth = Depth.DepthAnythingV2Base()
+d = depth.predict(image)
+raw, colored = d.depth, d.plot(colormap="inferno")
+
+face = VRFace()
+boxes = face.predict(image).boxes
+orient = FaceOrientation(model=Models.Pose3D.FaceOrientation.VR)
+for inst in orient.predict(image, boxes):
+    print(inst.orientation)                    # {"yaw":.., "pitch":.., "roll":..}
 ```
+
+---
+
+## Tracking & full video pipeline
+
+```python
+from physiotrack import Tracker, TrackerConfig, Video, Pose, Detection, Models
+
+tracker = Tracker(config=TrackerConfig(tracker="ocsort", classes=[0]))
+
+video = Video(
+    source="input.mp4",
+    detector=Detection.Person(),
+    pose=Pose.Custom(model=Models.Pose.ViTPose.WholeBody.b_wholebody),
+    tracker=tracker,
+    output_dir="output",
+)
+data = video.run(output_video="out.mp4", output_json="out.json")
+```
+
+---
+
+## Result objects
+
+| Task | Returns | Key attributes |
+|------|---------|----------------|
+| detect / pose / segment / face | `Result` | `.boxes`, `.instances`, `.keypoints`, `.seg_map`, `.architecture`, `.plot()`, `.to_dict()` |
+| depth | `DepthResult` | `.depth`, `.normalized()`, `.plot(colormap=...)` |
+| track | `TrackResult` | `.instances`, `.ids`, `.boxes`, `.rendered`, `.plot(frame)` |
+
+Each `Instance` exposes `.id`, `.box`, `.confidence`, `.cls`/`.cls_name`,
+`.keypoints` (a `Keypoints` collection with `.by_name()` / `.by_id()`),
+`.mask`, and `.orientation` as applicable.
 
 ---
 

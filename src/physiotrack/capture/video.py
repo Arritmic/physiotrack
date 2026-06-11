@@ -19,19 +19,20 @@ class Video:
     """
     
     def __init__(self,
-                 video_path: Union[str, Path, int],
+                 source: Union[str, Path, int],
+                 *,
                  detector=None,
-                 pose_estimator=None,
-                 segmentator=None,
+                 pose=None,
+                 segmenter=None,
                  tracker=None,
-                 face_detector=None,
+                 face=None,
                  face_orientation=None,
-                 depth_estimator=None,
-                 ego_video_path: Optional[Union[str, Path]] = None,
-                 output_path: Optional[Union[str, Path]] = None,
-                 required_fps: Optional[int] = None,
-                 frame_resize: Optional[Tuple[int, int]] = None,
-                 frame_rotate: bool = False,
+                 depth=None,
+                 ego_video: Optional[Union[str, Path]] = None,
+                 output_dir: Optional[Union[str, Path]] = None,
+                 fps: Optional[int] = None,
+                 resize: Optional[Tuple[int, int]] = None,
+                 rotate: bool = False,
                  floor_map: Optional[List[Tuple[int, int]]] = None,
                  floor_map_background: Optional[Union[str, np.ndarray]] = None,
                  floor_map_rotation: int = 90,
@@ -40,25 +41,25 @@ class Video:
                  plot_keypoint_name: Optional[str] = None,
                  verbose: bool = False,
                  show_fps: bool = False,
-                 show_output: bool = False,
-                 batch_size: int = 1):  # New parameter for batch processing
+                 show: bool = False,
+                 batch_size: int = 1):
 
-        self.video_path = video_path
-        # Support both single instance and list of instances for detector and segmentator
+        self.video_path = source
+        # Support both single instance and list of instances for detector and segmenter
         self.detectors = detector if isinstance(detector, list) else ([detector] if detector is not None else [])
-        self.segmentators = segmentator if isinstance(segmentator, list) else ([segmentator] if segmentator is not None else [])
+        self.segmentators = segmenter if isinstance(segmenter, list) else ([segmenter] if segmenter is not None else [])
         self.tracker = tracker
-        self.pose_estimator = pose_estimator
-        self.face_detector = face_detector
+        self.pose_estimator = pose
+        self.face_detector = face
         self.face_orientation = face_orientation
-        self.depth_estimator = depth_estimator
-        self.ego_video_path = ego_video_path
+        self.depth_estimator = depth
+        self.ego_video_path = ego_video
         self.verbose = verbose
         self.show_fps = show_fps
-        self.show_output = show_output
-        self.required_fps = required_fps
-        self.frame_resize = frame_resize
-        self.frame_rotate = frame_rotate
+        self.show_output = show
+        self.required_fps = fps
+        self.frame_resize = resize
+        self.frame_rotate = rotate
         self.floor_map = floor_map
         self.batch_size = max(1, batch_size)  # Ensure batch size is at least 1
 
@@ -78,7 +79,7 @@ class Video:
         # Initialize depth view if depth estimator is provided
         # Match width to radar view if available, otherwise use default
         self.depth_view = None
-        if depth_estimator is not None:
+        if depth is not None:
             depth_max_width = 320  # default
             if self.radar_view is not None:
                 depth_max_width = self.radar_view.canvas_size[0]
@@ -92,12 +93,12 @@ class Video:
         # Initialize ego video view if ego video path is provided
         # Match width to radar view if available, otherwise use default
         self.ego_view = None
-        if ego_video_path is not None:
+        if ego_video is not None:
             ego_max_width = 320  # default
             if self.radar_view is not None:
                 ego_max_width = self.radar_view.canvas_size[0]
             self.ego_view = EgoVideoView(
-                ego_video_path=str(ego_video_path),
+                ego_video_path=str(ego_video),
                 max_width=ego_max_width,
                 max_height=600,  # Allow taller to preserve aspect ratio
                 show_title=True
@@ -107,7 +108,7 @@ class Video:
         self.motion_plotter = None
         if plot_keypoint is not None:
             # Get video FPS for the plotter
-            cap_temp = cv2.VideoCapture(video_path)
+            cap_temp = cv2.VideoCapture(source)
             video_fps = int(cap_temp.get(cv2.CAP_PROP_FPS))
             if not video_fps > 0:
                 video_fps = 30
@@ -127,14 +128,14 @@ class Video:
                 fps=float(video_fps)
             )
 
-        self.cap = cv2.VideoCapture(video_path)
+        self.cap = cv2.VideoCapture(source)
         if not self.cap.isOpened():
-            raise ValueError(f"Could not open video: {video_path}")
+            raise ValueError(f"Could not open video: {source}")
         
         self._setup_source_info()
         
-        if output_path:
-            self.output_path = Path(output_path)
+        if output_dir:
+            self.output_path = Path(output_dir)
             self.output_path.mkdir(parents=True, exist_ok=True)
         else:
             self.output_path = Path.cwd()
@@ -280,24 +281,14 @@ class Video:
                 batch_results.append((frame, None))
             return batch_results
         
-        # If pose supports batch, call once
-        if hasattr(self.pose_estimator, 'estimate_batch'):
-            batched = self.pose_estimator.estimate_batch(frames_batch, boxes_batch)
-            for (result_frame, results) in batched:
-                pose_results = results.to_json()['detections']
-                batch_results.append((result_frame, pose_results))
-            return batch_results
-
-        # Fallback per-frame
-        for frame, boxes in zip(frames_batch, boxes_batch):
-            if boxes is not None and len(boxes) > 0:
-                result_frame, results = self.pose_estimator.estimate(frame, boxes)
-                pose_results = results.to_json()['detections']
-            else:
-                result_frame = frame
-                pose_results = []
+        # Pose predict() accepts a list and returns one Result per frame.
+        results = self.pose_estimator.predict(frames_batch, boxes_batch)
+        for frame, result in zip(frames_batch, results):
+            pose_results = result.to_dict()['detections']
+            # Draw keypoints onto the (detection-annotated) frame.
+            result_frame = result.plot(boxes=False, labels=False, keypoints=True)
             batch_results.append((result_frame, pose_results))
-        
+
         return batch_results
     
     def process_batch_segmentation(self, frames_batch: List[np.ndarray], 
@@ -336,7 +327,7 @@ class Video:
             else:
                 # Fallback: per-frame segmentation without filtering; we'll filter below
                 for frame in frames_batch:
-                    seg_img, seg_map = segmentator.segment(frame)
+                    seg_map = segmentator.predict(frame).seg_map
                     seg_maps_for_this_segmentator.append(seg_map)
 
             # Apply optional bbox filtering per frame, matching single-frame logic
@@ -422,23 +413,16 @@ class Video:
         # Detect faces in batch
         face_bboxes_batch = []
         for frame in frames_batch:
-            det_results, _ = self.face_detector.detect(frame)
-            if len(det_results) > 0 and det_results[0].boxes is not None and len(det_results[0].boxes) > 0:
-                bboxes = det_results[0].boxes.data.cpu().numpy()[:, :4]
-                face_bboxes_batch.append(bboxes)
-            else:
-                face_bboxes_batch.append(np.array([]).reshape(0, 4))
-        
+            bboxes = self.face_detector.predict(frame).boxes  # (N, 4)
+            face_bboxes_batch.append(bboxes if bboxes.size else np.array([]).reshape(0, 4))
+
         # Estimate face orientation in batch using batch inference
         face_orientation_results_batch = []
         if any(len(bboxes) > 0 for bboxes in face_bboxes_batch):
-            # Use batch inference for frames with faces
+            # Use batch inference for frames with faces (returns one Result per frame)
             orientation_batch_results = self.face_orientation.predict_batch(frames_batch, face_bboxes_batch)
-            for output_img, pose_results in orientation_batch_results:
-                if pose_results and 'detections' in pose_results:
-                    face_orientation_results_batch.append(pose_results['detections'])
-                else:
-                    face_orientation_results_batch.append([])
+            for result in orientation_batch_results:
+                face_orientation_results_batch.append(result.to_dict()['detections'])
         else:
             face_orientation_results_batch = [[] for _ in frames_batch]
 
@@ -486,22 +470,13 @@ class Video:
         if self.depth_estimator is None:
             return [None for _ in frames_batch]
 
-        depth_maps = []
+        # predict() accepts a list and returns one DepthResult per frame.
+        results = self.depth_estimator.predict(frames_batch)
+        return [r.depth for r in results]
 
-        # Check if depth estimator supports batch processing
-        if hasattr(self.depth_estimator, 'estimate_batch'):
-            depth_maps = self.depth_estimator.estimate_batch(frames_batch, normalize=False, colormap=None)
-        else:
-            # Fallback to per-frame processing
-            for frame in frames_batch:
-                depth_map = self.depth_estimator.estimate(frame, normalize=False, colormap=None)
-                depth_maps.append(depth_map)
-
-        return depth_maps
-
-    def run(self, 
-            output_video_path: Optional[Union[str, Path]] = None,
-            output_json_path: Optional[Union[str, Path]] = None,
+    def run(self,
+            output_video: Optional[Union[str, Path]] = None,
+            output_json: Optional[Union[str, Path]] = None,
             progress_callback: Optional[callable] = None) -> List[Dict[str, Any]]:
         """
         Process the video with batch processing support.
@@ -513,7 +488,7 @@ class Video:
         
         selected_frame_ids = self.select_frames(self.video_fps, self.required_fps)
         out_writer = None
-        if output_video_path:
+        if output_video:
             if self.frame_resize:
                 output_width, output_height = self.frame_resize
             else:
@@ -525,7 +500,7 @@ class Video:
 
             # Use avc1 codec for MP4 output
             fourcc = cv2.VideoWriter_fourcc(*'avc1')
-            out_writer = cv2.VideoWriter(str(output_video_path), fourcc, effective_fps,
+            out_writer = cv2.VideoWriter(str(output_video), fourcc, effective_fps,
                                        (output_width, output_height))
 
             if self.verbose:
@@ -629,8 +604,10 @@ class Video:
                 for idx, (frame, all_detections, metadata) in enumerate(zip(frames_with_pose, all_detections_batch, frame_batch_metadata)):
                     if self.tracker is not None and len(all_detections) > 0:
                         detections = np.vstack(all_detections)
-                        frame, online_targets = self.tracker.track(frame, detections)
-                        
+                        track_result = self.tracker.track(frame, detections)
+                        frame = track_result.rendered
+                        online_targets = track_result.raw
+
                         # Filter boxes based on student track
                         if self.tracker.student_track_id is not None and self.tracker.last_known_bbox is not None:
                             # Update boxes for this frame
@@ -870,8 +847,8 @@ class Video:
 
             print("="*60)
                   
-        if output_json_path:
-            self._save_json_data(all_detection_data, output_json_path)
+        if output_json:
+            self._save_json_data(all_detection_data, output_json)
         
         return all_detection_data
     

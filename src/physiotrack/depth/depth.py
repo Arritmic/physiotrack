@@ -4,6 +4,7 @@ Provides high-level wrapper for depth estimation models.
 """
 
 from . import DepthAnythingV2Inference, Models
+from ..results import DepthResult
 import os
 import numpy as np
 from typing import Optional, Tuple, Union, List
@@ -58,37 +59,27 @@ class DepthBase:
         self.input_size = input_size
         self.verbose = verbose
 
-    def estimate(self, frame: np.ndarray, normalize: bool = False,
-                 colormap: Optional[str] = None) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """
-        Estimate depth from a single image.
+    def predict(self, source) -> Union[DepthResult, List[DepthResult]]:
+        """Estimate depth for an image or a list of images.
 
         Args:
-            frame: Input BGR image (HxWx3 numpy array)
-            normalize: If True, normalize depth to 0-255 range
-            colormap: If provided, return colored depth map using this colormap
-                     (e.g., 'inferno', 'viridis', 'magma', 'plasma', 'jet')
+            source: a single BGR frame (HxWx3) or a list of frames.
 
         Returns:
-            If colormap is None: Raw depth map (HxW numpy array, float32)
-            If colormap is provided: Tuple of (raw_depth, colored_depth)
+            A :class:`~physiotrack.results.DepthResult` for a single frame, or a
+            ``list[DepthResult]`` for a list. Get the raw map via ``result.depth``,
+            a colorized view via ``result.plot(colormap=...)``, and ``0..1`` data
+            via ``result.normalized()``.
         """
-        return self.depth_estimator.inference(frame, normalize, colormap)
+        if isinstance(source, (list, tuple)):
+            depths = self.depth_estimator.inference_batch(list(source), False, None)
+            return [DepthResult(orig_img=frame, depth=depth)
+                    for frame, depth in zip(source, depths)]
+        depth = self.depth_estimator.inference(source, False, None)
+        return DepthResult(orig_img=source, depth=depth)
 
-    def estimate_batch(self, frames: List[np.ndarray], normalize: bool = False,
-                       colormap: Optional[str] = None) -> List[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
-        """
-        Estimate depth from a batch of images.
-
-        Args:
-            frames: List of input BGR images
-            normalize: If True, normalize depth to 0-255 range
-            colormap: If provided, return colored depth maps
-
-        Returns:
-            List of depth results (same format as estimate())
-        """
-        return self.depth_estimator.inference_batch(frames, normalize, colormap)
+    def __call__(self, source):
+        return self.predict(source)
 
     def get_avg_inference_time(self) -> float:
         """Get average inference time in milliseconds."""
@@ -108,16 +99,11 @@ class Depth:
     High-level interface for depth estimation.
 
     Usage:
-        # Using a specific model
-        depth_estimator = Depth.Custom(model=Models.Depth.DepthAnythingV2.vitl, device=0)
-        depth_map = depth_estimator.estimate(frame)
-
-        # Using default model (DepthAnythingV2 Large)
-        depth_estimator = Depth.DepthAnythingV2(device=0)
-        depth_map, colored_depth = depth_estimator.estimate(frame, colormap='inferno')
-
-        # Get normalized depth
-        depth_map = depth_estimator.estimate(frame, normalize=True)
+        depth = Depth.DepthAnythingV2Base(device=0)
+        result = depth.predict(frame)            # or depth(frame)
+        raw = result.depth                       # raw float depth map (HxW)
+        colored = result.plot(colormap='inferno')
+        norm = result.normalized()               # 0..1
     """
 
     class Custom(DepthBase):

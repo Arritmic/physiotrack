@@ -25,7 +25,7 @@ class Filtering:
 
         return detrended_signal
 
-    def BPfilter(self, input_signal, minHz=0.75, maxHz=4.0, order=6):
+    def bandpass_filter(self, input_signal, minHz=0.75, maxHz=4.0, order=6):
         """Band Pass filter (using BPM band)"""
 
         # nyq = fs * 0.5
@@ -50,7 +50,7 @@ class Filtering:
         # plt.show()
         return y
 
-    def zeroMeanSTDnorm(self, input_signal):
+    def zero_mean_std_norm(self, input_signal):
         # -- normalization along rows (1-3 channels)
         mx = input_signal.mean(axis=1).reshape(-1, 1)
         sx = input_signal.std(axis=1).reshape(-1, 1)

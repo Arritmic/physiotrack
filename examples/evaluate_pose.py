@@ -1,6 +1,6 @@
 """
 Evaluation script for comparing pose canonicalization methods.
-Evaluates GEOMETRIC, 3DPCNet S2, and 3DPCNet S3 methods on test.npz data.
+Evaluates GEOMETRIC, 3DPCNet S2, 3DPCNet S3, TC48_byCam, and TC48_byAction methods on test.npz data.
 
 IMPORTANT COORDINATE SYSTEM NOTES:
 - test.npz contains data in 3DPCNet format (axis-remapped: x=old_z, y=-old_x, z=-old_y, and centered at pelvis)
@@ -22,7 +22,7 @@ from physiotrack.modules._3DCPNet.inference import reverse_3dpcnet_transform, ap
 
 
 # Load test data
-test_set = 'S2test_filtered_mpjpe500.npz'
+test_set = 'TotalCapture_48cam_split_by_camera_test.npz'
 data = np.load(test_set, allow_pickle=True)
 print(f"Loading test data from: {test_set}")
 
@@ -250,6 +250,109 @@ except Exception as e:
 
 print("\n" + "="*60)
 
+# ==============================================================================
+# Method 4: 3DPCNet TC48 byCam (TotalCapture 48-camera, camera-based split)
+# ==============================================================================
+print("\n--- 3DPCNet TC48_byCam Method ---")
+print("Using physiotrack wrapper which handles transformations internally...")
+try:
+    # Process in batches
+    all_tc48cam_canonical = []
+    all_tc48cam_rotation = []
+
+    for batch_idx in tqdm(range(num_batches), desc="  Processing batches"):
+        start_idx = batch_idx * BATCH_SIZE
+        end_idx = min(start_idx + BATCH_SIZE, num_samples)
+
+        # Get batch
+        batch_input_3dpcnet = input_poses_3dpcnet[start_idx:end_idx]
+
+        # Since data is already in 3DPCNet format, use apply_transform=False
+        batch_canonical, batch_rotation = canonicalize_pose(
+            batch_input_3dpcnet,  # Already in 3DPCNet format
+            model=Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byCam,
+            view=Models.Pose3D.Canonicalizer.View.FRONT,
+            apply_transform=False,  # Don't transform since already in 3DPCNet format
+            verbose=False,  # Suppress print messages
+            return_rotation=True  # Get rotation matrices
+        )
+
+        all_tc48cam_canonical.append(batch_canonical)
+        all_tc48cam_rotation.append(batch_rotation)
+
+    # Concatenate all batches
+    tc48cam_canonical = np.concatenate(all_tc48cam_canonical, axis=0)
+    tc48cam_rotation = np.concatenate(all_tc48cam_rotation, axis=0)
+
+    metrics = evaluate_canonicalization(
+        tc48cam_canonical,  # 3DPCNet format output
+        canonical_gt_3dpcnet,  # 3DPCNet format GT
+        pred_rotation=tc48cam_rotation,  # Model outputs R (canonical→input)
+        gt_rotation=rotation_gt,  # GT is also R (canonical→input)
+        scale=1000.0
+    )
+
+    print(f"\n  Results for {num_samples} samples:")
+    print(f"  MPJPE: {metrics['mpjpe']:.2f} mm")
+    print(f"  PA-MPJPE: {metrics['pampjpe']:.2f} mm")
+    print(f"  Pose Error: {metrics['pose_error_mm']:.2f} mm")
+    if 'rotation_error_deg' in metrics:
+        print(f"  Rotation Error: {metrics['rotation_error_deg']:.2f}°")
+
+except Exception as e:
+    print(f"  Error: {e}")
+
+# ==============================================================================
+# Method 5: 3DPCNet TC48 byAction (TotalCapture 48-camera, action-based split)
+# ==============================================================================
+print("\n--- 3DPCNet TC48_byAction Method ---")
+print("Using physiotrack wrapper which handles transformations internally...")
+try:
+    # Process in batches
+    all_tc48act_canonical = []
+    all_tc48act_rotation = []
+
+    for batch_idx in tqdm(range(num_batches), desc="  Processing batches"):
+        start_idx = batch_idx * BATCH_SIZE
+        end_idx = min(start_idx + BATCH_SIZE, num_samples)
+
+        # Get batch
+        batch_input_3dpcnet = input_poses_3dpcnet[start_idx:end_idx]
+
+        # Since data is already in 3DPCNet format, use apply_transform=False
+        batch_canonical, batch_rotation = canonicalize_pose(
+            batch_input_3dpcnet,  # Already in 3DPCNet format
+            model=Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byAction,
+            view=Models.Pose3D.Canonicalizer.View.FRONT,
+            apply_transform=False,  # Don't transform since already in 3DPCNet format
+            verbose=False,  # Suppress print messages
+            return_rotation=True  # Get rotation matrices
+        )
+
+        all_tc48act_canonical.append(batch_canonical)
+        all_tc48act_rotation.append(batch_rotation)
+
+    # Concatenate all batches
+    tc48act_canonical = np.concatenate(all_tc48act_canonical, axis=0)
+    tc48act_rotation = np.concatenate(all_tc48act_rotation, axis=0)
+
+    metrics = evaluate_canonicalization(
+        tc48act_canonical,  # 3DPCNet format output
+        canonical_gt_3dpcnet,  # 3DPCNet format GT
+        pred_rotation=tc48act_rotation,  # Model outputs R (canonical→input)
+        gt_rotation=rotation_gt,  # GT is also R (canonical→input)
+        scale=1000.0
+    )
+
+    print(f"\n  Results for {num_samples} samples:")
+    print(f"  MPJPE: {metrics['mpjpe']:.2f} mm")
+    print(f"  PA-MPJPE: {metrics['pampjpe']:.2f} mm")
+    print(f"  Pose Error: {metrics['pose_error_mm']:.2f} mm")
+    if 'rotation_error_deg' in metrics:
+        print(f"  Rotation Error: {metrics['rotation_error_deg']:.2f}°")
+
+except Exception as e:
+    print(f"  Error: {e}")
 
 print("\n" + "="*60)
 print("Evaluation complete!")

@@ -321,7 +321,7 @@ class PoseCanonicalizer:
         return result
     
     @staticmethod
-    def get_canonical_form_geometric(poses_3d: np.ndarray, view: Union[CanonicalView, str], 
+    def to_canonical_geometric(poses_3d: np.ndarray, view: Union[CanonicalView, str],
                                     return_rotation: bool = False,
                                     verbose: bool = False):
         """
@@ -494,8 +494,9 @@ def canonicalize_pose(poses_3d: np.ndarray,
         Canonicalized poses (N, 17, 3) and optionally rotation matrices (N, 3, 3)
     """
     if model is None or model == CanonicalModels.GEOMETRIC:
-        return PoseCanonicalizer.get_canonical_form_geometric(poses_3d, view, return_rotation)
-    elif model in [CanonicalModels._3DPCNetS2, CanonicalModels._3DPCNetS3]:
+        return PoseCanonicalizer.to_canonical_geometric(poses_3d, view, return_rotation)
+    elif model in [CanonicalModels._3DPCNetS2, CanonicalModels._3DPCNetS3,
+                   CanonicalModels._3DPCNetTC48_byCam, CanonicalModels._3DPCNetTC48_byAction]:
         result = PoseCanonicalizer.canonicalize_3dpcnet(poses_3d, model, view, 
                                                         apply_transform=apply_transform, 
                                                         verbose=verbose,

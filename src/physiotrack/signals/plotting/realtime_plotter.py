@@ -11,7 +11,7 @@ import io
 
 
 # Plot values in opencv program
-class RT2DPlotter:
+class RealTimePlotter:
     def __init__(self, plot_width, plot_height, max_values_y_axis, seconds_x_axis=10, number_samples_x_axis=150, fps=30,
                  number_of_signals=1, plotting_method="MPL", title='', axisLabels=None, axisLimits=None, signalLabels=None,
                  colors=None, figure=None, canvas=None, index=0, dpi=100):
@@ -71,7 +71,7 @@ class RT2DPlotter:
 
             self.x = np.linspace(0, self.number_of_seconds_x_axis, self.samples_number_x_axis)
             if canvas is None:
-                print("          >> [RT2DPlotter] Creating new figure with id = ", self.index)
+                print("          >> [RealTimePlotter] Creating new figure with id = ", self.index)
                 self.fig = plt.figure(self.index, figsize=(self.width/self.dpi, self.height/self.dpi), dpi=self.dpi)
                 self.canvas = FigureCanvasAgg(self.fig)
             else:

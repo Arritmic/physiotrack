@@ -3,9 +3,8 @@ Full inference pipeline: Detection -> Tracking -> Pose Estimation -> Segmentatio
 Processes a video and outputs all results overlaid on the same frame
 """
 
-from physiotrack import Pose, Video, Models, Detection, Tracker, Segmentation, Face, VRFace, FaceOrientation, Depth
+from physiotrack import Pose, Video, Models, Detection, Tracker, TrackerConfig, Segmentation, Face, VRFace, FaceOrientation, Depth
 from physiotrack.face import draw_axis
-from physiotrack.trackers import Config
 from pathlib import Path
 import argparse
 import cv2
@@ -59,27 +58,24 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
     print("="*60)
 
     # Initialize models
-    print("\n[1/5] Initializing VRStudent Detector...")
+    print("\n[1/5] Initializing Person Detector...")
     detector = Detection.Person(
         model=Models.Detection.YOLO.PERSON.m_person,
-        render_box_detections=True,
-        render_labels=True,
+        conf=0.25,
+        iou=0.45,
         verbose=False,
         device=0
     )
 
     print("[2/5] Initializing Pose Estimator...")
     pose_estimator = Pose.Custom(
-        model=Models.Pose.ViTPose.WholeBody.b_WHOLEBODY,
-        render_box_detections=True,
-        render_labels=True,
-        overlay_keypoints=True,
+        model=Models.Pose.ViTPose.WholeBody.b_wholebody,
         verbose=False,
         device=0
     )
 
     print("[3/5] Initializing Tracker...")
-    tracker_config = Config()
+    tracker_config = TrackerConfig()
     tracker_config.tracker_type = 'ocsort'
     tracker_config.debug_mode = False
     tracker_config.classes = [0]
@@ -88,22 +84,20 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
     print("[4/5] Initializing Segmentors...")
     segmentor_person = Segmentation.Person(
         device=0,
-        OBJECTNESS_CONFIDENCE=0.24,
-        NMS_THRESHOLD=0.4,
+        conf=0.24,
+        iou=0.4,
         classes=[0],  # Person class only
-        render_segmenttion_map=True,
-        segmentation_filter={'bbox_filter': False},
+        filter={'bbox_filter': False},
         verbose=False
     )
 
     segmentor_vrhead = Segmentation.Custom(
-        model=Models.Segmentation.Yolo.VRHEAD.M8_251029,
+        model=Models.Segmentation.YOLO.VRHEAD.M8_251029,
         device=0,
-        OBJECTNESS_CONFIDENCE=0.24,
-        NMS_THRESHOLD=0.4,
+        conf=0.24,
+        iou=0.4,
         # classes=[0],
-        render_segmenttion_map=True,
-        segmentation_filter={
+        filter={
             'bbox_filter': True,
             'detector_index': 0,  # Use detector index 0
             'detector_class_filter': None  # Use all classes
@@ -121,20 +115,19 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
     if enable_face_orientation:
         # Face orientation requires face detection
         print("[5/6] Initializing Face Detector + Orientation Estimator...")
-        face_detector = VRFace(device=0, render_box_detections=True, verbose=False)
+        face_detector = VRFace(device=0, verbose=False)
         face_orientation = FaceOrientation(model=Models.Pose3D.FaceOrientation.VR,
-                                           device=0, render_pose=False, verbose=False)
+                                           device=0, verbose=False)
     elif enable_face_detection:
         # Face detection only (no orientation)
         print("[5/6] Initializing Face Detector...")
-        face_detector = VRFace(device=0, render_box_detections=True, verbose=False)
+        face_detector = VRFace(device=0, verbose=False)
 
     # Initialize depth estimator if enabled
     depth_estimator = None
     if enable_depth:
         print("[6/6] Initializing Depth Estimator (DepthAnythingV2)...")
-        depth_estimator = Depth.Custom(
-            model=Models.Depth.DepthAnythingV2.vitb,
+        depth_estimator = Depth.DepthAnythingV2Base(
             device=0,
             input_size=518,
             verbose=False
@@ -153,27 +146,27 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
     print("="*60)
 
     video_processor = Video(
-        video_path=video_path,
-        pose_estimator=pose_estimator,
-        detector=detector,  # Pass VRStudent detector to work with Pose.Custom
+        source=video_path,
+        pose=pose_estimator,
+        detector=detector,  # Person detector to work with Pose.Custom
         tracker=tracker,
-        segmentator=segmentors,  # Pass list of segmentators (Person + VRHEAD)
-        face_detector=face_detector,  # Face detector for face orientation
+        segmenter=segmentors,  # Pass list of segmenters (Person + VRHEAD)
+        face=face_detector,  # Face detector for face orientation
         face_orientation=face_orientation,  # Face orientation estimator
-        depth_estimator=depth_estimator,  # Depth estimator (DepthAnythingV2)
-        ego_video_path=ego_video_path,  # Ego-centric video overlay
-        required_fps=None,
-        frame_resize=None,
-        frame_rotate=False,
+        depth=depth_estimator,  # Depth estimator (DepthAnythingV2)
+        ego_video=ego_video_path,  # Ego-centric video overlay
+        fps=None,
+        resize=None,
+        rotate=False,
         floor_map=floor_map,  # Floor area for radar view
         floor_map_background=floor_map_background,  # Background mode: None/"default", "auto"/"extract", or path to image
         floor_map_rotation=floor_map_rotation,  # Rotation: 0, 90, 180, or 270 degrees
         plot_keypoint=plot_keypoint,  # Keypoint ID to plot motion (relative to pelvis)
         plot_keypoint_name=plot_keypoint_name,  # Keypoint name for plot label
-        output_path=output_dir,
+        output_dir=output_dir,
         verbose=True,
         show_fps=True,
-        show_output=show_output,  # Display output in real-time
+        show=show_output,  # Display output in real-time
         batch_size=batch_size  # Enable batch processing
     )
 

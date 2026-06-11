@@ -5,8 +5,10 @@ import numpy as np
 from .utils import COCO2Halpe, add_3d_keypoints, coco2h36m
 import json
 from .canonicalizer import canonicalize_pose, CanonicalView
-from ..modules.MotionBERT.utils.vismo import render_and_save
 from datetime import datetime
+
+# ``render_and_save`` (3D-video rendering) pulls in heavy/optional deps (smplx, ipdb).
+# Import it lazily so Pose3D can be imported/used without them unless rendering is requested.
 
 
 class Pose3D:
@@ -32,7 +34,7 @@ class Pose3D:
                  **kwargs):
         
         if model is None:
-            model = Models.Pose3D.MotionBERT.MB_ft_h36m_global_lite
+            model = Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite
 
         model_path = os.path.join(os.path.dirname(__file__), '..', 'modules', 'model_data', model.value)
         if not os.path.isfile(model_path):
@@ -82,7 +84,7 @@ class Pose3D:
         self.save_npy = save_npy
         self.clip_len = clip_len
     
-    def estimate(self, json_path, vid_path, out_path=None, focus=None, 
+    def predict(self, json_path, vid_path, out_path=None, focus=None,
                  scale_range=None, keep_imgs=False, no_conf=None, 
                  flip=None, rootrel=None, gt_2d=None, convert2alpha=True, canonical_view=None, canonical_model=None,
                  # DDHPose specific parameters
@@ -145,6 +147,7 @@ class Pose3D:
             os.makedirs(out_path, exist_ok=True)
             
         if self.render_video and out_path:
+            from ..modules.MotionBERT.utils.vismo import render_and_save
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             render_and_save(
                 results_3d, 
@@ -169,16 +172,16 @@ class Pose3D:
         
         return frames_data, results_3d
     
-    def process_batch(self, json_paths, vid_paths, out_paths=None, **kwargs):
+    def predict_batch(self, json_paths, vid_paths, out_paths=None, **kwargs):
         """Process multiple videos in batch"""
         results = []
         poses = []
-        
+
         if out_paths is None:
             out_paths = [None] * len(json_paths)
-        
+
         for json_path, vid_path, out_path in zip(json_paths, vid_paths, out_paths):
-            frames_data, results_3d = self.estimate(
+            frames_data, results_3d = self.predict(
                 json_path=json_path,
                 vid_path=vid_path,
                 out_path=out_path,

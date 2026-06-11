@@ -3,4 +3,7 @@ from .strongsort.strong_sort import StrongSORT
 from .ocsort.ocsort import OCSort
 from .boosttrack.boost_track import BoostTrack
 
-from .track import Tracker, Config
+from .track import Tracker
+from .config import TrackerConfig
+
+__all__ = ['Tracker', 'TrackerConfig', 'BYTETracker', 'StrongSORT', 'OCSort', 'BoostTrack']

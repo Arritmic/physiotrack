@@ -1,12 +1,9 @@
-from physiotrack import Pose, Video, Models, Detection, Tracker
-from physiotrack.trackers import Config
+from physiotrack import Pose, Video, Models, Detection, Tracker, TrackerConfig, Pose3D, PoseCanonicalizer
 from physiotrack.pose.config import COCO_WHOLEBODY_NAMES, HUMAN26M_NAMES
 from physiotrack.signals.motion.utils import extract_keypoint_sequence_3d, extract_keypoint_sequence_2d, add_body_centroid, add_head_centroid, resample_dataframe_by_interpolation, add_pelvic_centroid, extract_keypoints_sequence
 from physiotrack.signals.motion.features import get_relative_coordinates, compute_all_motion_features, get_keypoint_features, select_feature_data
 from physiotrack.signals.normalize import min_max_normalize
 from physiotrack.signals.filters import band_pass_filter
-from physiotrack.pose.pose3D import Pose3D
-from physiotrack.pose.canonicalizer import PoseCanonicalizer
 from physiotrack.signals.evaluate import calculate_pearson_correlation, calculate_dtw_distance, normalized_cross_correlation, phase_synchrony, compute_rmse, compute_plv
 from pathlib import Path
 import pandas as pd
@@ -20,28 +17,23 @@ def run_motion_pipeline():
     # Initialize models
     print("Initializing models...")
     pose_estimator = Pose.Custom(
-        model=Models.Pose.ViTPose.WholeBody.b_WHOLEBODY, 
-        render_box_detections=False, 
-        render_labels=True, 
-        overlay_keypoints=True, 
-        verbose=False, 
+        model=Models.Pose.ViTPose.WholeBody.b_wholebody,
+        verbose=False,
         device=0
     )
-    
+
     detector = Detection.Person(
-        model=Models.Detection.YOLO.PERSON.m_person, 
-        render_box_detections=False, 
-        render_labels=False, 
-        verbose=False, 
+        model=Models.Detection.YOLO.PERSON.m_person,
+        verbose=False,
         device=0
     )
-    
-    TrackerConfig = Config()
-    TrackerConfig.tracker_type = 'ocsort'
-    TrackerConfig.debug_mode = True
-    TrackerConfig.classes = [0]
-    TrackerConfig.enable_student_tracking = True
-    tracker = Tracker(config=TrackerConfig)
+
+    tracker_config = TrackerConfig()
+    tracker_config.tracker_type = 'ocsort'
+    tracker_config.debug_mode = True
+    tracker_config.classes = [0]
+    tracker_config.enable_student_tracking = True
+    tracker = Tracker(config=tracker_config)
     
     # Setup paths
     input_video = 'CVSSP3D/s1/rom1/TC_S1_rom1_cam1.mp4'
@@ -52,27 +44,27 @@ def run_motion_pipeline():
     # Process 2D poses
     print("Processing 2D poses...")
     video_processor = Video(
-        video_path=input_video,
-        pose_estimator=pose_estimator,
+        source=input_video,
+        pose=pose_estimator,
         detector=detector,
         tracker=tracker,
-        required_fps=None,
-        frame_resize=None,
-        frame_rotate=False,
-        output_path=output_directory,
+        fps=None,
+        resize=None,
+        rotate=False,
+        output_dir=output_directory,
         verbose=True
     )
-    
+
     video_output_path = Path(output_directory) / f"{video_name}_poses.mp4"
     json_output_path = Path(output_directory) / f"{video_name}_result.json"
-    
+
     detection_data_2D = video_processor.run(video_output_path, json_output_path)
     sampling_freq = video_processor.video_fps
-    
+
     # Process 3D poses
     print("Processing 3D poses...")
     pose3D = Pose3D(
-        model=Models.Pose3D.MotionBERT.MB_ft_h36m_global_lite,
+        model=Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite,
         config=None,
         device='cuda',
         clip_len=243,
@@ -81,8 +73,8 @@ def run_motion_pipeline():
         save_npy=True,
         testloader_params=None
     )
-    
-    detection_data_3D, results_3d = pose3D.estimate(
+
+    detection_data_3D, results_3d = pose3D.predict(
         json_path=json_output_path,
         vid_path=input_video,
         out_path=output_directory,
@@ -98,14 +90,14 @@ def run_motion_pipeline():
     # # Process 2D poses
     # print("Processing 2D poses...")
     # video_processor = Video(
-    #     video_path=input_video,
-    #     pose_estimator=pose_estimator,
+    #     source=input_video,
+    #     pose=pose_estimator,
     #     detector=detector,
     #     tracker=tracker,
-    #     required_fps=None,
-    #     frame_resize=None,
-    #     frame_rotate=False,
-    #     output_path=output_directory,
+    #     fps=None,
+    #     resize=None,
+    #     rotate=False,
+    #     output_dir=output_directory,
     #     verbose=True
     # )
     
@@ -131,7 +123,7 @@ def run_motion_pipeline():
     #     sampling_timesteps=5
     # )
     
-    # detection_data_3D, results_3d = pose3D.estimate(
+    # detection_data_3D, results_3d = pose3D.predict(
     #     json_path=json_output_path,
     #     vid_path='BV_S17_cut1.mp4',
     #     out_path=output_directory,
@@ -152,9 +144,9 @@ if __name__ == "__main__":
     # with open(file_path, 'r', encoding='utf-8') as file:
     #     detection_data_3D = json.load(file)
 
-    detection_data = add_body_centroid(detection_data_3D, pose_estimator.archetecture)
-    detection_data = add_head_centroid(detection_data, pose_estimator.archetecture)
-    detection_data = add_pelvic_centroid(detection_data, pose_estimator.archetecture)
+    detection_data = add_body_centroid(detection_data_3D, pose_estimator.architecture)
+    detection_data = add_head_centroid(detection_data, pose_estimator.architecture)
+    detection_data = add_pelvic_centroid(detection_data, pose_estimator.architecture)
 
     # keypoint extraction
     keypoint_id_2d = int(COCO_WHOLEBODY_NAMES['left_wrist'])

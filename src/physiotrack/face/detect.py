@@ -1,84 +1,45 @@
 """
-Face detection module using YOLO detectors.
+Face detection using YOLO detectors.
 """
 from ..detect import ValidatedDetector
 from ..models import Models
 
 
 class Face(ValidatedDetector):
-    """
-    Face detector using YOLO models for normal face detection.
-
-    This class provides face detection capabilities using pre-trained YOLO models.
-    It inherits from ValidatedDetector which handles model validation and loading.
+    """Face detector using YOLO models.
 
     Args:
-        model: Face detection model from Models.Detection.YOLO.FACE
-               Default: Models.Detection.YOLO.FACE.m_face
-        device: Device to use for inference ('cpu', 'cuda', or device id)
-        OBJECTNESS_CONFIDENCE: Confidence threshold for detections (default: 0.24)
-        NMS_THRESHOLD: Non-maximum suppression threshold (default: 0.4)
-        classes: List of class indices to detect (default: None, detects all)
-        render_labels: Whether to render labels on output (default: True)
-        render_box_detections: Whether to render bounding boxes on output (default: True)
-        verbose: Whether to print verbose output (default: True)
-        **kwargs: Additional arguments passed to the detector
+        model: model from ``Models.Detection.YOLO.FACE`` (default: ``m_face``).
+        conf: confidence threshold (default 0.25).
+        iou: NMS/IoU threshold (default 0.45).
+        device: 'cpu', 'cuda', or device id.
 
-    Usage:
-        >>> from physiotrack import Face, Models
-        >>>
-        >>> # Initialize with default model
-        >>> face_detector = Face(device='cuda')
-        >>>
-        >>> # Or specify a specific model
-        >>> face_detector = Face(
-        ...     model=Models.Detection.YOLO.FACE.l_face,
-        ...     device='cuda',
-        ...     OBJECTNESS_CONFIDENCE=0.3,
-        ...     render_box_detections=True
-        ... )
-        >>>
-        >>> # Detect faces
-        >>> results, output_img = face_detector.detect(frame)
-        >>>
-        >>> # Batch detection
-        >>> batch_results = face_detector.detect_batch(frames)
+    Example:
+        >>> from physiotrack import Face
+        >>> face = Face(device='cuda')
+        >>> result = face.predict(frame)          # or face(frame)
+        >>> annotated = result.plot()
+        >>> boxes = result.boxes
     """
     expected_subclass = "Face"
     model = Models.Detection.YOLO.FACE.m_face
+    _task = "face"
 
 
 class VRFace(ValidatedDetector):
-    """
-    Face detector optimized for VR headset scenarios using YOLOv12.
-
-    This class provides face detection capabilities specifically trained/optimized
-    for detecting faces when subjects are wearing VR headsets. Uses YOLOv12l-face model.
+    """Face detector tuned for VR-headset scenarios (YOLOv12l-face).
 
     Args:
-        model: Face detection model from Models.Detection.YOLO.VRFACE
-               Default: Models.Detection.YOLO.VRFACE.l_vrface
-        device: Device to use for inference ('cpu', 'cuda', or device id)
-        OBJECTNESS_CONFIDENCE: Confidence threshold for detections (default: 0.24)
-        NMS_THRESHOLD: Non-maximum suppression threshold (default: 0.4)
-        classes: List of class indices to detect (default: None, detects all)
-        render_labels: Whether to render labels on output (default: True)
-        render_box_detections: Whether to render bounding boxes on output (default: True)
-        verbose: Whether to print verbose output (default: True)
-        **kwargs: Additional arguments passed to the detector
+        model: model from ``Models.Detection.YOLO.VRFACE`` (default: ``l_vrface``).
+        conf: confidence threshold (default 0.25).
+        iou: NMS/IoU threshold (default 0.45).
+        device: 'cpu', 'cuda', or device id.
 
-    Usage:
-        >>> from physiotrack import VRFace, Models
-        >>>
-        >>> # Initialize with default model (yolov12l-face)
-        >>> vr_face_detector = VRFace(device='cuda')
-        >>>
-        >>> # Detect faces in VR scenarios
-        >>> results, output_img = vr_face_detector.detect(frame)
-        >>>
-        >>> # Batch detection
-        >>> batch_results = vr_face_detector.detect_batch(frames)
+    Example:
+        >>> from physiotrack import VRFace
+        >>> face = VRFace(device='cuda')
+        >>> result = face.predict(frame)
     """
     expected_subclass = "VRFace"
     model = Models.Detection.YOLO.VRFACE.l_vrface
-
+    _task = "face"

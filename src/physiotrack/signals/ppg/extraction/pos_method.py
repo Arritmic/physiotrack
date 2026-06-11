@@ -2,14 +2,14 @@ import numpy as np
 from scipy import signal
 
 
-class pos_method:
+class POS:
     """
         POS algorithm described in "Algorithmic Principles of Remote PPG"
         (https://ieeexplore.ieee.org/document/7565547 )
         Numbers in brackets refer to the line numbers in the "Algorithm 1" of the paper
     """
 
-    methodName = 'POS'
+    method_name = 'POS'
     projection = np.array([[0, 1, -1], [-2, 1, 1]])
 
     def __init__(self, fps=30):

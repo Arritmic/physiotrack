@@ -2,8 +2,7 @@
 Example demonstrating methods to apply canonical view to 3D poses
 """
 
-from physiotrack.pose.pose3D import Pose3D
-from physiotrack import Models, PoseCanonicalizer, canonicalize_pose
+from physiotrack import Pose3D, Models, PoseCanonicalizer, canonicalize_pose
 import numpy as np
 from pathlib import Path
 
@@ -14,7 +13,7 @@ output_dir = 'output/'
 
 # Initialize 3D pose estimator
 pose3D = Pose3D(
-    model=Models.Pose3D.MotionBERT.MB_ft_h36m_global_lite,
+    model=Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite,
     device='cuda',
     clip_len=243,
     render_video=True,
@@ -24,7 +23,7 @@ pose3D = Pose3D(
 # =============================================================================
 # Method 1: Integrated - Apply canonical view during 3D pose estimation
 # =============================================================================
-frames_data, results_3d = pose3D.estimate(
+frames_data, results_3d = pose3D.predict(
     json_path=json_path,
     vid_path=video_path,
     out_path=output_dir,
@@ -36,7 +35,7 @@ frames_data, results_3d = pose3D.estimate(
 # Method 2: Direct - Apply canonical view to results_3d array
 # =============================================================================
 # First estimate without canonical view
-frames_data_raw, results_3d_raw = pose3D.estimate(
+frames_data_raw, results_3d_raw = pose3D.predict(
     json_path=json_path,
     vid_path=video_path,
     out_path=output_dir,

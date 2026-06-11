@@ -2,12 +2,12 @@ from scipy import signal
 import numpy as np
 
 
-class omit_method:
+class OMIT:
     """ This method is described in the following paper:
         "Face2PPG: Towards a reliable and unobtrusive blood volume pulse extraction from faces using RGB cameras"
         by Álvarez Casado, C and Bordallo López, M
     """
-    methodName = 'OMIT'
+    method_name = 'OMIT'
 
     def __init__(self, fps):
         self.frameRate = fps
