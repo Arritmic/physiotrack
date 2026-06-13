@@ -16,9 +16,13 @@ from tqdm import tqdm
 # # Add parent directory to path for imports
 # sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from physiotrack import Models, canonicalize_pose
-from physiotrack.pose.evaluate import evaluate_canonicalization
-from physiotrack.modules._3DCPNet.inference import reverse_3dpcnet_transform, apply_3dpcnet_transform
+from physiotrack import (
+    Models,
+    canonicalize_pose,
+    evaluate_canonicalization,
+    reverse_3dpcnet_transform,
+    apply_3dpcnet_transform,
+)
 
 
 # Load test data

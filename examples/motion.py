@@ -1,10 +1,18 @@
 from physiotrack import Pose, Video, Models, Detection, Tracker, TrackerConfig, Pose3D, PoseCanonicalizer
-from physiotrack.pose.config import COCO_WHOLEBODY_NAMES, HUMAN26M_NAMES
-from physiotrack.signals.motion.utils import extract_keypoint_sequence_3d, extract_keypoint_sequence_2d, add_body_centroid, add_head_centroid, resample_dataframe_by_interpolation, add_pelvic_centroid, extract_keypoints_sequence
-from physiotrack.signals.motion.features import get_relative_coordinates, compute_all_motion_features, get_keypoint_features, select_feature_data
-from physiotrack.signals.normalize import min_max_normalize
-from physiotrack.signals.filters import band_pass_filter
-from physiotrack.signals.evaluate import calculate_pearson_correlation, calculate_dtw_distance, normalized_cross_correlation, phase_synchrony, compute_rmse, compute_plv
+from physiotrack.pose import COCO_WHOLEBODY_NAMES, HUMAN26M_NAMES
+from physiotrack.signals import (
+    # motion: keypoint sequences, centroids, resampling
+    extract_keypoint_sequence_3d, extract_keypoint_sequence_2d,
+    add_body_centroid, add_head_centroid, add_pelvic_centroid,
+    resample_dataframe_by_interpolation, extract_keypoints_sequence,
+    # motion: features
+    get_relative_coordinates, compute_all_motion_features,
+    get_keypoint_features, select_feature_data,
+    # normalization / filtering / signal-comparison metrics
+    min_max_normalize, band_pass_filter,
+    calculate_pearson_correlation, calculate_dtw_distance,
+    normalized_cross_correlation, phase_synchrony, compute_rmse, compute_plv,
+)
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt

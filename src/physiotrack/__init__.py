@@ -50,6 +50,7 @@ from .modules.DDHPose.inference import DDHPoseInference
 
 # --- Pose post-processing -----------------------------------------------------
 from .pose.canonicalizer import PoseCanonicalizer, canonicalize_pose
+from .modules._3DCPNet.inference import apply_3dpcnet_transform, reverse_3dpcnet_transform
 from .pose.evaluate import (
     evaluate_pose_predictions,
     evaluate_canonicalization,
@@ -82,6 +83,7 @@ __all__ = [
     "Result", "DepthResult", "TrackResult", "Instance", "Keypoint", "Keypoints",
     # pose post-processing
     "PoseCanonicalizer", "canonicalize_pose",
+    "apply_3dpcnet_transform", "reverse_3dpcnet_transform",
     "evaluate_pose_predictions", "evaluate_canonicalization",
     "calculate_mpjpe", "calculate_pampjpe", "calculate_rotation_error",
 ]

@@ -247,6 +247,28 @@ print(wrist.x, wrist.y, wrist.confidence)
 
 ## The Unified API
 
+Everything user-facing is reached through one flat, predictable hierarchy. Import the entry
+points from the top-level `physiotrack` package (or a named subsystem); you never need to reach
+into internal module paths:
+
+```text
+physiotrack ─┬─ Detection.Person() / .Face() / .VR() / .VRStudent() / .Custom()
+             ├─ Pose.Person() / .VRStudent() / .Custom()
+             ├─ Pose3D(...) · canonicalize_pose(...) · PoseCanonicalizer
+             ├─ Segmentation.Person() / .VRHead() / .BodyPart() / .Face() / .Custom()
+             ├─ Depth.DepthAnythingV2Small() / Base() / Large() / .Custom()
+             ├─ Face · VRFace · FaceOrientation
+             ├─ Tracker(config=TrackerConfig(...))
+             ├─ Video(...)                              # end-to-end pipeline orchestrator
+             ├─ Models.<Task>.<Backend>.<Variant>       # model registry (auto-download)
+             └─ Result · DepthResult · TrackResult      # returned by every predictor
+                          ↳ .boxes · .keypoints · .seg_map · .names · .plot() · .to_dict()
+
+physiotrack.signals ── rPPG (POS/CHROM/LGI/OMIT) · motion features · filters · plotters
+physiotrack.pose    ── keypoint name maps (COCO_WHOLEBODY_NAMES, HUMAN26M_NAMES)
+physiotrack.face    ── drawing helpers (draw_axis, plot_pose_cube)
+```
+
 Every image predictor (`Detection`, `Pose`, `Segmentation`, `Depth`, `Face`) follows the
 **same pattern** (modeled on Ultralytics / MediaPipe / scikit-learn):
 

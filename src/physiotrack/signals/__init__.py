@@ -43,6 +43,21 @@ from .evaluate import (
 )
 from .plotting import RealTimePlotter, KeypointMotionPlotter
 from .ppg import POS, CHROM, LGI, OMIT
+from .motion.utils import (
+    extract_keypoint_sequence_2d,
+    extract_keypoint_sequence_3d,
+    extract_keypoints_sequence,
+    add_head_centroid,
+    add_body_centroid,
+    add_pelvic_centroid,
+    resample_dataframe_by_interpolation,
+)
+from .motion.features import (
+    get_relative_coordinates,
+    compute_all_motion_features,
+    get_keypoint_features,
+    select_feature_data,
+)
 
 __all__ = [
     # filters
@@ -85,4 +100,17 @@ __all__ = [
     "CHROM",
     "LGI",
     "OMIT",
+    # motion: keypoint sequences & centroids
+    "extract_keypoint_sequence_2d",
+    "extract_keypoint_sequence_3d",
+    "extract_keypoints_sequence",
+    "add_head_centroid",
+    "add_body_centroid",
+    "add_pelvic_centroid",
+    "resample_dataframe_by_interpolation",
+    # motion: features
+    "get_relative_coordinates",
+    "compute_all_motion_features",
+    "get_keypoint_features",
+    "select_feature_data",
 ]
