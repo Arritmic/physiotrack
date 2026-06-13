@@ -121,7 +121,12 @@ class Models:
             class PERSON(Enum):
                 m_person = "yolo11m-seg.pt"
                 l_person = "yolo11l-seg.pt"
-            
+
+        class SegFace:
+            # Face-part parsing (CelebAMask-HQ, 19 classes). Swin-Base @ 512.
+            class Face(Enum):
+                swinb_celeba_512 = "segface_swinb_celeba_512.pt"
+
 
     @staticmethod
     def _get_model_info(model_enum):
@@ -282,6 +287,14 @@ class Models:
         return Models._download_file(download_url, file_name, download_path)
 
     @staticmethod
+    def _download_segface_model(model_info, download_path):
+        """Download a SegFace face-parsing checkpoint from the physiotrack HuggingFace repo."""
+        file_name = model_info['file_name']
+        base_url = f"https://huggingface.co/tharindu326/physiotrack/resolve/main"
+        download_url = f"{base_url}/{file_name}?download=true"
+        return Models._download_file(download_url, file_name, download_path)
+
+    @staticmethod
     def _download_file(url, file_name, download_path):
         """Generic file download with progress bar"""
         os.makedirs(download_path, exist_ok=True)
@@ -352,6 +365,8 @@ class Models:
             return Models._download_ddh_model(model_info, download_path)
         elif model_info['backend'] == 'DepthAnythingV2':
             return Models._download_depth_model(model_info, download_path)
+        elif model_info['backend'] == 'SegFace':
+            return Models._download_segface_model(model_info, download_path)
         else:
             raise ValueError(f"Unknown backend: {model_info['backend']}")
 

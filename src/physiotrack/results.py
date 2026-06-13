@@ -176,13 +176,17 @@ class Result:
     def __init__(self, *, orig_img: np.ndarray, instances: List[Instance],
                  task: str, architecture: Optional[str] = None,
                  seg_map: Optional[np.ndarray] = None,
-                 names: Optional[Dict[int, str]] = None):
+                 names: Optional[Dict[int, str]] = None,
+                 palette: Optional[np.ndarray] = None):
         self.orig_img = orig_img
         self.instances = instances
         self.task = task
         self.architecture = architecture
         self.seg_map = seg_map
         self.names = names
+        # Optional (K, 3) RGB palette for colorizing ``seg_map`` (e.g. face parsing).
+        # When None, the default segmentation palette is used.
+        self.palette = palette
 
     # -- container protocol -------------------------------------------------- #
     def __iter__(self):
@@ -296,11 +300,27 @@ class Result:
         # Class-index map (the common segmentation output): colorize and blend.
         if self.seg_map is not None:
             try:
-                from .modules import draw_segmentation_map
-                color_map = draw_segmentation_map(self.seg_map)
-                if color_map.shape[:2] != img.shape[:2]:
-                    color_map = cv2.resize(color_map, (img.shape[1], img.shape[0]))
-                img = cv2.addWeighted(color_map, 0.5, img, 0.5, 0)
+                if self.palette is not None:
+                    # Palette-based colorizing (e.g. SegFace face parsing). Blend only
+                    # over foreground (class > 0) so the background frame is untouched.
+                    idx = np.clip(self.seg_map, 0, len(self.palette) - 1)
+                    color_map = cv2.cvtColor(self.palette[idx].astype(np.uint8),
+                                             cv2.COLOR_RGB2BGR)
+                    if color_map.shape[:2] != img.shape[:2]:
+                        color_map = cv2.resize(color_map, (img.shape[1], img.shape[0]),
+                                               interpolation=cv2.INTER_NEAREST)
+                    fg = (self.seg_map > 0)
+                    if fg.shape[:2] != img.shape[:2]:
+                        fg = cv2.resize(fg.astype(np.uint8), (img.shape[1], img.shape[0]),
+                                        interpolation=cv2.INTER_NEAREST).astype(bool)
+                    blended = cv2.addWeighted(color_map, 0.5, img, 0.5, 0)
+                    img = np.where(fg[..., None], blended, img)
+                else:
+                    from .modules import draw_segmentation_map
+                    color_map = draw_segmentation_map(self.seg_map)
+                    if color_map.shape[:2] != img.shape[:2]:
+                        color_map = cv2.resize(color_map, (img.shape[1], img.shape[0]))
+                    img = cv2.addWeighted(color_map, 0.5, img, 0.5, 0)
             except Exception:
                 pass
         # Per-instance binary masks (if a backend provides them).

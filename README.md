@@ -23,7 +23,7 @@
 
 **Physiotrack** is an open-source Python toolkit for contactless human understanding. It integrates
 state-of-the-art computer-vision models (YOLO11, RT-DETR, ViTPose, Sapiens, Depth-Anything-V2,
-MotionBERT, 6DRepNet360) into a **single, unified API** that extracts actionable, theory-linked
+MotionBERT, 6DRepNet360, SegFace) into a **single, unified API** that extracts actionable, theory-linked
 signals from RGB / RGB-D / thermal video, for healthcare, education, XR, and operator-support
 systems. Developed at the **Center for Machine Vision and Signal Processing (CMVS), University of Oulu**.
 
@@ -95,6 +95,7 @@ flowchart TB
         SEG["🎭 <b>Segmentation</b><br/>Person · VR-Head<br/>Body parts"]
         DEP["🌊 <b>Depth</b><br/>monocular<br/>depth map"]
         FDET["😊 <b>Face</b><br/>detection"]
+        FSEG["🧩 <b>Face parsing</b><br/>SegFace · 19 parts"]
     end
 
     %% ------------- 3D & spatial reasoning -------------
@@ -136,6 +137,7 @@ flowchart TB
 
     POSE --> P3D --> CAN
     FDET --> FORI
+    FDET -.boxes.-> FSEG
     TRK --> RAD
 
     POSE --> MOT
@@ -146,6 +148,7 @@ flowchart TB
     POSE --> RES
     SEG --> RES
     DEP --> RES
+    FSEG --> RES
     P3D --> RES
     FORI --> RES
     RAD --> RES
@@ -168,7 +171,7 @@ flowchart TB
     classDef reg    fill:#fffde7,stroke:#f9a825,color:#f57f17;
 
     class I1,I2,I3,I4 input;
-    class DET,TRK,POSE,SEG,DEP,FDET perc;
+    class DET,TRK,POSE,SEG,DEP,FDET,FSEG perc;
     class P3D,CAN,FORI,RAD spat;
     class PPG,MOT sig;
     class RES,VID,JSON,RTP out;
@@ -192,6 +195,7 @@ can be used on its own; you don't have to run the whole pipeline.
 | **Pose 3D** | Lift 2D keypoints to 3D over time | MotionBERT, DDHPose |
 | **Canonicalization** | Viewpoint-invariant 3D pose alignment | 3DPCNet, geometric |
 | **Segmentation** | Pixel-level instance masks | YOLO-Seg, Sapiens, VR-Head |
+| **Face parsing** | Face-part segmentation (19 classes) | SegFace (Swin-Base) |
 | **Depth** | Monocular dense depth estimation | Depth-Anything-V2 (s/b/l) |
 | **Face** | Face detection + 3D head orientation | YOLO-Face, 6DRepNet360, CMVS-FO-VR |
 | **Signals** | rPPG (HR/RR) + motion features | POS, CHROM, LGI, OMIT + filters |
@@ -332,6 +336,13 @@ from physiotrack import Segmentation, Depth, VRFace, FaceOrientation, Models
 seg = Segmentation.Person()
 seg_map = seg.predict(image).seg_map           # (H, W) class map
 
+# Face parsing (SegFace, 19 face-part classes). Faces are auto-detected if no
+# boxes are given; pass boxes=[...] to parse specific faces.
+parse = Segmentation.Face()
+result = parse.predict(image)                  # -> Result(task="segment")
+seg_map = result.seg_map                       # (H, W) face-part class map
+annotated = result.plot()                      # overlay with the 19-class palette
+
 depth = Depth.DepthAnythingV2Base()
 d = depth.predict(image)
 raw, colored = d.depth, d.plot(colormap="inferno")
@@ -394,6 +405,7 @@ Models.Detection.YOLO.FACE.m_face           # YOLO face detector
 Models.Detection.RTDETR.PERSON.x_person     # RT-DETR person detector
 Models.Pose.ViTPose.WholeBody.b_wholebody   # ViTPose whole-body
 Models.Pose.Sapiens.WholeBody.B1_TS_COCOHB  # Sapiens whole-body
+Models.Segmentation.SegFace.Face.swinb_celeba_512  # SegFace face parsing (19 parts)
 Models.Depth.DepthAnythingV2.vitb           # Depth-Anything-V2 base
 Models.Pose3D.MotionBERT.mb_ft_h36m         # MotionBERT 3D lifter
 Models.Pose3D.Canonicalizer.Models._3DPCNetS2   # 3DPCNet pose canonicalizer
@@ -457,7 +469,7 @@ src/physiotrack/
 ├── signals/        # rPPG (POS/CHROM/LGI/OMIT), motion, filters, plotting
 ├── core/           # inference loop, radar/floor view, ego view, depth view
 ├── modules/        # Neural backends (ViTPose, Sapiens, YOLO, DepthAnythingV2,
-│                   #   MotionBERT, DDHPose, 3DCPNet, 6DRepNet360)
+│                   #   MotionBERT, DDHPose, 3DCPNet, 6DRepNet360, SegFace)
 ├── results.py      # Unified Result / DepthResult / TrackResult / Instance / Keypoints
 └── models.py       # Models registry + Hugging Face auto-download
 ```

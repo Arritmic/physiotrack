@@ -1,5 +1,5 @@
 from . import Segmentor, SapiensSegmentation, draw_segmentation_map, Models
-from ..results import Result
+from ..results import Result, Instance
 import os
 import numpy as np
 
@@ -29,6 +29,9 @@ class SegmentationBase:
                                        False, verbose, **kwargs)
         elif self.segmentation_framework == 'Sapiens':
             self.segmentor = SapiensSegmentation(model, device)
+        elif self.segmentation_framework == 'SegFace':
+            from ..modules import SegFaceInference
+            self.segmentor = SegFaceInference(model_path, input_resolution=512, device=device)
         else:
             raise ValueError("Invalid model type. Please check the configuration")
 
@@ -119,3 +122,52 @@ class Segmentation:
 
     class BodyPart(SegmentationBase):
         default_model = Models.Segmentation.Sapiens.BodyPart.B1_TS_SEG
+
+    class Face(SegmentationBase):
+        """SegFace face-part parsing (CelebAMask-HQ, 19 classes).
+
+        Unlike the whole-frame segmenters, SegFace runs on face crops. If
+        ``predict`` is called without ``boxes``, faces are auto-detected with a
+        YOLO face detector (mirroring how ``Pose`` auto-detects people). The
+        returned :class:`Result` carries a full-frame ``seg_map`` of face-part
+        class indices; ``result.plot()`` overlays the parsing with the 19-class
+        palette.
+        """
+        default_model = Models.Segmentation.SegFace.Face.swinb_celeba_512
+
+        def __init__(self, model=None, *, device='cpu', face_detector=None,
+                     face_conf=0.25, face_iou=0.45, verbose=False, **kwargs):
+            super().__init__(model=model, device=device, verbose=verbose, **kwargs)
+            self._face_detector = face_detector
+            self._face_conf = face_conf
+            self._face_iou = face_iou
+
+        def _ensure_detector(self):
+            if self._face_detector is None:
+                from ..detect import Detection
+                self._face_detector = Detection.Face(
+                    conf=self._face_conf, iou=self._face_iou, device=self.device)
+            return self._face_detector
+
+        def _predict_one(self, frame, boxes=None) -> Result:
+            from ..modules.SegFace import CELEBA_CLASSES, CELEBA_PALETTE
+            if boxes is None:
+                boxes = self._ensure_detector().predict(frame).boxes
+
+            h, w = frame.shape[:2]
+            seg_map = np.zeros((h, w), dtype=np.int32)
+            instances = []
+            for box in (boxes if boxes is not None else []):
+                x1, y1, x2, y2 = (int(v) for v in box[:4])
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(w, x2), min(h, y2)
+                if x2 <= x1 or y2 <= y1:
+                    continue
+                parsing = self.segmentor.infer(frame[y1:y2, x1:x2])
+                fg = parsing > 0
+                seg_map[y1:y2, x1:x2][fg] = parsing[fg]
+                instances.append(Instance(box=np.array([x1, y1, x2, y2], dtype=float)))
+
+            names = {i: n for i, n in enumerate(CELEBA_CLASSES)}
+            return Result(orig_img=frame, instances=instances, task="segment",
+                          seg_map=seg_map, names=names, palette=CELEBA_PALETTE)
