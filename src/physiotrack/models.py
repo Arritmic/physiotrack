@@ -87,12 +87,6 @@ class Models:
                 _3DPCNetTC48_byAction = 'best_model_3DPCNetTC48_byAction.pth'
                 GEOMETRIC = ''
 
-            class Configs(Enum):
-                _3DPCNetS2 = 'best_model_3DPCNetS2.yaml'
-                _3DPCNetS3 = 'best_model_3DPCNetS3.yaml'
-                _3DPCNetTC48_byCam = 'best_model_3DPCNetTC48_byCam.yaml'
-                _3DPCNetTC48_byAction = 'best_model_3DPCNetTC48_byAction.yaml'
-            
             class View(Enum):
                 FRONT = "front"
                 BACK = "back" 
@@ -265,26 +259,19 @@ class Models:
     
     @staticmethod
     def _download_canonicalizer_model(model_info, download_path):
-        """Download Canonicalizer (3DPCNet) models and configs from HuggingFace"""
+        """Download a Canonicalizer (3DPCNet) checkpoint from HuggingFace.
+
+        All 3DPCNet checkpoints share one architecture and load from a single
+        bundled inference config, so only the ``.pth`` weights are downloaded.
+        """
         file_name = model_info['file_name']
         file_dir = os.path.dirname(file_name)
         full_download_path = os.path.join(download_path, file_dir)
         os.makedirs(full_download_path, exist_ok=True)
         base_url = f"https://huggingface.co/tharindu326/physiotrack/resolve/main"
-        
-        # Download model file
+
         model_download_url = f"{base_url}/{file_name}?download=true"
-        model_path = Models._download_file(model_download_url, file_name, full_download_path)
-        
-        # Also download corresponding config file if it's a 3DPCNet model
-        if file_name.startswith('best_model_3DPCNet'):
-            # Extract model name (e.g., '3DPCNetS2' from 'best_model_3DPCNetS2.pth')
-            model_name = file_name.replace('best_model_', '').replace('.pth', '')
-            config_name = f"best_model_{model_name}.yaml"
-            config_download_url = f"{base_url}/{config_name}?download=true"
-            Models._download_file(config_download_url, config_name, full_download_path)
-        
-        return model_path
+        return Models._download_file(model_download_url, file_name, full_download_path)
 
     @staticmethod
     def _download_depth_model(model_info, download_path):

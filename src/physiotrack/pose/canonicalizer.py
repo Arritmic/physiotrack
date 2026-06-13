@@ -298,12 +298,13 @@ class PoseCanonicalizer:
                 
                 checkpoint_path = checkpoint_file
             
-            if config_path is None and checkpoint_path:
-                checkpoint_dir = os.path.dirname(checkpoint_path)
-                model_basename = os.path.basename(checkpoint_path).replace('.pth', '.yaml')
-                potential_config = os.path.join(checkpoint_dir, model_basename)
-                if os.path.isfile(potential_config):
-                    config_path = potential_config
+        # All 3DPCNet checkpoints share one architecture, so they load from a single
+        # bundled inference config (no per-model YAML download required).
+        if config_path is None:
+            config_path = os.path.join(
+                os.path.dirname(__file__), '..', 'modules', '_3DCPNet',
+                'configs', 'inference_config.yaml'
+            )
         
         # Use the inference module function
         result = canonicalize_poses_3dpcnet(

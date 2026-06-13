@@ -307,8 +307,13 @@ from physiotrack import Pose3D, canonicalize_pose, Models
 p3d = Pose3D(model=Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite, device="cpu")
 frames_data, poses_3d = p3d.predict(pose_json, video_path)   # operates on 2D-pose JSON + video
 
-# Viewpoint-invariant canonical form (3DPCNet or geometric)
-canonical = canonicalize_pose(poses_3d, view="front")
+# Viewpoint-invariant canonical form
+canonical = canonicalize_pose(poses_3d, view="front")          # geometric (training-free) default
+canonical = canonicalize_pose(                                 # learned 3DPCNet (recommended)
+    poses_3d,
+    model=Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byCam,
+    view="front",
+)
 ```
 </details>
 
@@ -396,6 +401,19 @@ Models.Pose3D.FaceOrientation.VR            # CMVS-FO-VR head-orientation
 | YOLO-Pose  | COCO             | 17        | Fast, integrated detection + pose      |
 | ViTPose    | COCO, WholeBody  | up to 133 | Transformer-based, high accuracy       |
 | Sapiens    | WholeBody        | 133       | State-of-the-art whole-body estimation |
+
+### Canonicalization models (3DPCNet)
+
+The pose canonicalizer maps an arbitrary-viewpoint 3D pose to a **viewpoint-invariant canonical form**, so downstream kinematic analysis is robust to camera placement. Two model families are released (all use a Hybrid GCN-Transformer architecture); pick by your deployment scenario, or use `GEOMETRIC` for a training-free closed-form baseline.
+
+| Registry member | Training data | Test split | MPJPE ↓ | PA-MPJPE ↓ | Rot. err ↓ |
+|-----------------|---------------|------------|:------:|:----------:|:----------:|
+| `_3DPCNetS2` | MMFi | TotalCapture (cross-dataset) | 49.4 | 38.5 | 4.47° |
+| `_3DPCNetS3` | MMFi | TotalCapture (cross-dataset) | 48.4 | 37.1 | 4.20° |
+| `_3DPCNetTC48_byCam` | TotalCapture (48 augmented cams) | held-out cams 41–48 | **44.1** | **27.6** | **0.45°** |
+| `_3DPCNetTC48_byAction` | TotalCapture (48 augmented cams) | held-out action (rom3) | 46.2 | **27.6** | 1.24° |
+
+> MPJPE / PA-MPJPE in mm, rotation error in degrees (lower is better), reported on the TotalCapture test set. `S2` / `S3` are two split configurations of the MMFi-trained model; `TC48_byCam` / `TC48_byAction` are trained directly on TotalCapture with 48 augmented camera angles and use camera- vs. action-disjoint test splits. The TC48 models cut rotation error by roughly an order of magnitude and reduce PA-MPJPE by ~10 mm versus the cross-dataset MMFi models.
 
 ### Model formats
 
