@@ -27,7 +27,13 @@ MotionBERT, 6DRepNet360) into a **single, unified API** that extracts actionable
 signals from RGB / RGB-D / thermal video, for healthcare, education, XR, and operator-support
 systems. Developed at the **Center for Machine Vision and Signal Processing (CMVS), University of Oulu**.
 
-![Physiotrack Real-Time Inference](docs/images/vr_human_analysis.jpg)
+<div align="center">
+
+[![Physiotrack real-time inference demo](docs/images/vr_human_analysis.jpg)](https://youtu.be/DFVYfZCk3t4)
+
+▶️ **[Watch the demo on YouTube](https://youtu.be/DFVYfZCk3t4)**
+
+</div>
 
 ## Why Physiotrack?
 
