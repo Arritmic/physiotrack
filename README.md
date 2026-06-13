@@ -385,6 +385,7 @@ Models.Pose.ViTPose.WholeBody.b_wholebody   # ViTPose whole-body
 Models.Pose.Sapiens.WholeBody.B1_TS_COCOHB  # Sapiens whole-body
 Models.Depth.DepthAnythingV2.vitb           # Depth-Anything-V2 base
 Models.Pose3D.MotionBERT.mb_ft_h36m         # MotionBERT 3D lifter
+Models.Pose3D.Canonicalizer.Models._3DPCNetS2   # 3DPCNet pose canonicalizer
 Models.Pose3D.FaceOrientation.VR            # CMVS-FO-VR head-orientation
 ```
 
