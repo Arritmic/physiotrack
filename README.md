@@ -75,56 +75,56 @@ auto-downloads weights from Hugging Face.
 ```mermaid
 flowchart TB
     %% ---------------- Inputs ----------------
-    subgraph IN["📥 Inputs"]
+    subgraph IN["📥 Inputs &nbsp;·&nbsp; monocular RGB (BGR frames)"]
         direction LR
-        I1["RGB camera"]
-        I2["Azure Kinect<br/>RGB-D + IR"]
-        I3["Depth / Thermal"]
-        I4["Video file / image"]
+        I1["Video file<br/>MP4 / AVI / …"]
+        I2["RTSP stream"]
+        I3["Live camera<br/>device index"]
+        I4["Single image<br/>(or depth / thermal<br/>frame as image)"]
     end
 
     %% ---------------- Capture ----------------
-    CAP["🎞️ <b>Video orchestrator</b> &nbsp;·&nbsp; capture.Video<br/><i>frame loop · resize · rotate · batching · sync ego-video</i>"]
+    CAP["🎞️ <b>Video orchestrator</b> &nbsp;·&nbsp; capture.Video<br/><i>frame loop · resize · rotate · FPS subsample · batching</i><br/><i>8-stage per-frame pipeline · sync ego-video</i>"]
 
     %% ------------- Perception (per-frame) -------------
     subgraph PERC["👁️ Perception: per-frame predictors"]
         direction LR
-        DET["🔍 <b>Detection</b><br/>Person · Face<br/>VR · VRStudent"]
-        TRK["🎯 <b>Tracking</b><br/>OC-SORT · ByteTrack<br/>StrongSORT · BoostTrack"]
-        POSE["🦴 <b>Pose 2D</b><br/>COCO-17<br/>WholeBody-133"]
-        SEG["🎭 <b>Segmentation</b><br/>Person · VR-Head<br/>Body parts"]
-        DEP["🌊 <b>Depth</b><br/>monocular<br/>depth map"]
-        FDET["😊 <b>Face</b><br/>detection"]
-        FSEG["🧩 <b>Face parsing</b><br/>SegFace · 19 parts"]
+        DET["🔍 <b>Detection</b> → boxes<br/><i>Person · Face · VR · VRStudent · Custom</i><br/>YOLO11 · RT-DETR<br/><i>conf · iou · classes</i>"]
+        TRK["🎯 <b>Tracking</b> → persistent IDs<br/>OC-SORT (default) · ByteTrack<br/>StrongSORT (OSNet ReID) · BoostTrack<br/><i>single-subject 'student' mode</i>"]
+        POSE["🦴 <b>Pose 2D</b> · top-down<br/>ViTPose (s/b/l/h) · Sapiens (0.3/0.6/1b)<br/>YOLO11-pose<br/><i>COCO-17 · WholeBody-133</i>"]
+        SEG["🎭 <b>Segmentation</b> → class-index map<br/>YOLO11-seg (person · VR-head)<br/>Sapiens-Goliath (28 parts)"]
+        DEP["🌊 <b>Depth</b> · monocular<br/>Depth-Anything-V2 (ViT-S/B/L)<br/>DINOv2 + DPT → <i>relative depth</i>"]
+        FDET["😊 <b>Face detection</b> → boxes<br/>YOLO11-face · YOLO12-face (VR)"]
+        FSEG["🧩 <b>Face parsing</b><br/>SegFace · Swin-Base<br/><i>19 CelebAMask-HQ classes</i>"]
     end
 
     %% ------------- 3D & spatial reasoning -------------
     subgraph SPAT["📐 3D &amp; spatial reasoning"]
         direction LR
-        P3D["<b>Pose 3D</b><br/>MotionBERT · DDHPose"]
-        CAN["<b>Canonicalization</b><br/>3DPCNet · geometric"]
-        FORI["<b>Face orientation</b><br/>yaw · pitch · roll"]
-        RAD["<b>Floor map / radar</b><br/>bird's-eye view"]
+        P3D["<b>Pose 3D</b> · offline lift<br/>MotionBERT (DSTformer, 243f)<br/>DDHPose (diffusion)<br/><i>→ H36M-17</i>"]
+        CAN["<b>Canonicalization</b> · viewpoint-invariant<br/>3DPCNet (S2 · S3 · TC48-byCam · TC48-byAction)<br/>+ GEOMETRIC (training-free)<br/><i>views: front · back · left · right</i>"]
+        FORI["<b>Face orientation</b><br/>6DRepNet360 (default · CMVS-FO-VR)<br/><i>6D rot → yaw · pitch · roll</i>"]
+        RAD["<b>Floor map / radar</b><br/>4-corner homography<br/><i>bird's-eye trajectories</i>"]
     end
 
     %% ------------- Signal extraction -------------
     subgraph SIG["📊 Signal extraction: physiotrack.signals"]
         direction LR
-        PPG["<b>rPPG → HR / RR</b><br/>POS · CHROM · LGI · OMIT"]
-        MOT["<b>Motion features</b><br/>trajectories · filters · norms"]
+        PPG["<b>rPPG → HR / RR</b><br/>POS · CHROM · LGI · OMIT<br/><i>bandpass 0.75–4 Hz</i>"]
+        MOT["<b>Motion features</b><br/>velocity · accel · joint angles · centroids<br/><i>filters · normalizers · metrics</i><br/><i>(Pearson · DTW · PLV · …)</i>"]
     end
 
     %% ------------- Outputs -------------
     subgraph OUT["📤 Results &amp; visualization"]
         direction LR
-        RES["<b>Result family</b><br/>Result · DepthResult · TrackResult<br/>.plot() · .to_dict()"]
+        RES["<b>Result family</b><br/>Result · DepthResult · TrackResult<br/>Instance · Keypoints<br/>.plot() · .to_dict()"]
         VID["Annotated<br/>video"]
         JSON["JSON<br/>time-series"]
         RTP["Real-time<br/>plots"]
     end
 
     %% ------------- Model registry -------------
-    REG[["🗂️ <b>Models registry</b><br/>YOLO11 · RT-DETR · ViTPose · Sapiens<br/>Depth-Anything-V2 · MotionBERT · 6DRepNet360<br/><i>auto-download from Hugging Face</i>"]]
+    REG[["🗂️ <b>Models registry</b> · Models.&lt;Task&gt;.&lt;Backend&gt;.&lt;Variant&gt;<br/>YOLO11/12 · RT-DETR · ViTPose · Sapiens · SegFace<br/>Depth-Anything-V2 · MotionBERT · DDHPose · 3DPCNet · 6DRepNet360<br/><i>49 pretrained variants · auto-download from Hugging Face</i>"]]
 
     %% ---------------- Flow ----------------
     IN --> CAP
@@ -180,8 +180,12 @@ flowchart TB
 ```
 
 **Reading the diagram:** solid arrows are the data flow through a frame; dotted arrows show
-detection boxes feeding pose/segmentation and weights flowing in from the registry. Any subsystem
-can be used on its own; you don't have to run the whole pipeline.
+detection boxes feeding pose/segmentation and weights flowing in from the registry. Each module box
+lists its **backend options / variants** (italics = key options or output format) — these are the
+choices you select through the [`Models` registry](#model-registry). Any subsystem can be used on its
+own; you don't have to run the whole pipeline. Inputs are **monocular RGB** (BGR frames) read via
+OpenCV; depth is *estimated* monocularly rather than sensed, and depth or thermal frames can be
+analyzed by the per-frame predictors when supplied as image streams.
 
 ---
 
