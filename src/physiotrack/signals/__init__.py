@@ -41,7 +41,7 @@ from .evaluate import (
     calculate_pearson_correlation,
     calculate_dtw_distance,
 )
-from .plotting import RealTimePlotter, KeypointMotionPlotter
+from .plotting import RealTimePlotter, KeypointMotionPlotter, JointAnglePlotter
 from .ppg import POS, CHROM, LGI, OMIT
 from .motion.utils import (
     extract_keypoint_sequence_2d,
@@ -55,6 +55,7 @@ from .motion.utils import (
 from .motion.features import (
     get_relative_coordinates,
     compute_all_motion_features,
+    compute_all_joint_angles,
     get_keypoint_features,
     select_feature_data,
 )
@@ -95,6 +96,7 @@ __all__ = [
     # plotting
     "RealTimePlotter",
     "KeypointMotionPlotter",
+    "JointAnglePlotter",
     # rPPG extraction
     "POS",
     "CHROM",
@@ -111,6 +113,7 @@ __all__ = [
     # motion: features
     "get_relative_coordinates",
     "compute_all_motion_features",
+    "compute_all_joint_angles",
     "get_keypoint_features",
     "select_feature_data",
 ]

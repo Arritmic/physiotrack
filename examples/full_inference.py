@@ -15,7 +15,8 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
                        floor_map_background=None, floor_map_rotation=0,
                        plot_keypoint=None, plot_keypoint_name=None, batch_size=1,
                        enable_face_detection=False, enable_face_orientation=False,
-                       enable_depth=False, ego_video_path=None, show_output=False):
+                       enable_depth=False, ego_video_path=None, show_output=False,
+                       plot_angles=False, angle_joints=None, rom=None, rom_render=True):
     """
     Run full inference pipeline on a video
 
@@ -36,6 +37,9 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
         enable_depth: Enable depth estimation (default: False)
         ego_video_path: Path to ego-centric video to overlay (default: None)
         show_output: Display output in real-time during processing (default: False)
+        plot_angles: Overlay a live joint-angle panel on the left side (default: False)
+        angle_joints: Optional subset of joints to show, e.g.
+            ["leftElbow", "rightElbow", "leftKnee", "rightKnee"]; None shows all 8.
     """
 
     # Setup paths
@@ -139,6 +143,9 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
     print(f"  - Face Orientation: {'Enabled' if face_orientation else 'Disabled'}")
     print(f"  - Depth Estimation: {'Enabled' if depth_estimator else 'Disabled'}")
     print(f"  - Ego Video Overlay: {'Enabled' if ego_video_path else 'Disabled'}")
+    print(f"  - Joint-Angle Panel: {'Enabled' if plot_angles else 'Disabled'}")
+    print(f"  - Clinical ROM: {'Enabled' if rom else 'Disabled'}"
+          + (" (skeleton panel off)" if rom and not rom_render else ""))
 
     # Process video using Video processor
     print("\n" + "="*60)
@@ -163,6 +170,10 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
         floor_map_rotation=floor_map_rotation,  # Rotation: 0, 90, 180, or 270 degrees
         plot_keypoint=plot_keypoint,  # Keypoint ID to plot motion (relative to pelvis)
         plot_keypoint_name=plot_keypoint_name,  # Keypoint name for plot label
+        plot_angles=plot_angles,  # Live joint-angle panel on the left side
+        angle_joints=angle_joints,  # Optional subset of joints (None = all 8)
+        rom=rom,  # Clinical ROM (flexion/extension/abduction/adduction)
+        rom_render=rom_render,  # render the white-background ROM skeleton panel (right side)
         output_dir=output_dir,
         verbose=True,
         show_fps=True,
@@ -206,6 +217,21 @@ if __name__ == "__main__":
                 # With depth estimation
                 python full_inference.py video.mp4 --depth
 
+                # With live joint-angle panel (left side; all 8 joints)
+                python full_inference.py video.mp4 --angles
+
+                # Joint-angle panel for a subset of joints
+                python full_inference.py video.mp4 --angles --angle_joints "leftElbow,rightElbow,leftKnee,rightKnee"
+
+                # Clinical ROM red arcs (default: hip flexion + abduction per side)
+                python full_inference.py video.mp4 --rom
+
+                # ROM for specific movements only
+                python full_inference.py video.mp4 --rom "leftHipFlexion,rightHipFlexion"
+
+                # ROM computed but the skeleton panel hidden
+                python full_inference.py video.mp4 --rom --no_rom_render
+
                 # With ego video overlay
                 python full_inference.py video.mp4 --ego_video path/to/ego_video.mp4
 
@@ -248,6 +274,17 @@ if __name__ == "__main__":
                         help='Path to ego-centric video to overlay on output')
     parser.add_argument('--show', action='store_true',
                         help='Display output in real-time during processing (press q to quit)')
+    parser.add_argument('--angles', action='store_true',
+                        help='Overlay a live joint-angle panel (L/R shoulder, elbow, hip, knee) on the left side')
+    parser.add_argument('--angle_joints', type=str, default=None,
+                        help='Comma-separated subset of joints, e.g. "leftElbow,rightElbow,leftKnee,rightKnee" (default: all 8)')
+    parser.add_argument('--rom', nargs='?', const='__default__', default=None,
+                        help='Clinical ROM. Use alone for the default set (hip flexion + abduction '
+                             'per side), or pass a comma-separated movement list, e.g. '
+                             '--rom "leftHipFlexion,rightHipFlexion,leftHipAbduction,rightHipAbduction". '
+                             'Valid: {left,right}Hip{Flexion,Extension,Abduction,Adduction}.')
+    parser.add_argument('--no_rom_render', action='store_true',
+                        help='With --rom: compute ROM but hide the right-side ROM skeleton panel')
 
     args = parser.parse_args()
 
@@ -260,8 +297,24 @@ if __name__ == "__main__":
         else:
             print("Warning: floor_map must have 8 values (4 points with x,y). Ignoring floor_map.")
 
+    # Parse optional joint subset for the angle panel
+    angle_joints = [j.strip() for j in args.angle_joints.split(',')] if args.angle_joints else None
+
+    # Resolve ROM from the single --rom flag:
+    #   absent          -> None  (off)
+    #   present, no val -> True  (default movement set)
+    #   present + list  -> explicit movement list
+    if args.rom is None:
+        rom = None
+    elif args.rom == '__default__':
+        rom = True
+    else:
+        rom = [m.strip() for m in args.rom.split(',')]
+
     run_full_inference(args.video_path, args.output_dir, floor_map,
                       args.floor_map_background, args.floor_map_rotation,
                       args.plot_keypoint, args.plot_keypoint_name, args.batch_size,
                       args.face, getattr(args, 'face_orientation', False),
-                      args.depth, args.ego_video, args.show)
+                      args.depth, args.ego_video, args.show,
+                      plot_angles=args.angles, angle_joints=angle_joints,
+                      rom=rom, rom_render=not args.no_rom_render)

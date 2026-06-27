@@ -24,7 +24,7 @@ class SegmentationBase:
         self.segmentation_framework = self.minfo['backend']
         print(f'Initiating {self.segmentation_framework} {model.name} for Segmentation')
 
-        if self.segmentation_framework == 'Yolo':
+        if self.segmentation_framework == 'YOLO':
             self.segmentor = Segmentor(model, device, conf, iou, classes,
                                        False, verbose, **kwargs)
         elif self.segmentation_framework == 'Sapiens':
@@ -50,7 +50,7 @@ class SegmentationBase:
 
     # -- inference ----------------------------------------------------------- #
     def _segment_map(self, frame) -> np.ndarray:
-        if self.segmentation_framework == 'Yolo':
+        if self.segmentation_framework == 'YOLO':
             _, segmentation_map = self.segmentor.segment(frame)
         else:  # Sapiens
             segmentation_map = self.segmentor.inference(frame)
