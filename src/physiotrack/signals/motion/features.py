@@ -2,6 +2,102 @@ import numpy as np
 import pandas as pd
 
 
+# Single source of truth for the anatomical joint-angle definitions, shared by
+# ``compute_all_joint_angles`` and the ``JointAnglePlotter`` overlay so the two
+# can never drift. Each entry maps a joint name to a COCO-17 keypoint triplet
+# (A, vertex B, C); the angle is measured at the middle joint B.
+JOINT_ANGLE_TRIPLETS = {
+    "leftShoulder": (7, 5, 11),   # left_elbow, left_shoulder, left_hip
+    "rightShoulder": (8, 6, 12),  # right_elbow, right_shoulder, right_hip
+    "leftElbow": (5, 7, 9),       # left_shoulder, left_elbow, left_wrist
+    "rightElbow": (6, 8, 10),     # right_shoulder, right_elbow, right_wrist
+    "leftHip": (5, 11, 13),       # left_shoulder, left_hip, left_knee
+    "rightHip": (6, 12, 14),      # right_shoulder, right_hip, right_knee
+    "leftKnee": (11, 13, 15),     # left_hip, left_knee, left_ankle
+    "rightKnee": (12, 14, 16),    # right_hip, right_knee, right_ankle
+}
+
+
+# Clinical range-of-motion (ROM) / goniometry definitions. Unlike the interior
+# joint angles above, a ROM movement measures a distal limb segment against a body
+# reference axis, named by the anatomical movement and zeroed to a neutral pose.
+# Each entry: vertex (joint), ref (defines the reference axis vertex->ref),
+# moving (distal point, vertex->moving), and ``value = scale * raw + offset`` where
+# ``raw`` is the angle (deg) between the two vectors. COCO-17 ids:
+#   shoulders 5/6, hips 11/12, knees 13/14.
+ROM_DEFINITIONS = {
+    # Sagittal plane (thigh vs trunk); flexion and extension share the geometry.
+    "leftHipFlexion":    dict(vertex=11, ref=5,  moving=13, scale=-1.0, offset=180.0, label="L Hip Flex"),
+    "rightHipFlexion":   dict(vertex=12, ref=6,  moving=14, scale=-1.0, offset=180.0, label="R Hip Flex"),
+    "leftHipExtension":  dict(vertex=11, ref=5,  moving=13, scale=-1.0, offset=180.0, label="L Hip Ext"),
+    "rightHipExtension": dict(vertex=12, ref=6,  moving=14, scale=-1.0, offset=180.0, label="R Hip Ext"),
+    # Frontal plane (thigh vs pelvis line); abduction is zeroed, adduction is raw.
+    "leftHipAbduction":  dict(vertex=11, ref=12, moving=13, scale=1.0,  offset=-90.0, label="L Hip Abd"),
+    "rightHipAbduction": dict(vertex=12, ref=11, moving=14, scale=1.0,  offset=-90.0, label="R Hip Abd"),
+    "leftHipAdduction":  dict(vertex=11, ref=12, moving=13, scale=1.0,  offset=0.0,   label="L Hip Add"),
+    "rightHipAdduction": dict(vertex=12, ref=11, moving=14, scale=1.0,  offset=0.0,   label="R Hip Add"),
+}
+
+# Two distinct planes per hip, useful as a default overlay (avoids drawing the
+# duplicate flexion/extension and abduction/adduction arcs, which share geometry).
+DEFAULT_ROM_MOVEMENTS = [
+    "leftHipFlexion", "rightHipFlexion",
+    "leftHipAbduction", "rightHipAbduction",
+]
+
+# Distinct, clear colors (BGR), one per ROM movement, shared by the angle-panel
+# rows and the skeleton arcs so each case is the same color in both places.
+_ROM_PALETTE = [
+    (235, 150, 30),   # blue
+    (200, 190, 30),   # cyan
+    (50, 170, 60),    # green
+    (40, 200, 150),   # lime
+    (20, 140, 255),   # orange
+    (40, 60, 230),    # red
+    (200, 60, 175),   # purple
+    (230, 60, 230),   # magenta
+]
+
+
+def rom_color(movement_name):
+    """Distinct BGR color for a ROM movement (stable per movement name)."""
+    keys = list(ROM_DEFINITIONS.keys())
+    if movement_name in keys:
+        return _ROM_PALETTE[keys.index(movement_name) % len(_ROM_PALETTE)]
+    return (60, 60, 235)  # fallback
+
+
+def compute_rom_angles(keypoints, movements=None, conf_threshold=0.3):
+    """Compute clinical range-of-motion angles (degrees) from 2D keypoints.
+
+    Args:
+        keypoints: list of ``{"id", "x", "y", "confidence"}`` dicts (COCO-17).
+        movements: ROM names from ``ROM_DEFINITIONS``; ``None`` uses all of them.
+        conf_threshold: minimum confidence for the three keypoints involved.
+
+    Returns:
+        dict mapping movement name -> angle in degrees (only confident ones).
+    """
+    if not keypoints:
+        return {}
+    if movements is None:
+        movements = list(ROM_DEFINITIONS.keys())
+    kp = {k["id"]: k for k in keypoints}
+    out = {}
+    for name in movements:
+        spec = ROM_DEFINITIONS[name]
+        v, r, m = kp.get(spec["vertex"]), kp.get(spec["ref"]), kp.get(spec["moving"])
+        if not (v and r and m):
+            continue
+        if min(v["confidence"], r["confidence"], m["confidence"]) < conf_threshold:
+            continue
+        rad = compute_joint_angle_2d((r["x"], r["y"]), (v["x"], v["y"]), (m["x"], m["y"]))
+        if rad is None or np.isnan(rad):
+            continue
+        out[name] = spec["scale"] * float(np.degrees(rad)) + spec["offset"]
+    return out
+
+
 def compute_velocity(rel_df):
     """
     Computes the velocity for each keypoint coordinate (2D and 3D) in the relative DataFrame.
@@ -165,17 +261,8 @@ def compute_all_joint_angles(rel_df):
     Args:
         rel_df (pd.DataFrame): DataFrame with relative keypoint coordinates.
     """
-    joint_triplets = {
-        "leftShoulder": (7, 5, 11),   # left_elbow, left_shoulder, left_hip
-        "rightShoulder": (8, 6, 12),  # right_elbow, right_shoulder, right_hip
-        "leftElbow": (5, 7, 9),       # left_shoulder, left_elbow, left_wrist
-        "rightElbow": (6, 8, 10),     # right_shoulder, right_elbow, right_wrist
-        "leftHip": (5, 11, 13),       # left_shoulder, left_hip, left_knee
-        "rightHip": (6, 12, 14),      # right_shoulder, right_hip, right_knee
-        "leftKnee": (11, 13, 15),     # left_hip, left_knee, left_ankle
-        "rightKnee": (12, 14, 16)     # right_hip, right_knee, right_ankle
-    }
-    
+    joint_triplets = JOINT_ANGLE_TRIPLETS
+
     df_angles = pd.DataFrame(index=rel_df.index)
     
     has_2d_data = any(col.endswith('_x') and not col.startswith('3d_') for col in rel_df.columns)

@@ -72,10 +72,14 @@ through the same `predict()` API, and the `Video` orchestrator wires them into a
 pipeline. Every neural backend is resolved on demand through the **`Models` registry**, which
 auto-downloads weights from Hugging Face.
 
+The modules group into three tiers that mirror the *"send meaning, not pixels"* pipeline:
+**🧰 enabling tools** (generic CV) → **🧍 human structure** (pose & kinematics) → **📡 human-state
+signals** (the interpretable payload).
+
 ```mermaid
 flowchart TB
     %% ---------------- Inputs ----------------
-    subgraph IN["📥 Inputs &nbsp;·&nbsp; monocular RGB (BGR frames)"]
+    subgraph IN["📥 Inputs · monocular RGB (BGR frames)"]
         direction LR
         I1["Video file<br/>MP4 / AVI / …"]
         I2["RTSP stream"]
@@ -83,35 +87,35 @@ flowchart TB
         I4["Single image<br/>(or depth / thermal<br/>frame as image)"]
     end
 
-    %% ---------------- Capture ----------------
-    CAP["🎞️ <b>Video orchestrator</b> &nbsp;·&nbsp; capture.Video<br/><i>frame loop · resize · rotate · FPS subsample · batching</i><br/><i>8-stage per-frame pipeline · sync ego-video</i>"]
+    CAP["🎞️ <b>Video orchestrator</b> · capture.Video<br/><i>frame loop · resize · rotate · FPS subsample · batching</i><br/><i>8-stage per-frame pipeline · sync ego-video</i>"]
 
-    %% ------------- Perception (per-frame) -------------
-    subgraph PERC["👁️ Perception: per-frame predictors"]
+    %% ====== TIER 1: enabling tools (general-purpose CV) ======
+    subgraph TOOLS["🧰 General-purpose perception · enabling tools"]
         direction LR
-        DET["🔍 <b>Detection</b> → boxes<br/><i>Person · Face · VR · VRStudent · Custom</i><br/>YOLO11 · RT-DETR<br/><i>conf · iou · classes</i>"]
-        TRK["🎯 <b>Tracking</b> → persistent IDs<br/>OC-SORT (default) · ByteTrack<br/>StrongSORT (OSNet ReID) · BoostTrack<br/><i>single-subject 'student' mode</i>"]
-        POSE["🦴 <b>Pose 2D</b> · top-down<br/>ViTPose (s/b/l/h) · Sapiens (0.3/0.6/1b)<br/>YOLO11-pose<br/><i>COCO-17 · WholeBody-133</i>"]
-        SEG["🎭 <b>Segmentation</b> → class-index map<br/>YOLO11-seg (person · VR-head)<br/>Sapiens-Goliath (28 parts)"]
-        DEP["🌊 <b>Depth</b> · monocular<br/>Depth-Anything-V2 (ViT-S/B/L)<br/>DINOv2 + DPT → <i>relative depth</i>"]
+        DET["🔍 <b>Detection</b> → boxes<br/><i>Person · Face · VR · VRStudent · Custom</i><br/>YOLO11 · RT-DETR"]
+        TRK["🎯 <b>Tracking</b> → persistent IDs<br/>OC-SORT · ByteTrack<br/>StrongSORT · BoostTrack"]
+        SEG["🎭 <b>Segmentation</b> → masks / class map<br/>YOLO11-seg · Sapiens-Goliath (28)<br/>VR-head"]
+        DEP["🌊 <b>Depth</b> · monocular<br/>Depth-Anything-V2 (S/B/L)<br/><i>relative depth</i>"]
         FDET["😊 <b>Face detection</b> → boxes<br/>YOLO11-face · YOLO12-face (VR)"]
+    end
+
+    %% ====== TIER 2: human structure & pose ======
+    subgraph HUMAN["🧍 Human structure &amp; pose"]
+        direction LR
+        POSE["🦴 <b>2D Pose</b> · top-down<br/>ViTPose (s/b/l/h) · Sapiens · YOLO11-pose<br/><i>COCO-17 · WholeBody-133</i>"]
+        P3D["🧊 <b>3D Pose</b> · offline lift<br/>MotionBERT · DDHPose<br/><i>→ H36M-17</i>"]
+        CAN["📐 <b>Canonicalization</b> · viewpoint-invariant<br/>3DPCNet (S2/S3/TC48) · GEOMETRIC<br/><i>front · back · left · right</i>"]
         FSEG["🧩 <b>Face parsing</b><br/>SegFace · Swin-Base<br/><i>19 CelebAMask-HQ classes</i>"]
     end
 
-    %% ------------- 3D & spatial reasoning -------------
-    subgraph SPAT["📐 3D &amp; spatial reasoning"]
+    %% ====== TIER 3: human-state signals (the payload) ======
+    subgraph SIGNAL["📡 Human-state signals · physiological · motion · behavioral"]
         direction LR
-        P3D["<b>Pose 3D</b> · offline lift<br/>MotionBERT (DSTformer, 243f)<br/>DDHPose (diffusion)<br/><i>→ H36M-17</i>"]
-        CAN["<b>Canonicalization</b> · viewpoint-invariant<br/>3DPCNet (S2 · S3 · TC48-byCam · TC48-byAction)<br/>+ GEOMETRIC (training-free)<br/><i>views: front · back · left · right</i>"]
-        FORI["<b>Face orientation</b><br/>6DRepNet360 (default · CMVS-FO-VR)<br/><i>6D rot → yaw · pitch · roll</i>"]
-        RAD["<b>Floor map / radar</b><br/>4-corner homography<br/><i>bird's-eye trajectories</i>"]
-    end
-
-    %% ------------- Signal extraction -------------
-    subgraph SIG["📊 Signal extraction: physiotrack.signals"]
-        direction LR
-        PPG["<b>rPPG → HR / RR</b><br/>POS · CHROM · LGI · OMIT<br/><i>bandpass 0.75–4 Hz</i>"]
-        MOT["<b>Motion features</b><br/>velocity · accel · joint angles · centroids<br/><i>filters · normalizers · metrics</i><br/><i>(Pearson · DTW · PLV · …)</i>"]
+        PPG["❤️ <b>rPPG → HR / RR</b> · physiological<br/>POS · CHROM · LGI · OMIT<br/><i>bandpass 0.75–4 Hz</i>"]
+        ANG["📐 <b>Joint angles &amp; ROM</b> · goniometry<br/>8 interior angles + clinical ROM<br/><i>flexion · extension · abd · add</i><br/><i>angle panel + ROM skeleton</i>"]
+        MOT["🏃 <b>Motion features</b><br/>velocity · accel · trajectories<br/><i>centroids · filters · metrics</i>"]
+        FORI["👁️ <b>Head orientation</b> · gaze<br/>6DRepNet360 · CMVS-FO-VR<br/><i>yaw · pitch · roll</i>"]
+        RAD["🗺️ <b>Floor map / radar</b> · location<br/>4-corner homography<br/><i>bird's-eye trajectories</i>"]
     end
 
     %% ------------- Outputs -------------
@@ -127,21 +131,25 @@ flowchart TB
     REG[["🗂️ <b>Models registry</b> · Models.&lt;Task&gt;.&lt;Backend&gt;.&lt;Variant&gt;<br/>YOLO11/12 · RT-DETR · ViTPose · Sapiens · SegFace<br/>Depth-Anything-V2 · MotionBERT · DDHPose · 3DPCNet · 6DRepNet360<br/><i>49 pretrained variants · auto-download from Hugging Face</i>"]]
 
     %% ---------------- Flow ----------------
-    IN --> CAP
+    I1 --> CAP
+    I2 --> CAP
+    I3 --> CAP
+    I4 --> CAP
     CAP --> DET
     CAP --> DEP
+    CAP --> FDET
     DET --> TRK
     DET -.boxes.-> POSE
     DET -.boxes.-> SEG
-    CAP --> FDET
-
     POSE --> P3D --> CAN
     FDET --> FORI
     FDET -.boxes.-> FSEG
     TRK --> RAD
-
+    POSE --> ANG
     POSE --> MOT
+    CAN -.canonical kinematics.-> ANG
     FDET --> PPG
+    SEG -.skin ROI.-> PPG
 
     DET --> RES
     TRK --> RES
@@ -150,42 +158,48 @@ flowchart TB
     DEP --> RES
     FSEG --> RES
     P3D --> RES
+    CAN --> RES
+    PPG --> RES
+    ANG --> RES
+    MOT --> RES
     FORI --> RES
     RAD --> RES
-    PPG --> RES
-    MOT --> RES
-
     RES --> VID
     RES --> JSON
     RES --> RTP
 
-    REG -.weights.-> PERC
-    REG -.weights.-> SPAT
+    REG -.weights.-> TOOLS
+    REG -.weights.-> HUMAN
+    REG -.weights.-> FORI
 
     classDef input  fill:#e3f2fd,stroke:#1565c0,color:#0d47a1;
-    classDef perc   fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
-    classDef spat   fill:#fff3e0,stroke:#e65100,color:#bf360c;
-    classDef sig    fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c;
+    classDef tools  fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
+    classDef human  fill:#fff3e0,stroke:#e65100,color:#bf360c;
+    classDef signal fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c;
     classDef out    fill:#fce4ec,stroke:#ad1457,color:#880e4f;
     classDef orch   fill:#eceff1,stroke:#37474f,color:#263238;
     classDef reg    fill:#fffde7,stroke:#f9a825,color:#f57f17;
 
     class I1,I2,I3,I4 input;
-    class DET,TRK,POSE,SEG,DEP,FDET,FSEG perc;
-    class P3D,CAN,FORI,RAD spat;
-    class PPG,MOT sig;
+    class DET,TRK,SEG,DEP,FDET tools;
+    class POSE,P3D,CAN,FSEG human;
+    class PPG,ANG,MOT,FORI,RAD signal;
     class RES,VID,JSON,RTP out;
     class CAP orch;
     class REG reg;
 ```
 
-**Reading the diagram:** solid arrows are the data flow through a frame; dotted arrows show
-detection boxes feeding pose/segmentation and weights flowing in from the registry. Each module box
-lists its **backend options / variants** (italics = key options or output format) — these are the
-choices you select through the [`Models` registry](#model-registry). Any subsystem can be used on its
-own; you don't have to run the whole pipeline. Inputs are **monocular RGB** (BGR frames) read via
-OpenCV; depth is *estimated* monocularly rather than sensed, and depth or thermal frames can be
-analyzed by the per-frame predictors when supplied as image streams.
+**Reading the diagram:** read it as *pixels → tools → human structure → signals*.
+**🧰 Enabling tools** (detection, tracking, segmentation, depth, face detection) localize and parse the
+image; **🧍 human structure** (2D/3D pose, canonicalization, face parsing) turns those into
+body-specific estimates; **📡 human-state signals** (rPPG HR/RR, **joint angles & clinical ROM**,
+motion, head orientation/gaze, location) are the interpretable payload. Each box lists its backend
+options/variants (italics = key options or output format), selected through the
+[`Models` registry](#model-registry). Solid arrows are per-frame data flow; dotted arrows show
+detection boxes feeding pose/segmentation, skin regions feeding rPPG, canonical pose feeding the
+angles, and weights from the registry. Every module also works standalone. Inputs are **monocular
+RGB** (BGR frames) via OpenCV; depth is *estimated* monocularly rather than sensed, and depth/thermal
+frames can be analyzed by the per-frame predictors when supplied as image streams.
 
 ---
 
@@ -203,10 +217,12 @@ analyzed by the per-frame predictors when supplied as image streams.
 | **Depth** | Monocular dense depth estimation | Depth-Anything-V2 (s/b/l) |
 | **Face** | Face detection + 3D head orientation | YOLO-Face, 6DRepNet360, CMVS-FO-VR |
 | **Signals** | rPPG (HR/RR) + motion features | POS, CHROM, LGI, OMIT + filters |
-| **Views** | Bird's-eye floor map, ego-video & depth overlays | n/a |
+| **Joint angles & ROM** | 8 anatomical joint angles + clinical range-of-motion (flexion/extension/abduction/adduction) as rows in the left-side angle panel, plus a clean full-room **skeleton canvas** | goniometry from pose |
+| **Views** | Bird's-eye floor map, ego-video, depth & angle/ROM overlays | n/a |
 
-**Inputs:** monocular RGB, RGB-D + infrared (Azure Kinect), depth, and thermal video; live cameras,
-files, or single images. **Hardware:** CPU or CUDA GPU (acceleration recommended for real-time use).
+**Inputs:** monocular RGB video — files, RTSP streams, live cameras, or single images (colorized depth
+or thermal frames can also be analyzed as images). **Hardware:** CPU or CUDA GPU (acceleration
+recommended for real-time use).
 
 ---
 
@@ -268,7 +284,8 @@ physiotrack ─┬─ Detection.Person() / .Face() / .VR() / .VRStudent() / .Cus
              └─ Result · DepthResult · TrackResult      # returned by every predictor
                           ↳ .boxes · .keypoints · .seg_map · .names · .plot() · .to_dict()
 
-physiotrack.signals ── rPPG (POS/CHROM/LGI/OMIT) · motion features · filters · plotters
+physiotrack.signals ── rPPG (POS/CHROM/LGI/OMIT) · motion features · joint angles + clinical ROM
+                       · filters · metrics · plotters (KeypointMotionPlotter, JointAnglePlotter)
 physiotrack.pose    ── keypoint name maps (COCO_WHOLEBODY_NAMES, HUMAN26M_NAMES)
 physiotrack.face    ── drawing helpers (draw_axis, plot_pose_cube)
 ```
@@ -397,6 +414,43 @@ Also includes normalization utilities and signal-evaluation metrics
 </details>
 
 <details>
+<summary><b>Joint angles &amp; clinical ROM (goniometry)</b></summary>
+
+Two kinds of angle, both derived from pose keypoints:
+
+- **Interior joint angles** — 8 anatomical angles (left/right **shoulder, elbow, hip, knee**), the
+  angle *at* each joint. Good for any activity (e.g., gait-cycle joint-angle trajectories).
+- **Clinical range-of-motion (ROM)** — named physiotherapy movements (**hip flexion / extension /
+  abduction / adduction**), measured against a body reference axis. In the pipeline these are drawn
+  on a clean **white-background skeleton panel** that mirrors the full room (the person's position is
+  preserved), with the angle values shown in a legend — so the person in the main frame stays
+  uncluttered. The panel sits on the left under the angle panel. Best for a controlled assessment
+  (patient lying or standing).
+
+```python
+import json, numpy as np
+import physiotrack as pt
+from physiotrack.signals import JointAnglePlotter, compute_all_joint_angles
+from physiotrack.signals.motion.utils import extract_keypoints_sequence
+
+# --- Offline: per-frame joint-angle time-series from a pose JSON ---
+data   = json.load(open("poses.json"))
+seq    = extract_keypoints_sequence(data, candidate_key_points=list(range(17)))
+angles = np.degrees(compute_all_joint_angles(seq))   # ang_2d_leftElbow ... ang_2d_rightKnee
+
+# --- Live overlay: joint-angle grid + ROM grid (2-column L|R panels) ---
+plotter = JointAnglePlotter(rom=True)
+plotter.update(result.to_dict()["detections"], frame_time=t)
+frame = plotter.attach_panels(frame, position="top_left")
+```
+
+In the `Video` pipeline (see below): `plot_angles=True` shows the interior joint-angle grid;
+`rom=True` (or a list like `["leftHipFlexion", "rightHipFlexion"]`) adds the clinical ROM grid and a
+full-room **skeleton canvas** with color-matched arcs; `rom_render=False` keeps the ROM values in the
+grid but hides the skeleton canvas. The angle/ROM grids and skeleton stack together on the left.
+</details>
+
+<details>
 <summary><b>Tracking &amp; full video pipeline</b></summary>
 
 ```python
@@ -414,8 +468,24 @@ video = Video(
 data = video.run(output_video="out.mp4", output_json="out.json")
 ```
 
-The `Video` orchestrator also accepts `segmenter=`, `depth=`, `face=`, `face_orientation=`,
-`floor_map=` (radar view), and `ego_video=` to compose any subset of the pipeline.
+The `Video` orchestrator composes any subset of the pipeline. Besides `detector=`, `pose=` and
+`tracker=` it accepts `segmenter=`, `depth=`, `face=`, `face_orientation=`, `floor_map=` (radar view),
+`ego_video=`, `plot_keypoint=` (keypoint-motion plot), and the kinematics overlays
+`plot_angles=True` (interior joint-angle panel, left), `rom=` (clinical ROM on a right-side skeleton
+panel — `True` for the default hip set or a list of movements), and `rom_render=False` (compute ROM
+without showing the skeleton panel). Overlay placement: the interior-angle panel sits on the **left**;
+the motion plot, radar, depth, ego and **ROM skeleton** views stack on the **right**.
+
+```python
+# Full pipeline with the interior-angle panel and the clinical ROM skeleton panel
+Video(
+    source="input.mp4",
+    detector=Detection.Person(),
+    pose=Pose.Person(),
+    plot_angles=True,                 # interior joint-angle panel (left)
+    rom=True,                         # hip flexion + abduction → ROM skeleton panel (right)
+).run(output_video="out.mp4", output_json="out.json")
+```
 </details>
 
 ---
@@ -492,7 +562,7 @@ src/physiotrack/
 ├── depth/          # Depth estimation
 ├── face/           # Face detection + orientation
 ├── trackers/       # OC-SORT, ByteTrack, StrongSORT, BoostTrack
-├── signals/        # rPPG (POS/CHROM/LGI/OMIT), motion, filters, plotting
+├── signals/        # rPPG (POS/CHROM/LGI/OMIT), motion (joint angles, ROM), filters, plotting
 ├── core/           # inference loop, radar/floor view, ego view, depth view
 ├── modules/        # Neural backends (ViTPose, Sapiens, YOLO, DepthAnythingV2,
 │                   #   MotionBERT, DDHPose, 3DCPNet, 6DRepNet360, SegFace)

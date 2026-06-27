@@ -10,6 +10,7 @@
 
 import logging
 
+import torch.nn.functional as F
 from torch import Tensor
 from torch import nn
 
@@ -64,18 +65,34 @@ class Attention(nn.Module):
 
 class MemEffAttention(Attention):
     def forward(self, x: Tensor, attn_bias=None) -> Tensor:
-        if not XFORMERS_AVAILABLE:
-            assert attn_bias is None, "xFormers is required for nested tensors usage"
-            return super().forward(x)
+        if XFORMERS_AVAILABLE:
+            B, N, C = x.shape
+            qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads)
+            q, k, v = unbind(qkv, 2)
+            try:
+                x = memory_efficient_attention(q, k, v, attn_bias=attn_bias)
+                x = x.reshape([B, N, C])
+                x = self.proj(x)
+                x = self.proj_drop(x)
+                return x
+            except (NotImplementedError, RuntimeError):
+                # xFormers is installed but has no kernel for this GPU/dtype
+                # (e.g. a very new compute capability such as sm_120, or float32
+                # input). Fall back to PyTorch SDPA below.
+                if attn_bias is not None:
+                    raise
 
+        # Efficient, broadly-compatible fallback via PyTorch's fused attention
+        # (scaled_dot_product_attention), which supports new GPUs and float32.
+        assert attn_bias is None, "xFormers is required for nested tensors usage"
+        return self._sdpa_forward(x)
+
+    def _sdpa_forward(self, x: Tensor) -> Tensor:
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads)
-
-        q, k, v = unbind(qkv, 2)
-
-        x = memory_efficient_attention(q, k, v, attn_bias=attn_bias)
-        x = x.reshape([B, N, C])
-
+        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]          # each (B, heads, N, head_dim)
+        x = F.scaled_dot_product_attention(q, k, v)  # applies 1/sqrt(d) scaling
+        x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
         return x

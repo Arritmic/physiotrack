@@ -9,7 +9,10 @@ from physiotrack.modules.Yolo.classes_and_palettes import COLORS
 from physiotrack.core.radar_view import RadarView
 from physiotrack.core.depth_view import DepthView
 from physiotrack.core.ego_view import EgoVideoView
+from physiotrack.core.rom_skeleton_view import ROMSkeletonView
 from physiotrack.signals.plotting.keypoint_plotter import KeypointMotionPlotter
+from physiotrack.signals.plotting.angle_plotter import JointAnglePlotter
+from physiotrack.signals.motion.features import DEFAULT_ROM_MOVEMENTS, ROM_DEFINITIONS
 from physiotrack.utils import get_screen_size, resize_frame_for_display
 
 
@@ -39,6 +42,10 @@ class Video:
                  depth_colormap: str = 'inferno',
                  plot_keypoint: Optional[int] = None,
                  plot_keypoint_name: Optional[str] = None,
+                 plot_angles: bool = False,
+                 angle_joints: Optional[List[str]] = None,
+                 rom=None,
+                 rom_render: bool = True,
                  verbose: bool = False,
                  show_fps: bool = False,
                  show: bool = False,
@@ -84,8 +91,8 @@ class Video:
             if self.radar_view is not None:
                 depth_max_width = self.radar_view.canvas_size[0]
             self.depth_view = DepthView(
-                max_width=depth_max_width,
-                max_height=600,  # Allow taller to preserve aspect ratio
+                max_width=int(depth_max_width * 1.2),  # ~20% larger (matches ROM skeleton)
+                max_height=720,  # Allow taller to preserve aspect ratio
                 colormap=depth_colormap,
                 show_title=True
             )
@@ -148,7 +155,38 @@ class Video:
         
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
+
+        rom_enabled = bool(rom) and rom is not False
+        self.rom_movements = []
+        if rom_enabled:
+            self.rom_movements = (list(DEFAULT_ROM_MOVEMENTS) if rom is True
+                                  else [m for m in rom if m in ROM_DEFINITIONS])
+
+        # Joint-angle panel (top-left): interior joint angles (plot_angles) and/or
+        # the clinical ROM angle *values* as color-coded rows (rom). The same colors
+        # mark the arcs on the skeleton canvas below.
+        self.angle_plotter = None
+        if plot_angles or rom_enabled:
+            if self.pose_estimator is None:
+                if self.verbose:
+                    print("plot_angles/rom ignored: no pose estimator provided.")
+            else:
+                self.angle_plotter = JointAnglePlotter(
+                    joints=angle_joints if plot_angles else [],
+                    rom=self.rom_movements if rom_enabled else None,
+                    fps=float(self.video_fps),
+                )
+
+        # Skeleton canvas (left, under the angle panel): the person's skeleton on a
+        # white full-room canvas with color-coded ROM arcs. Shown when rom is on and
+        # rom_render is True.
+        self.rom_skeleton_view = None
+        if rom_enabled and rom_render and self.rom_movements and self.pose_estimator is not None:
+            rom_base_width = self.radar_view.canvas_size[0] if self.radar_view is not None else 320
+            self.rom_skeleton_view = ROMSkeletonView(
+                max_width=int(rom_base_width * 1.2), max_height=720, show_title=True  # ~20% larger
+            )
+
         if self.verbose:
             print(f"Video properties: {self.width}x{self.height}, {self.video_fps} FPS")
             print(f"Source: {self.source_identifier}")
@@ -650,7 +688,10 @@ class Video:
                     if self.motion_plotter and self.pose_estimator is not None:
                         self.motion_plotter.update(pose_results, metadata['timestamp'])
                         result_frame = self.motion_plotter.attach_to_frame(result_frame, position='top_right')
-                    
+
+                    # (Left-side kinematics stack -- joint-angle grid, ROM grid,
+                    #  skeleton -- is composited together after the right-side views.)
+
                     # Update and attach radar view (bottom right)
                     radar_view_height = 0
                     if self.radar_view and self.tracker is not None and self.pose_estimator is not None:
@@ -679,6 +720,39 @@ class Video:
                             margin=10,
                             above_element_height=radar_view_height + depth_view_height
                         )
+
+                    # Left-side kinematics stack (top -> bottom): joint-angle grid,
+                    # ROM grid (both transparent 2-column L|R panels), then the white
+                    # full-room skeleton canvas with color-coded ROM arcs. All share
+                    # the skeleton's width so they line up.
+                    if self.pose_estimator is not None and (self.angle_plotter is not None
+                                                            or self.rom_skeleton_view is not None):
+                        first_kps = pose_results[0].get('keypoints') if pose_results else None
+                        if self.angle_plotter is not None:
+                            self.angle_plotter.update(pose_results, metadata['timestamp'])
+                        if self.rom_skeleton_view is not None:
+                            self.rom_skeleton_view.update(first_kps, self.rom_movements, result_frame.shape)
+                            grid_w = self.rom_skeleton_view.canvas_size[0]
+                        else:
+                            grid_w = self.angle_plotter.canvas_width if self.angle_plotter else 320
+
+                        left_y = 0
+                        if self.angle_plotter is not None and self.angle_plotter.joints:
+                            jg = self.angle_plotter.render_grid('joint', grid_w)
+                            if jg is not None:
+                                result_frame = self.angle_plotter.attach_canvas(
+                                    result_frame, jg, 'top_left', 10, left_y)
+                                left_y += jg.shape[0] + 10
+                        if self.angle_plotter is not None and self.angle_plotter.rom_movements:
+                            rg = self.angle_plotter.render_grid('rom', grid_w)
+                            if rg is not None:
+                                result_frame = self.angle_plotter.attach_canvas(
+                                    result_frame, rg, 'top_left', 10, left_y)
+                                left_y += rg.shape[0] + 10
+                        if self.rom_skeleton_view is not None:
+                            result_frame = self.rom_skeleton_view.attach_to_frame(
+                                result_frame, position='top_left', margin=10,
+                                above_element_height=left_y)
 
                     # Store frame data
                     frame_data = {
