@@ -12,6 +12,7 @@ from physiotrack.core.ego_view import EgoVideoView
 from physiotrack.core.rom_skeleton_view import ROMSkeletonView
 from physiotrack.signals.plotting.keypoint_plotter import KeypointMotionPlotter
 from physiotrack.signals.plotting.angle_plotter import JointAnglePlotter
+from physiotrack.capture.orientation import resolve_rotation, apply_rotation
 from physiotrack.signals.motion.features import DEFAULT_ROM_MOVEMENTS, ROM_DEFINITIONS
 from physiotrack.utils import get_screen_size, resize_frame_for_display
 
@@ -36,6 +37,7 @@ class Video:
                  fps: Optional[int] = None,
                  resize: Optional[Tuple[int, int]] = None,
                  rotate: bool = False,
+                 orient=0,
                  floor_map: Optional[List[Tuple[int, int]]] = None,
                  floor_map_background: Optional[Union[str, np.ndarray]] = None,
                  floor_map_rotation: int = 90,
@@ -156,6 +158,17 @@ class Video:
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+        # Orientation fix: opt-in, default 0 (none). Phones store display rotation as
+        # container metadata rather than baking it into the pixels, so frames can decode
+        # sideways/upside down; pass orient=90/180/270 to rotate when a clip needs it.
+        # There is no auto/metadata mode (it is unreliable across builds). Applied to
+        # every frame in preprocess_frame; 90/270 swaps the effective dimensions.
+        self._rotation = resolve_rotation(orient)
+        if self._rotation:
+            print(f"[orientation] rotating frames {self._rotation} deg (orient).")
+            if self._rotation in (90, 270):
+                self.width, self.height = self.height, self.width
+
         rom_enabled = bool(rom) and rom is not False
         self.rom_movements = []
         if rom_enabled:
@@ -233,8 +246,10 @@ class Video:
 
     def preprocess_frame(self, frame):
         """
-        Preprocess frame with resize and rotation if specified.
+        Preprocess frame: apply the explicit orientation fix, then resize/rotation.
         """
+        if self._rotation:
+            frame = apply_rotation(frame, self._rotation)
         if self.frame_resize:
             frame = cv2.resize(frame, self.frame_resize)
         if self.frame_rotate:

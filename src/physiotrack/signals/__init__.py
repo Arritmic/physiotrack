@@ -41,8 +41,17 @@ from .evaluate import (
     calculate_pearson_correlation,
     calculate_dtw_distance,
 )
-from .plotting import RealTimePlotter, KeypointMotionPlotter, JointAnglePlotter
+from .plotting import (
+    RealTimePlotter,
+    KeypointMotionPlotter,
+    JointAnglePlotter,
+    HeartRatePlotter,
+    RPPGPlotter,
+)
 from .ppg import POS, CHROM, LGI, OMIT
+from .ppg.metrics import bvp_to_hr, bvp_snr, hr_errors
+from .ppg.estimator import HeartRateEstimator
+from .ppg.skin import FaceSkinExtractor, FaceParsing
 from .motion.utils import (
     extract_keypoint_sequence_2d,
     extract_keypoint_sequence_3d,
@@ -56,6 +65,8 @@ from .motion.features import (
     get_relative_coordinates,
     compute_all_motion_features,
     compute_all_joint_angles,
+    joint_angles,
+    compute_rom_angles,
     get_keypoint_features,
     select_feature_data,
 )
@@ -97,11 +108,20 @@ __all__ = [
     "RealTimePlotter",
     "KeypointMotionPlotter",
     "JointAnglePlotter",
+    "HeartRatePlotter",
+    "RPPGPlotter",
     # rPPG extraction
     "POS",
     "CHROM",
     "LGI",
     "OMIT",
+    # rPPG HR metrics + estimator + skin extraction
+    "bvp_to_hr",
+    "bvp_snr",
+    "hr_errors",
+    "HeartRateEstimator",
+    "FaceSkinExtractor",
+    "FaceParsing",
     # motion: keypoint sequences & centroids
     "extract_keypoint_sequence_2d",
     "extract_keypoint_sequence_3d",
@@ -114,6 +134,8 @@ __all__ = [
     "get_relative_coordinates",
     "compute_all_motion_features",
     "compute_all_joint_angles",
+    "joint_angles",
+    "compute_rom_angles",
     "get_keypoint_features",
     "select_feature_data",
 ]

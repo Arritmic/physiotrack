@@ -98,6 +98,38 @@ def compute_rom_angles(keypoints, movements=None, conf_threshold=0.3):
     return out
 
 
+def joint_angles(keypoints, joints=None, conf_threshold=0.3):
+    """Interior anatomical joint angles (degrees) from one frame's keypoints.
+
+    Use this directly on pose-estimated keypoints -- no plotter required.
+
+    Args:
+        keypoints: list of ``{"id", "x", "y", "confidence"}`` dicts (COCO-17).
+        joints: subset of ``JOINT_ANGLE_TRIPLETS`` keys; ``None`` does all eight.
+        conf_threshold: minimum confidence for the three keypoints of an angle.
+
+    Returns:
+        dict ``{joint_name: degrees}`` for the confidently measured joints.
+    """
+    if not keypoints:
+        return {}
+    if joints is None:
+        joints = list(JOINT_ANGLE_TRIPLETS.keys())
+    kp = {k["id"]: k for k in keypoints}
+    out = {}
+    for joint in joints:
+        a_id, b_id, c_id = JOINT_ANGLE_TRIPLETS[joint]
+        a, b, c = kp.get(a_id), kp.get(b_id), kp.get(c_id)
+        if not (a and b and c):
+            continue
+        if min(a["confidence"], b["confidence"], c["confidence"]) < conf_threshold:
+            continue
+        rad = compute_joint_angle_2d((a["x"], a["y"]), (b["x"], b["y"]), (c["x"], c["y"]))
+        if rad is not None and not np.isnan(rad):
+            out[joint] = float(np.degrees(rad))
+    return out
+
+
 def compute_velocity(rel_df):
     """
     Computes the velocity for each keypoint coordinate (2D and 3D) in the relative DataFrame.
