@@ -28,7 +28,7 @@ from physiotrack.signals.motion.features import (
     JOINT_ANGLE_TRIPLETS,
     ROM_DEFINITIONS,
     DEFAULT_ROM_MOVEMENTS,
-    compute_joint_angle_2d,
+    joint_angles,
     compute_rom_angles,
     rom_color,
 )
@@ -106,21 +106,10 @@ class JointAnglePlotter:
         return None
 
     def _measure(self, keypoints: Optional[List[dict]]) -> Dict[str, float]:
-        out: Dict[str, float] = {}
-        if not keypoints:
-            return out
-        kp = {k["id"]: k for k in keypoints}
-        for joint in self.joints:
-            a_id, b_id, c_id = JOINT_ANGLE_TRIPLETS[joint]
-            a, b, c = kp.get(a_id), kp.get(b_id), kp.get(c_id)
-            if not (a and b and c):
-                continue
-            if min(a["confidence"], b["confidence"], c["confidence"]) < self.conf_threshold:
-                continue
-            rad = compute_joint_angle_2d((a["x"], a["y"]), (b["x"], b["y"]), (c["x"], c["y"]))
-            if rad is not None and not np.isnan(rad):
-                out[joint] = float(np.degrees(rad))
-        return out
+        # The measurement itself lives in signals.motion.features.joint_angles so
+        # it can be used directly on keypoints without this plotter; here we just
+        # consume it.
+        return joint_angles(keypoints, self.joints, self.conf_threshold)
 
     def _latest(self, buf: deque) -> Optional[float]:
         vals = [v for v in buf if not np.isnan(v)]

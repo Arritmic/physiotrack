@@ -148,8 +148,8 @@ flowchart TB
     POSE --> ANG
     POSE --> MOT
     CAN -.canonical kinematics.-> ANG
-    FDET --> PPG
-    SEG -.skin ROI.-> PPG
+    FSEG -.skin ROI.-> PPG
+    FDET -.face box · fallback.-> PPG
 
     DET --> RES
     TRK --> RES
@@ -284,8 +284,12 @@ physiotrack ─┬─ Detection.Person() / .Face() / .VR() / .VRStudent() / .Cus
              └─ Result · DepthResult · TrackResult      # returned by every predictor
                           ↳ .boxes · .keypoints · .seg_map · .names · .plot() · .to_dict()
 
-physiotrack.signals ── rPPG (POS/CHROM/LGI/OMIT) · motion features · joint angles + clinical ROM
-                       · filters · metrics · plotters (KeypointMotionPlotter, JointAnglePlotter)
+physiotrack.signals ─┬─ compute (plotter-free, use directly):
+                     │    joint_angles() · compute_rom_angles() · motion features
+                     │    rPPG: POS/CHROM/LGI/OMIT · HeartRateEstimator · bvp_to_hr · bvp_snr
+                     │    filters · agreement metrics (Pearson, RMSE, DTW, …)
+                     └─ overlays (optional, wrap the compute above):
+                          JointAnglePlotter · RPPGPlotter · HeartRatePlotter · KeypointMotionPlotter · RealTimePlotter
 physiotrack.pose    ── keypoint name maps (COCO_WHOLEBODY_NAMES, HUMAN26M_NAMES)
 physiotrack.face    ── drawing helpers (draw_axis, plot_pose_cube)
 ```
@@ -399,18 +403,36 @@ for inst in orient.predict(image, boxes):
 </details>
 
 <details>
-<summary><b>Signals: rPPG &amp; motion</b></summary>
+<summary><b>Signals: rPPG / heart rate &amp; motion</b></summary>
+
+The computation is **plotter-free** — use it directly; the overlay is an optional wrapper.
 
 ```python
-from physiotrack.signals import POS, CHROM, LGI, OMIT, bandpass_filter
-from physiotrack.signals import RealTimePlotter, KeypointMotionPlotter
+from physiotrack.signals import POS, bvp_to_hr, bandpass_filter
+from physiotrack.signals import FaceSkinExtractor, HeartRateEstimator
 
-pulse = POS(fps=30).apply(rgb_signal)          # rPPG → blood-volume-pulse candidate
-clean = bandpass_filter(pulse, low=0.7, high=4.0, fs=30)
+# Low level: one rPPG method on an RGB skin trace, shape (3, N) with rows R, G, B
+bvp   = POS(fps=30).apply(rgb_trace)            # blood-volume-pulse candidate
+clean = bandpass_filter(bvp, 0.75, 4.0, 30)
+hr, _ = bvp_to_hr(clean, fps=30)                # HR (bpm) via the Welch-PSD peak
+
+# High level: SegFace face parsing -> rPPG on the skin (no plotter)
+fs  = FaceSkinExtractor()                        # SegFace (detects faces itself)
+est = HeartRateEstimator("POS", fps=30)          # POS / CHROM / LGI / OMIT; bands configurable
+mask, skin_canvas = fs.extract(frame)            # skin ROI mask + image-res skin canvas
+est.update(frame, roi_mask=mask)                 # rPPG on the segmented skin; call per frame
+print(est.hr, est.snr)                           # HR (bpm), de Haan SNR (dB)
+
+# One SegFace pass for both the skin ROI and the full 19-class parsing (for display):
+# fp = fs.analyze(frame)   # -> FaceParsing(skin_mask, skin_canvas, parsing_canvas, seg_map)
 ```
+(`update` also accepts a face `box` as a lightweight fallback when you don't run segmentation.)
 
-Also includes normalization utilities and signal-evaluation metrics
-(`compute_rmse`, `calculate_pearson_correlation`, `calculate_dtw_distance`, …).
+For on-frame overlays, wrap a (shared) estimator with `RPPGPlotter` (the BVP pulse signal) and
+`HeartRatePlotter` (the derived bpm) — both read one `HeartRateEstimator`, so the rPPG is computed
+once. See [`examples/rppg_heartrate.py`](examples/rppg_heartrate.py). Also includes motion features,
+filters/normalizers, and signal-agreement metrics (`compute_rmse`,
+`calculate_pearson_correlation`, `calculate_dtw_distance`, …).
 </details>
 
 <details>
@@ -421,24 +443,24 @@ Two kinds of angle, both derived from pose keypoints:
 - **Interior joint angles** — 8 anatomical angles (left/right **shoulder, elbow, hip, knee**), the
   angle *at* each joint. Good for any activity (e.g., gait-cycle joint-angle trajectories).
 - **Clinical range-of-motion (ROM)** — named physiotherapy movements (**hip flexion / extension /
-  abduction / adduction**), measured against a body reference axis. In the pipeline these are drawn
-  on a clean **white-background skeleton panel** that mirrors the full room (the person's position is
-  preserved), with the angle values shown in a legend — so the person in the main frame stays
-  uncluttered. The panel sits on the left under the angle panel. Best for a controlled assessment
-  (patient lying or standing).
+  abduction / adduction**), measured against a body reference axis. In the pipeline the values appear
+  in the ROM grid, and the movements are drawn as **colour-coded goniometric arcs** on a clean
+  **white-background skeleton panel** that mirrors the full room (so the person's position is
+  preserved and the main frame stays uncluttered). Both sit on the left, under the joint-angle grid.
+  Best for a controlled assessment (patient lying or standing).
+
+The measurement is **plotter-free** — run it straight on pose keypoints:
 
 ```python
-import json, numpy as np
 import physiotrack as pt
-from physiotrack.signals import JointAnglePlotter, compute_all_joint_angles
-from physiotrack.signals.motion.utils import extract_keypoints_sequence
+from physiotrack.signals import joint_angles, compute_rom_angles, JointAnglePlotter
 
-# --- Offline: per-frame joint-angle time-series from a pose JSON ---
-data   = json.load(open("poses.json"))
-seq    = extract_keypoints_sequence(data, candidate_key_points=list(range(17)))
-angles = np.degrees(compute_all_joint_angles(seq))   # ang_2d_leftElbow ... ang_2d_rightKnee
+det = pt.Pose.Person().predict(frame).to_dict()["detections"]
+kps = det[0]["keypoints"]   # list of {"id", "x", "y", "confidence"} for one person
+joint_angles(kps)        # {'leftElbow': 152, 'leftKnee': 174, ...}   interior angles
+compute_rom_angles(kps)  # {'leftHipFlexion': 12, 'leftHipAbduction': 34, ...}  clinical ROM
 
-# --- Live overlay: joint-angle grid + ROM grid (2-column L|R panels) ---
+# Optional overlay (wraps the same functions): joint-angle grid + ROM grid (2-col L|R)
 plotter = JointAnglePlotter(rom=True)
 plotter.update(result.to_dict()["detections"], frame_time=t)
 frame = plotter.attach_panels(frame, position="top_left")
@@ -475,6 +497,11 @@ The `Video` orchestrator composes any subset of the pipeline. Besides `detector=
 panel — `True` for the default hip set or a list of movements), and `rom_render=False` (compute ROM
 without showing the skeleton panel). Overlay placement: the interior-angle panel sits on the **left**;
 the motion plot, radar, depth, ego and **ROM skeleton** views stack on the **right**.
+
+Phone clips often decode sideways/upside-down (the rotation is stored as metadata, not in the
+pixels). Pass `orient=90/180/270` to rotate every frame upright; the default `orient=0` leaves frames
+untouched. There is no auto/metadata mode — the angle is explicit because that metadata is unreliable
+across builds. Still images need nothing here (OpenCV applies EXIF orientation on load).
 
 ```python
 # Full pipeline with the interior-angle panel and the clinical ROM skeleton panel
