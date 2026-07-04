@@ -29,6 +29,10 @@ from physiotrack.signals import (
 | Skin ROI | [`FaceSkinExtractor`][physiotrack.signals.FaceSkinExtractor] | SegFace skin mask + canvases | [rPPG / Heart Rate](#rppg-heart-rate) |
 | HR / SNR | [`HeartRateEstimator`][physiotrack.signals.HeartRateEstimator], [`bvp_to_hr`][physiotrack.signals.bvp_to_hr], [`bvp_snr`][physiotrack.signals.bvp_snr] | bpm, dB | [rPPG / Heart Rate](#rppg-heart-rate) |
 | HR / rPPG overlays | [`RPPGPlotter`][physiotrack.signals.RPPGPlotter], [`HeartRatePlotter`][physiotrack.signals.HeartRatePlotter] | on-frame panels | [rPPG / Heart Rate](#rppg-heart-rate) |
+| RR intervals | [`bvp_to_rri`][physiotrack.signals.bvp_to_rri], [`correct_rr_artifacts`][physiotrack.signals.correct_rr_artifacts] | inter-beat intervals (ms) | [Heart-Rate Variability](#heart-rate-variability-hrv) |
+| HRV | [`compute_hrv`][physiotrack.signals.compute_hrv], [`hrv_time`][physiotrack.signals.hrv_time], `hrv_frequency`, `hrv_nonlinear` | RMSSD/SDNN/pNN50/SD1/SD2/LF-HF | [Heart-Rate Variability](#heart-rate-variability-hrv) |
+| Respiration | [`respiration_from_pulse`][physiotrack.signals.respiration_from_pulse], [`respiration_from_motion`][physiotrack.signals.respiration_from_motion] | breaths/min | [Respiration](#respiration) |
+| HRV / respiration overlays | [`HRVPlotter`][physiotrack.signals.HRVPlotter], [`RespirationPlotter`][physiotrack.signals.RespirationPlotter] | on-frame panels | [HRV](#heart-rate-variability-hrv) · [Respiration](#respiration) |
 | Keypoint sequences | [`extract_keypoints_sequence`][physiotrack.signals.extract_keypoints_sequence], centroids | pandas DataFrames | [Motion, Joint Angles & ROM](#motion-features-joint-angles-rom) |
 | Motion features | [`compute_all_motion_features`][physiotrack.signals.compute_all_motion_features] | velocity / accel / angles | [Motion, Joint Angles & ROM](#motion-features-joint-angles-rom) |
 | Joint angles | [`joint_angles`][physiotrack.signals.joint_angles], [`compute_all_joint_angles`][physiotrack.signals.compute_all_joint_angles] | angles (see the [units note](#warning-degrees-vs-radians)) | [Motion, Joint Angles & ROM](#motion-features-joint-angles-rom) |
@@ -190,6 +194,105 @@ estimator** across both plotters and the rPPG is computed once per frame.
     reports the median HR over recent windows. A full standalone example (overlaying face
     parsing, skin ROI, the rPPG pulse, HR, HRV and respiration) lives in
     `examples/rppg_vitals.py`.
+
+---
+
+## Heart-Rate Variability (HRV)
+
+HRV is the beat-to-beat variation of the heart rhythm, computed from the **RR-interval**
+(inter-beat) series — not from the raw pulse. From the same rPPG BVP window, the pipeline is:
+
+```
+BVP  ──▶  detect_pulse_peaks  ──▶  bvp_to_rri  ──▶  correct_rr_artifacts  ──▶  compute_hrv
+(pulse)   systolic peaks          RR intervals (ms)   Lipponen–Tarvainen        HRV indices
+```
+
+- [`bvp_to_rri`][physiotrack.signals.bvp_to_rri] turns the pulse into an RR-interval series;
+  [`detect_pulse_peaks`][physiotrack.signals.detect_pulse_peaks] exposes the peak detector.
+- [`find_rr_artifacts`][physiotrack.signals.find_rr_artifacts] /
+  [`correct_rr_artifacts`][physiotrack.signals.correct_rr_artifacts] clean ectopic/missed beats
+  (Lipponen & Tarvainen, 2019) before analysis.
+- [`compute_hrv`][physiotrack.signals.compute_hrv] returns the indices across three domains —
+  [`hrv_time`][physiotrack.signals.hrv_time] (RMSSD, SDNN, pNN50, …),
+  [`hrv_frequency`][physiotrack.signals.hrv_frequency] (VLF/LF/HF power, LF/HF) and
+  [`hrv_nonlinear`][physiotrack.signals.hrv_nonlinear] (Poincaré SD1/SD2,
+  [`sample_entropy`][physiotrack.signals.sample_entropy] /
+  [`approximate_entropy`][physiotrack.signals.approximate_entropy]).
+- Validate a computed series against a reference with
+  [`hrv_errors`][physiotrack.signals.hrv_errors].
+
+The [`HeartRateEstimator`][physiotrack.signals.HeartRateEstimator] reads HRV off the **same
+sliding window** it uses for HR — no extra buffering:
+
+```python
+from physiotrack.signals import FaceSkinExtractor, HeartRateEstimator
+
+fs  = FaceSkinExtractor(device=0)
+est = HeartRateEstimator("POS", fps=30, window_sec=60)   # HRV needs a LONG window
+
+for frame in frames:
+    mask, _ = fs.extract(frame)
+    if mask.any():
+        est.update(frame, roi_mask=mask)
+
+rri_ms, t = est.rri(correct=True)     # artefact-corrected RR intervals (ms)
+hrv = est.hrv()                       # {'RMSSD':…, 'SDNN':…, 'SD1':…, 'LFHF':…, …}
+```
+
+!!! warning "HRV needs a long, still window"
+    Frequency-domain (LF/HF) and stable time-domain indices need **~60 s** of clean pulse.
+    On short clips or with head motion the RR series is noisy and HRV values inflate wildly
+    (RMSSD/SDNN in the hundreds of ms) — use `window_sec=60`, a steady front-facing subject,
+    and good lighting. The math is numerically cross-checked against NeuroKit2.
+
+**Live overlay** — [`HRVPlotter`][physiotrack.signals.HRVPlotter] shares the estimator with the
+HR/rPPG panels (one rPPG computation per frame) and renders the HRV grid:
+
+```python
+from physiotrack.signals import HRVPlotter
+hrv_panel = HRVPlotter(estimator=est)          # share the same estimator
+frame = hrv_panel.attach_to_frame(frame, position="top_right")
+```
+
+In the [`Video`][physiotrack.Video] pipeline, just pass `hrv=True` (see the
+[Video guide](video.md#vitals-rppg-heart-rate-hrv-respiration)).
+
+---
+
+## Respiration
+
+Respiration rate (breaths/min) is recovered **contactlessly two ways** — pick per what your
+footage shows:
+
+| Source | Function | From | Needs |
+| --- | --- | --- | --- |
+| Pulse amplitude (RIAV) | [`respiration_from_pulse`][physiotrack.signals.respiration_from_pulse] | rPPG BVP modulation | face/skin ROI |
+| RR variation (RSA) | [`respiration_from_rri`][physiotrack.signals.respiration_from_rri] | RR-interval series | face/skin ROI |
+| Shoulder / torso motion | [`respiration_from_motion`][physiotrack.signals.respiration_from_motion] | pose keypoints (shoulders 5/6) | pose (no face) |
+
+All three read the dominant in-band frequency via
+[`respiration_rate_from_signal`][physiotrack.signals.respiration_rate_from_signal].
+
+```python
+# Pulse-derived (shares the rPPG estimator): RIAV amplitude or RSA
+rr_pulse = est.respiration_rate("pulse")     # breaths/min
+rr_rsa   = est.respiration_rate("rsa")
+
+# Motion-derived: reuse the per-frame pose records (no face, no extra inference)
+from physiotrack.signals import respiration_from_motion
+records = pt.Video(source="in.mp4", pose=pt.Pose.Person()).run()   # per-frame detections
+resp_wave, rr_motion = respiration_from_motion(records, original_fps=30.0)
+```
+
+!!! tip "Which source?"
+    Face clearly visible → **pulse** (comes free with the rPPG estimator). Face occluded /
+    far / masked (e.g. a **VR headset**) but the torso is visible → **motion**, which tracks
+    the breathing rise-and-fall of the shoulders.
+
+**Live overlay** — [`RespirationPlotter`][physiotrack.signals.RespirationPlotter] (labelled
+`PULSE` or `MOTION`). In the [`Video`][physiotrack.Video] pipeline set `respiration=True` and
+choose `respiration_source="pulse"` or `"motion"` — see the
+[Video guide](video.md#vitals-rppg-heart-rate-hrv-respiration).
 
 ---
 
