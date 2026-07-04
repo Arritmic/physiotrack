@@ -7,7 +7,7 @@ site_author: Tharindu Ekanayake
 site_url: https://tharindu326.github.io/physiotrack/
 repo_url: https://github.com/tharindu326/physiotrack
 repo_name: tharindu326/physiotrack
-copyright: Copyright &copy; 2026 Physiotrack · CMVS, University of Oulu
+copyright: Copyright &copy; 2026 Physiotrack
 docs_dir: docs
 
 # Internal design/paper docs live under docs/ but are not part of the site.
