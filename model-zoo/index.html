@@ -1,0 +1,2793 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Physiotrack — a Python toolkit for contactless human understanding from RGB video: detection, 2D/3D pose, segmentation, depth, face analysis, multi-object tracking, and physiological/motion signals (rPPG, joint angles, ROM).">
+      
+      
+        <meta name="author" content="Tharindu Ekanayake">
+      
+      
+        <link rel="canonical" href="https://tharindu326.github.io/physiotrack/model-zoo/">
+      
+      
+        <link rel="prev" href="../guides/signals/">
+      
+      
+        <link rel="next" href="../api/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Model Zoo - Physiotrack</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../assets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#model-zoo" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Physiotrack" class="md-header__button md-logo" aria-label="Physiotrack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 1c0 2.7 1.56 5.16 4 6.32V22h2v-7h2v7h2V7.31C17.44 6.16 19 3.7 19 1h-2a5 5 0 0 1-5 5 5 5 0 0 1-5-5m5 0c-1.11 0-2 .89-2 2s.89 2 2 2 2-.89 2-2-.89-2-2-2"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Physiotrack
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Model Zoo
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/tharindu326/physiotrack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tharindu326/physiotrack
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guides/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Model Zoo
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Physiotrack" class="md-nav__button md-logo" aria-label="Physiotrack" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 1c0 2.7 1.56 5.16 4 6.32V22h2v-7h2v7h2V7.31C17.44 6.16 19 3.7 19 1h-2a5 5 0 0 1-5 5 5 5 0 0 1-5-5m5 0c-1.11 0-2 .89-2 2s.89 2 2 2 2-.89 2-2-.89-2-2-2"/></svg>
+
+    </a>
+    Physiotrack
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/tharindu326/physiotrack" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tharindu326/physiotrack
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../guides/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/pose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pose Estimation (2D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/pose3d/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3D Pose & Canonicalization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/segmentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Segmentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/depth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Depth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/face/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Face & Head Orientation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/tracking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Video Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/signals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Signals (rPPG · Motion · ROM)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Zoo
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Zoo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-registry-addressing-scheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The registry addressing scheme
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The registry addressing scheme">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#downloading-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Downloading weights
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-a-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to use a model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pose-2d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pose (2D)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pose3d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pose3D
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pose3D">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#canonicalizer-3dpcnet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canonicalizer (3DPCNet)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Depth
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Depth">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#encoder-configurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encoder configurations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#segmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segmentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model formats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Predictors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Predictors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/pose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pose (2D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/pose3d/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pose 3D
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/segmentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Segmentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/depth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Depth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/face/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Face
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Result Objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Video Orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/tracking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/pose-postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pose Post-processing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../api/signals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Signals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Signals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/signals/rppg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rPPG / Heart Rate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/signals/motion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Motion & Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/signals/filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/signals/normalize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Normalization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/signals/evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Signal Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/signals/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-registry-addressing-scheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The registry addressing scheme
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The registry addressing scheme">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#downloading-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Downloading weights
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-a-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to use a model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pose-2d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pose (2D)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pose3d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pose3D
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pose3D">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#canonicalizer-3dpcnet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canonicalizer (3DPCNet)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Depth
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Depth">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#encoder-configurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encoder configurations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#segmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Segmentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model formats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="model-zoo">Model Zoo<a class="headerlink" href="#model-zoo" title="Permanent link">&para;</a></h1>
+<p>Physiotrack ships a single, discoverable registry of every pretrained checkpoint
+it can download and run — <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Models&lt;/span&gt;" href="../api/models/#physiotrack.Models"><code>Models</code></a>. This page lists every
+registered model, grouped by task, with the exact access path, weight filename,
+and where the weights come from.</p>
+<h2 id="the-registry-addressing-scheme">The registry addressing scheme<a class="headerlink" href="#the-registry-addressing-scheme" title="Permanent link">&para;</a></h2>
+<p>Every checkpoint is addressed by a four-level path:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Models.&lt;Task&gt;.&lt;Backend&gt;.&lt;Enum&gt;.&lt;member&gt;
+</span></code></pre></div>
+<ul>
+<li><strong>Task</strong> — what the model does: <code>Detection</code>, <code>Pose</code>, <code>Pose3D</code>, <code>Depth</code>, <code>Segmentation</code>.</li>
+<li><strong>Backend</strong> — the architecture/family: <code>YOLO</code>, <code>RTDETR</code>, <code>Sapiens</code>, <code>ViTPose</code>,
+  <code>MotionBERT</code>, <code>DDH</code>, <code>FaceOrientation</code>, <code>Canonicalizer</code>, <code>DepthAnythingV2</code>, <code>SegFace</code>.</li>
+<li><strong>Enum</strong> — a group of interchangeable checkpoints, usually by dataset or size
+  (e.g. <code>Detection.YOLO.PERSON</code>, <code>Pose.ViTPose.WholeBody</code>).</li>
+<li><strong>member</strong> — one checkpoint. Its <code>.value</code> is the <strong>weight filename</strong> on disk;
+  its <code>.name</code> is the short handle.</li>
+</ul>
+<div class="admonition info">
+<p class="admonition-title"><code>.value</code> is the weight filename</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="kn">import</span> <span class="n">Models</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">m</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">ViTPose</span><span class="o">.</span><span class="n">WholeBody</span><span class="o">.</span><span class="n">s_wholebody</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>    <span class="c1"># &#39;s_wholebody&#39;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>   <span class="c1"># &#39;vitpose-s-wholebody.pth&#39;</span>
+</span></code></pre></div>
+</div>
+<p>A few groups differ from the strict four-level shape: the <code>Pose3D</code> backends
+(<code>MotionBERT</code>, <code>DDH</code>, <code>FaceOrientation</code>) are <code>Enum</code>s <strong>directly</strong> under <code>Pose3D</code>;
+<code>Pose3D.Canonicalizer</code> holds a nested <code>Models</code> enum (3DPCNet weights) plus a
+<code>View</code> string enum; and <code>Depth.DepthAnythingV2</code> is an <code>Enum</code> directly under <code>Depth</code>.</p>
+<h3 id="downloading-weights">Downloading weights<a class="headerlink" href="#downloading-weights" title="Permanent link">&para;</a></h3>
+<p>Selecting a member downloads nothing. Pass it to
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;download_model&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../api/models/#physiotrack.Models.download_model"><code>download_model</code></a> to fetch and cache the
+weights (the high-level predictors do this for you on first use):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="kn">import</span> <span class="n">Models</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">path</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">download_model</span><span class="p">(</span><span class="n">Models</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Sapiens</span><span class="o">.</span><span class="n">WholeBody</span><span class="o">.</span><span class="n">B03_TS_COCOHB</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Where a checkpoint comes from depends on the backend:</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Which models</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ultralytics</strong> (auto, on demand)</td>
+<td>All <code>Pose.YOLO</code>; every <code>PERSON</code> YOLO/RT-DETR variant (<code>Detection.YOLO.PERSON</code>, <code>Detection.RTDETR.PERSON</code>, <code>Segmentation.YOLO.PERSON</code>)</td>
+<td><code>download_model</code> returns <code>None</code> — ultralytics fetches stock weights itself</td>
+</tr>
+<tr>
+<td><strong><code>tharindu326/physiotrack</code></strong> (Hugging Face)</td>
+<td>Detection FACE / VRFACE / VR / VRSTUDENT, RT-DETR VRSTUDENT, Segmentation VRHEAD, DDH, FaceOrientation, Canonicalizer (3DPCNet), DepthAnythingV2, SegFace</td>
+<td>Project-hosted checkpoints</td>
+</tr>
+<tr>
+<td><strong>Upstream Hugging Face repos</strong></td>
+<td><code>Sapiens</code> pose → <code>noahcao/sapiens-pose-coco</code>; <code>Sapiens</code> seg → <code>facebook/sapiens-seg-{size}-torchscript</code>; <code>ViTPose</code> → <code>JunkyByte/easy_ViTPose</code>; <code>MotionBERT</code> → <code>walterzhu/MotionBERT</code></td>
+<td>Fetched from the original authors' repos</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Weight-free members</p>
+<p><code>Canonicalizer.Models.GEOMETRIC</code> has an empty <code>.value</code> — it selects the
+algorithmic (weight-free) canonicalization path and is never downloaded.</p>
+</div>
+<h2 id="how-to-use-a-model">How to use a model<a class="headerlink" href="#how-to-use-a-model" title="Permanent link">&para;</a></h2>
+<p>Hand a registry member to a predictor. The two most common patterns:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pt</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Detection — a specific person-detector variant</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">det</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Detection</span><span class="o">.</span><span class="n">Custom</span><span class="p">(</span><span class="n">pt</span><span class="o">.</span><span class="n">Models</span><span class="o">.</span><span class="n">Detection</span><span class="o">.</span><span class="n">YOLO</span><span class="o">.</span><span class="n">PERSON</span><span class="o">.</span><span class="n">l_person</span><span class="p">)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">result</span> <span class="o">=</span> <span class="n">det</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Pose — the huge whole-body ViTPose checkpoint</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">pose</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Custom</span><span class="p">(</span><span class="n">pt</span><span class="o">.</span><span class="n">Models</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">ViTPose</span><span class="o">.</span><span class="n">WholeBody</span><span class="o">.</span><span class="n">h_wholebody</span><span class="p">)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pose</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Presets vs. <code>Custom</code></p>
+<p>Every task exposes named presets (e.g. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Detection&lt;/span&gt;" href="../api/detection/#physiotrack.Detection"><code>Detection.Person</code></a>,
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Pose&lt;/span&gt;" href="../api/pose/#physiotrack.Pose"><code>Pose.Person</code></a>) that pin a sensible default model, plus a
+<code>Custom</code> preset that takes any validated registry member for that task. Passing
+a member from the wrong task raises a descriptive <code>ValueError</code> via the registry's
+<code>validate_*</code> guards.</p>
+</div>
+<hr />
+<h2 id="detection">Detection<a class="headerlink" href="#detection" title="Permanent link">&para;</a></h2>
+<p>15 checkpoints across YOLO and RT-DETR. See the <a href="../guides/detection/">Detection guide</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Access path</th>
+<th>Backend</th>
+<th>Weight file</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Models.Detection.YOLO.PERSON.n_person</code></td>
+<td>YOLO</td>
+<td><code>yolo11n.pt</code></td>
+<td>YOLO11-n person (stock, ultralytics)</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.PERSON.m_person</code></td>
+<td>YOLO</td>
+<td><code>yolo11m.pt</code></td>
+<td>YOLO11-m person (stock, ultralytics)</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.PERSON.l_person</code></td>
+<td>YOLO</td>
+<td><code>yolo11l.pt</code></td>
+<td>YOLO11-l person (stock, ultralytics)</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.FACE.n_face</code></td>
+<td>YOLO</td>
+<td><code>yolov11n-face.pt</code></td>
+<td>YOLO11-n face</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.FACE.m_face</code></td>
+<td>YOLO</td>
+<td><code>yolov11m-face.pt</code></td>
+<td>YOLO11-m face</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.FACE.l_face</code></td>
+<td>YOLO</td>
+<td><code>yolov11l-face.pt</code></td>
+<td>YOLO11-l face</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.VRFACE.l_vrface</code></td>
+<td>YOLO</td>
+<td><code>yolov12l-face.pt</code></td>
+<td>YOLO12-l VR face</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.VR.m_vr</code></td>
+<td>YOLO</td>
+<td><code>yolo11m_vr.pt</code></td>
+<td>YOLO11-m VR-headset objects</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.VR.l_vr</code></td>
+<td>YOLO</td>
+<td><code>yolo11l_vr.pt</code></td>
+<td>YOLO11-l VR-headset objects</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.VRSTUDENT.m_vrstudent</code></td>
+<td>YOLO</td>
+<td><code>yolo11m_VRstudent.pt</code></td>
+<td>YOLO11-m VR-student</td>
+</tr>
+<tr>
+<td><code>Models.Detection.YOLO.VRSTUDENT.l_vrstudent</code></td>
+<td>YOLO</td>
+<td><code>yolo11l_VRstudent.pt</code></td>
+<td>YOLO11-l VR-student</td>
+</tr>
+<tr>
+<td><code>Models.Detection.RTDETR.PERSON.l_person</code></td>
+<td>RT-DETR</td>
+<td><code>rtdetr-l.pt</code></td>
+<td>RT-DETR-l person (stock, ultralytics)</td>
+</tr>
+<tr>
+<td><code>Models.Detection.RTDETR.PERSON.x_person</code></td>
+<td>RT-DETR</td>
+<td><code>rtdetr-x.pt</code></td>
+<td>RT-DETR-x person (stock, ultralytics)</td>
+</tr>
+<tr>
+<td><code>Models.Detection.RTDETR.VRSTUDENT.l_person</code></td>
+<td>RT-DETR</td>
+<td><code>yolo11l_RLDETR_VRstudent.pt</code></td>
+<td>RT-DETR-l VR-student</td>
+</tr>
+<tr>
+<td><code>Models.Detection.RTDETR.VRSTUDENT.x_person</code></td>
+<td>RT-DETR</td>
+<td><code>yolo11x_RLDETR_VRstudent.pt</code></td>
+<td>RT-DETR-x VR-student</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">RT-DETR VR-student member names</p>
+<p>Under <code>RTDETR.VRSTUDENT</code>, the members are named <code>l_person</code> / <code>x_person</code> even
+though the weights are VR-student RT-DETR models. Use the member name as
+written above; the weight filename disambiguates them.</p>
+</div>
+<hr />
+<h2 id="pose-2d">Pose (2D)<a class="headerlink" href="#pose-2d" title="Permanent link">&para;</a></h2>
+<p>13 checkpoints across YOLO-Pose, Sapiens, and ViTPose. See the <a href="../guides/pose/">Pose guide</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Access path</th>
+<th>Backend</th>
+<th>Weight file</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Models.Pose.YOLO.COCO.M11</code></td>
+<td>YOLO-Pose</td>
+<td><code>yolo11m-pose.pt</code></td>
+<td>YOLO11-m, COCO 17-kp (stock, ultralytics)</td>
+</tr>
+<tr>
+<td><code>Models.Pose.YOLO.COCO.L11</code></td>
+<td>YOLO-Pose</td>
+<td><code>yolo11l-pose.pt</code></td>
+<td>YOLO11-l, COCO 17-kp (stock, ultralytics)</td>
+</tr>
+<tr>
+<td><code>Models.Pose.Sapiens.WholeBody.B03_TS_COCOHB</code></td>
+<td>Sapiens</td>
+<td><code>sapiens_0.3b_coco_wholebody_best_coco_wholebody_AP_620_torchscript.pt2</code></td>
+<td>Sapiens 0.3B, COCO-WholeBody, AP 62.0</td>
+</tr>
+<tr>
+<td><code>Models.Pose.Sapiens.WholeBody.B06_TS_COCOHB</code></td>
+<td>Sapiens</td>
+<td><code>sapiens_0.6b_coco_wholebody_best_coco_wholebody_AP_695_torchscript.pt2</code></td>
+<td>Sapiens 0.6B, COCO-WholeBody, AP 69.5</td>
+</tr>
+<tr>
+<td><code>Models.Pose.Sapiens.WholeBody.B1_TS_COCOHB</code></td>
+<td>Sapiens</td>
+<td><code>sapiens_1b_coco_wholebody_best_coco_wholebody_AP_727_torchscript.pt2</code></td>
+<td>Sapiens 1B, COCO-WholeBody, AP 72.7</td>
+</tr>
+<tr>
+<td><code>Models.Pose.ViTPose.WholeBody.s_wholebody</code></td>
+<td>ViTPose</td>
+<td><code>vitpose-s-wholebody.pth</code></td>
+<td>ViT-S, whole-body (133+ kp)</td>
+</tr>
+<tr>
+<td><code>Models.Pose.ViTPose.WholeBody.b_wholebody</code></td>
+<td>ViTPose</td>
+<td><code>vitpose-b-wholebody.pth</code></td>
+<td>ViT-B, whole-body (133+ kp)</td>
+</tr>
+<tr>
+<td><code>Models.Pose.ViTPose.WholeBody.l_wholebody</code></td>
+<td>ViTPose</td>
+<td><code>vitpose-l-wholebody.pth</code></td>
+<td>ViT-L, whole-body (133+ kp)</td>
+</tr>
+<tr>
+<td><code>Models.Pose.ViTPose.WholeBody.h_wholebody</code></td>
+<td>ViTPose</td>
+<td><code>vitpose-h-wholebody.pth</code></td>
+<td>ViT-H, whole-body (133+ kp)</td>
+</tr>
+<tr>
+<td><code>Models.Pose.ViTPose.COCO.s_coco</code></td>
+<td>ViTPose</td>
+<td><code>vitpose-s-coco.pth</code></td>
+<td>ViT-S, COCO 17-kp</td>
+</tr>
+<tr>
+<td><code>Models.Pose.ViTPose.COCO.b_coco</code></td>
+<td>ViTPose</td>
+<td><code>vitpose-b-coco.pth</code></td>
+<td>ViT-B, COCO 17-kp</td>
+</tr>
+<tr>
+<td><code>Models.Pose.ViTPose.COCO.l_coco</code></td>
+<td>ViTPose</td>
+<td><code>vitpose-l-coco.pth</code></td>
+<td>ViT-L, COCO 17-kp</td>
+</tr>
+<tr>
+<td><code>Models.Pose.ViTPose.COCO.h_coco</code></td>
+<td>ViTPose</td>
+<td><code>vitpose-h-coco.pth</code></td>
+<td>ViT-H, COCO 17-kp</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Top-down backends need person boxes</p>
+<p>ViTPose and Sapiens are top-down: <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Pose&lt;/span&gt;" href="../api/pose/#physiotrack.Pose"><code>Pose</code></a> runs a person
+detector first (or accepts boxes you pass). YOLO-Pose is single-stage. AP
+figures above are the upstream Sapiens COCO-WholeBody scores encoded in the
+filenames.</p>
+</div>
+<hr />
+<h2 id="pose3d">Pose3D<a class="headerlink" href="#pose3d" title="Permanent link">&para;</a></h2>
+<p>3D lifting, head/face orientation, and pose canonicalization models. See the
+<a href="../guides/pose3d/">Pose3D guide</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Access path</th>
+<th>Backend</th>
+<th>Weight file</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite</code></td>
+<td>MotionBERT</td>
+<td><code>FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin</code></td>
+<td>Lite, fine-tuned on Human3.6M (global)</td>
+</tr>
+<tr>
+<td><code>Models.Pose3D.MotionBERT.mb_ft_h36m</code></td>
+<td>MotionBERT</td>
+<td><code>FT_MB_release_MB_ft_h36m/best_epoch.bin</code></td>
+<td>Release, fine-tuned on Human3.6M</td>
+</tr>
+<tr>
+<td><code>Models.Pose3D.MotionBERT.mb_train_h36m</code></td>
+<td>MotionBERT</td>
+<td><code>MB_train_h36m/best_epoch.bin</code></td>
+<td>Trained from scratch on Human3.6M</td>
+</tr>
+<tr>
+<td><code>Models.Pose3D.DDH.best</code></td>
+<td>DDH</td>
+<td><code>best_epoch_DDHPose.bin</code></td>
+<td>DDHPose 3D lifter</td>
+</tr>
+<tr>
+<td><code>Models.Pose3D.FaceOrientation.default</code></td>
+<td>FaceOrientation</td>
+<td><code>6DRepNet360_Full-Rotation_300W_LP+Panoptic.pth</code></td>
+<td>6DRepNet360 full-rotation, 300W-LP + Panoptic</td>
+</tr>
+<tr>
+<td><code>Models.Pose3D.FaceOrientation.VR</code></td>
+<td>FaceOrientation</td>
+<td><code>CMVS-FO-VR_epoch80.pth</code></td>
+<td>VR-tuned face orientation, epoch 80</td>
+</tr>
+</tbody>
+</table>
+<h3 id="canonicalizer-3dpcnet">Canonicalizer (3DPCNet)<a class="headerlink" href="#canonicalizer-3dpcnet" title="Permanent link">&para;</a></h3>
+<p><code>Pose3D.Canonicalizer.Models</code> holds the pose-canonicalization checkpoints. See
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;PoseCanonicalizer&lt;/span&gt;" href="../api/pose-postprocessing/#physiotrack.PoseCanonicalizer"><code>PoseCanonicalizer</code></a> and the
+<a href="../api/pose-postprocessing/">pose post-processing API</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Access path</th>
+<th>Backend</th>
+<th>Weight file</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Models.Pose3D.Canonicalizer.Models.GEOMETRIC</code></td>
+<td>Canonicalizer</td>
+<td><em>(empty)</em></td>
+<td>Weight-free algorithmic canonicalization (no download)</td>
+</tr>
+<tr>
+<td><code>Models.Pose3D.Canonicalizer.Models._3DPCNetS2</code></td>
+<td>Canonicalizer</td>
+<td><code>best_model_3DPCNetS2.pth</code></td>
+<td>3DPCNet, MMFi split S2</td>
+</tr>
+<tr>
+<td><code>Models.Pose3D.Canonicalizer.Models._3DPCNetS3</code></td>
+<td>Canonicalizer</td>
+<td><code>best_model_3DPCNetS3.pth</code></td>
+<td>3DPCNet, MMFi split S3</td>
+</tr>
+<tr>
+<td><code>Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byCam</code></td>
+<td>Canonicalizer</td>
+<td><code>best_model_3DPCNetTC48_byCam.pth</code></td>
+<td>3DPCNet, TotalCapture 48-cam, camera-disjoint split</td>
+</tr>
+<tr>
+<td><code>Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byAction</code></td>
+<td>Canonicalizer</td>
+<td><code>best_model_3DPCNetTC48_byAction.pth</code></td>
+<td>3DPCNet, TotalCapture 48-cam, action-disjoint split</td>
+</tr>
+</tbody>
+</table>
+<p><code>Pose3D.Canonicalizer.View</code> is a plain string enum of canonical viewpoints (not
+weights): <code>FRONT</code> (<code>"front"</code>), <code>BACK</code> (<code>"back"</code>), <code>LEFT_SIDE</code> (<code>"left_side"</code>),
+<code>RIGHT_SIDE</code> (<code>"right_side"</code>).</p>
+<hr />
+<h2 id="depth">Depth<a class="headerlink" href="#depth" title="Permanent link">&para;</a></h2>
+<p>Monocular depth via Depth Anything V2. See the <a href="../guides/depth/">Depth guide</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Access path</th>
+<th>Backend</th>
+<th>Weight file</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Models.Depth.DepthAnythingV2.vits</code></td>
+<td>DepthAnythingV2</td>
+<td><code>depth_anything_v2_vits.pth</code></td>
+<td>ViT-S (small) encoder</td>
+</tr>
+<tr>
+<td><code>Models.Depth.DepthAnythingV2.vitb</code></td>
+<td>DepthAnythingV2</td>
+<td><code>depth_anything_v2_vitb.pth</code></td>
+<td>ViT-B (base) encoder</td>
+</tr>
+<tr>
+<td><code>Models.Depth.DepthAnythingV2.vitl</code></td>
+<td>DepthAnythingV2</td>
+<td><code>depth_anything_v2_vitl.pth</code></td>
+<td>ViT-L (large) encoder</td>
+</tr>
+</tbody>
+</table>
+<h3 id="encoder-configurations">Encoder configurations<a class="headerlink" href="#encoder-configurations" title="Permanent link">&para;</a></h3>
+<p><code>Models.Depth.MODEL_CONFIGS</code> (via
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_depth_config&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../api/models/#physiotrack.Models.get_depth_config"><code>get_depth_config</code></a>) supplies the
+architecture parameters used to build each encoder:</p>
+<table>
+<thead>
+<tr>
+<th>Encoder</th>
+<th><code>features</code></th>
+<th><code>out_channels</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vits</code></td>
+<td>64</td>
+<td><code>[48, 96, 192, 384]</code></td>
+</tr>
+<tr>
+<td><code>vitb</code></td>
+<td>128</td>
+<td><code>[96, 192, 384, 768]</code></td>
+</tr>
+<tr>
+<td><code>vitl</code></td>
+<td>256</td>
+<td><code>[256, 512, 1024, 1024]</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="segmentation">Segmentation<a class="headerlink" href="#segmentation" title="Permanent link">&para;</a></h2>
+<p>8 checkpoints across Sapiens body-part, YOLO, and SegFace. See the
+<a href="../guides/segmentation/">Segmentation guide</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Access path</th>
+<th>Backend</th>
+<th>Weight file</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Models.Segmentation.Sapiens.BodyPart.B03_TS_SEG</code></td>
+<td>Sapiens</td>
+<td><code>sapiens_0.3b_goliath_best_goliath_mIoU_7673_epoch_194_torchscript.pt2</code></td>
+<td>Sapiens 0.3B Goliath, mIoU 76.73 (epoch 194)</td>
+</tr>
+<tr>
+<td><code>Models.Segmentation.Sapiens.BodyPart.B06_TS_SEG</code></td>
+<td>Sapiens</td>
+<td><code>sapiens_0.6b_goliath_best_goliath_mIoU_7777_epoch_178_torchscript.pt2</code></td>
+<td>Sapiens 0.6B Goliath, mIoU 77.77 (epoch 178)</td>
+</tr>
+<tr>
+<td><code>Models.Segmentation.Sapiens.BodyPart.B1_TS_SEG</code></td>
+<td>Sapiens</td>
+<td><code>sapiens_1b_goliath_best_goliath_mIoU_7994_epoch_151_torchscript.pt2</code></td>
+<td>Sapiens 1B Goliath, mIoU 79.94 (epoch 151)</td>
+</tr>
+<tr>
+<td><code>Models.Segmentation.YOLO.VRHEAD.M11</code></td>
+<td>YOLO</td>
+<td><code>yolo11m_VR_head.pt</code></td>
+<td>YOLO11-m VR head segmentation</td>
+</tr>
+<tr>
+<td><code>Models.Segmentation.YOLO.VRHEAD.M8_251029</code></td>
+<td>YOLO</td>
+<td><code>yolo8m_VR_head_251029.pt</code></td>
+<td>YOLO8-m VR head segmentation (2025-10-29)</td>
+</tr>
+<tr>
+<td><code>Models.Segmentation.YOLO.PERSON.m_person</code></td>
+<td>YOLO</td>
+<td><code>yolo11m-seg.pt</code></td>
+<td>YOLO11-m person seg (stock, ultralytics)</td>
+</tr>
+<tr>
+<td><code>Models.Segmentation.YOLO.PERSON.l_person</code></td>
+<td>YOLO</td>
+<td><code>yolo11l-seg.pt</code></td>
+<td>YOLO11-l person seg (stock, ultralytics)</td>
+</tr>
+<tr>
+<td><code>Models.Segmentation.SegFace.Face.swinb_celeba_512</code></td>
+<td>SegFace</td>
+<td><code>segface_swinb_celeba_512.pt</code></td>
+<td>SegFace Swin-B @ 512, CelebAMask-HQ (19 classes)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="model-formats">Model formats<a class="headerlink" href="#model-formats" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Extension</th>
+<th>Format</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.pt</code></td>
+<td>Ultralytics native (weights + built-in config)</td>
+<td>YOLO / RT-DETR detection, pose, segmentation; SegFace</td>
+</tr>
+<tr>
+<td><code>.pth</code></td>
+<td>PyTorch state dict (loaded with a matching config)</td>
+<td>ViTPose, DepthAnythingV2, FaceOrientation, 3DPCNet</td>
+</tr>
+<tr>
+<td><code>.bin</code></td>
+<td>PyTorch checkpoint</td>
+<td>MotionBERT, DDH</td>
+</tr>
+<tr>
+<td><code>.pt2</code></td>
+<td>TorchScript (optimized inference)</td>
+<td>Sapiens pose and segmentation</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../api/models/"><code>Models</code> API reference</a> — full docstrings for the registry and
+  its <code>download_model</code> / <code>validate_*</code> / <code>get_depth_config</code> helpers.</li>
+<li>Task guides: <a href="../guides/detection/">Detection</a> ·
+  <a href="../guides/pose/">Pose</a> · <a href="../guides/pose3d/">Pose3D</a> ·
+  <a href="../guides/depth/">Depth</a> · <a href="../guides/segmentation/">Segmentation</a> ·
+  <a href="../guides/face/">Face</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../guides/signals/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Signals (rPPG · Motion · ROM)">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Signals (rPPG · Motion · ROM)
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../api/" class="md-footer__link md-footer__link--next" aria-label="Next: API Reference">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                API Reference
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 Physiotrack · CMVS, University of Oulu
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/tharindu326/physiotrack" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/physiotrack/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.top", "navigation.footer", "navigation.indexes", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.tooltips"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
