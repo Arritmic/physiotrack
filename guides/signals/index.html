@@ -1039,6 +1039,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#heart-rate-variability-hrv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Heart-Rate Variability (HRV)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#respiration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Respiration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#motion-features-joint-angles-rom" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2007,6 +2029,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#heart-rate-variability-hrv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Heart-Rate Variability (HRV)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#respiration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Respiration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#motion-features-joint-angles-rom" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2177,6 +2221,30 @@ wrappers you can drop onto any video frame.</p>
 <td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;RPPGPlotter&lt;/span&gt;" href="../../api/signals/plotting/#physiotrack.signals.RPPGPlotter"><code>RPPGPlotter</code></a>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;HeartRatePlotter&lt;/span&gt;" href="../../api/signals/plotting/#physiotrack.signals.HeartRatePlotter"><code>HeartRatePlotter</code></a></td>
 <td>on-frame panels</td>
 <td><a href="#rppg-heart-rate">rPPG / Heart Rate</a></td>
+</tr>
+<tr>
+<td>RR intervals</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;bvp_to_rri&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.bvp_to_rri"><code>bvp_to_rri</code></a>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;correct_rr_artifacts&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.correct_rr_artifacts"><code>correct_rr_artifacts</code></a></td>
+<td>inter-beat intervals (ms)</td>
+<td><a href="#heart-rate-variability-hrv">Heart-Rate Variability</a></td>
+</tr>
+<tr>
+<td>HRV</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;compute_hrv&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.compute_hrv"><code>compute_hrv</code></a>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;hrv_time&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.hrv_time"><code>hrv_time</code></a>, <code>hrv_frequency</code>, <code>hrv_nonlinear</code></td>
+<td>RMSSD/SDNN/pNN50/SD1/SD2/LF-HF</td>
+<td><a href="#heart-rate-variability-hrv">Heart-Rate Variability</a></td>
+</tr>
+<tr>
+<td>Respiration</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;respiration_from_pulse&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.respiration_from_pulse"><code>respiration_from_pulse</code></a>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;respiration_from_motion&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.respiration_from_motion"><code>respiration_from_motion</code></a></td>
+<td>breaths/min</td>
+<td><a href="#respiration">Respiration</a></td>
+</tr>
+<tr>
+<td>HRV / respiration overlays</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;HRVPlotter&lt;/span&gt;" href="../../api/signals/plotting/#physiotrack.signals.HRVPlotter"><code>HRVPlotter</code></a>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;RespirationPlotter&lt;/span&gt;" href="../../api/signals/plotting/#physiotrack.signals.RespirationPlotter"><code>RespirationPlotter</code></a></td>
+<td>on-frame panels</td>
+<td><a href="#heart-rate-variability-hrv">HRV</a> · <a href="#respiration">Respiration</a></td>
 </tr>
 <tr>
 <td>Keypoint sequences</td>
@@ -2386,6 +2454,113 @@ parsing, skin ROI, the rPPG pulse, HR, HRV and respiration) lives in
 <code>examples/rppg_vitals.py</code>.</p>
 </div>
 <hr />
+<h2 id="heart-rate-variability-hrv">Heart-Rate Variability (HRV)<a class="headerlink" href="#heart-rate-variability-hrv" title="Permanent link">&para;</a></h2>
+<p>HRV is the beat-to-beat variation of the heart rhythm, computed from the <strong>RR-interval</strong>
+(inter-beat) series — not from the raw pulse. From the same rPPG BVP window, the pipeline is:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>BVP  ──▶  detect_pulse_peaks  ──▶  bvp_to_rri  ──▶  correct_rr_artifacts  ──▶  compute_hrv
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>(pulse)   systolic peaks          RR intervals (ms)   Lipponen–Tarvainen        HRV indices
+</span></code></pre></div>
+<ul>
+<li><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;bvp_to_rri&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.bvp_to_rri"><code>bvp_to_rri</code></a> turns the pulse into an RR-interval series;
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;detect_pulse_peaks&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.detect_pulse_peaks"><code>detect_pulse_peaks</code></a> exposes the peak detector.</li>
+<li><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;find_rr_artifacts&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.find_rr_artifacts"><code>find_rr_artifacts</code></a> /
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;correct_rr_artifacts&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.correct_rr_artifacts"><code>correct_rr_artifacts</code></a> clean ectopic/missed beats
+  (Lipponen &amp; Tarvainen, 2019) before analysis.</li>
+<li><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;compute_hrv&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.compute_hrv"><code>compute_hrv</code></a> returns the indices across three domains —
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;hrv_time&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.hrv_time"><code>hrv_time</code></a> (RMSSD, SDNN, pNN50, …),
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;hrv_frequency&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.hrv_frequency"><code>hrv_frequency</code></a> (VLF/LF/HF power, LF/HF) and
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;hrv_nonlinear&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.hrv_nonlinear"><code>hrv_nonlinear</code></a> (Poincaré SD1/SD2,
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;sample_entropy&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.sample_entropy"><code>sample_entropy</code></a> /
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;approximate_entropy&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.approximate_entropy"><code>approximate_entropy</code></a>).</li>
+<li>Validate a computed series against a reference with
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;hrv_errors&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.hrv_errors"><code>hrv_errors</code></a>.</li>
+</ul>
+<p>The <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;HeartRateEstimator&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.HeartRateEstimator"><code>HeartRateEstimator</code></a> reads HRV off the <strong>same
+sliding window</strong> it uses for HR — no extra buffering:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">FaceSkinExtractor</span><span class="p">,</span> <span class="n">HeartRateEstimator</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">fs</span>  <span class="o">=</span> <span class="n">FaceSkinExtractor</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">est</span> <span class="o">=</span> <span class="n">HeartRateEstimator</span><span class="p">(</span><span class="s2">&quot;POS&quot;</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">window_sec</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>   <span class="c1"># HRV needs a LONG window</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">frames</span><span class="p">:</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">mask</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="n">est</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">roi_mask</span><span class="o">=</span><span class="n">mask</span><span class="p">)</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="n">rri_ms</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="n">est</span><span class="o">.</span><span class="n">rri</span><span class="p">(</span><span class="n">correct</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>     <span class="c1"># artefact-corrected RR intervals (ms)</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="n">hrv</span> <span class="o">=</span> <span class="n">est</span><span class="o">.</span><span class="n">hrv</span><span class="p">()</span>                       <span class="c1"># {&#39;RMSSD&#39;:…, &#39;SDNN&#39;:…, &#39;SD1&#39;:…, &#39;LFHF&#39;:…, …}</span>
+</span></code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">HRV needs a long, still window</p>
+<p>Frequency-domain (LF/HF) and stable time-domain indices need <strong>~60 s</strong> of clean pulse.
+On short clips or with head motion the RR series is noisy and HRV values inflate wildly
+(RMSSD/SDNN in the hundreds of ms) — use <code>window_sec=60</code>, a steady front-facing subject,
+and good lighting. The math is numerically cross-checked against NeuroKit2.</p>
+</div>
+<p><strong>Live overlay</strong> — <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;HRVPlotter&lt;/span&gt;" href="../../api/signals/plotting/#physiotrack.signals.HRVPlotter"><code>HRVPlotter</code></a> shares the estimator with the
+HR/rPPG panels (one rPPG computation per frame) and renders the HRV grid:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">HRVPlotter</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">hrv_panel</span> <span class="o">=</span> <span class="n">HRVPlotter</span><span class="p">(</span><span class="n">estimator</span><span class="o">=</span><span class="n">est</span><span class="p">)</span>          <span class="c1"># share the same estimator</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">frame</span> <span class="o">=</span> <span class="n">hrv_panel</span><span class="o">.</span><span class="n">attach_to_frame</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="s2">&quot;top_right&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>In the <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Video&lt;/span&gt;" href="../../api/video/#physiotrack.Video"><code>Video</code></a> pipeline, just pass <code>hrv=True</code> (see the
+<a href="../video/#vitals-rppg-heart-rate-hrv-respiration">Video guide</a>).</p>
+<hr />
+<h2 id="respiration">Respiration<a class="headerlink" href="#respiration" title="Permanent link">&para;</a></h2>
+<p>Respiration rate (breaths/min) is recovered <strong>contactlessly two ways</strong> — pick per what your
+footage shows:</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Function</th>
+<th>From</th>
+<th>Needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pulse amplitude (RIAV)</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;respiration_from_pulse&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.respiration_from_pulse"><code>respiration_from_pulse</code></a></td>
+<td>rPPG BVP modulation</td>
+<td>face/skin ROI</td>
+</tr>
+<tr>
+<td>RR variation (RSA)</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;respiration_from_rri&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.respiration_from_rri"><code>respiration_from_rri</code></a></td>
+<td>RR-interval series</td>
+<td>face/skin ROI</td>
+</tr>
+<tr>
+<td>Shoulder / torso motion</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;respiration_from_motion&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.respiration_from_motion"><code>respiration_from_motion</code></a></td>
+<td>pose keypoints (shoulders 5/6)</td>
+<td>pose (no face)</td>
+</tr>
+</tbody>
+</table>
+<p>All three read the dominant in-band frequency via
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;respiration_rate_from_signal&lt;/span&gt;" href="../../api/signals/rppg/#physiotrack.signals.respiration_rate_from_signal"><code>respiration_rate_from_signal</code></a>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Pulse-derived (shares the rPPG estimator): RIAV amplitude or RSA</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">rr_pulse</span> <span class="o">=</span> <span class="n">est</span><span class="o">.</span><span class="n">respiration_rate</span><span class="p">(</span><span class="s2">&quot;pulse&quot;</span><span class="p">)</span>     <span class="c1"># breaths/min</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">rr_rsa</span>   <span class="o">=</span> <span class="n">est</span><span class="o">.</span><span class="n">respiration_rate</span><span class="p">(</span><span class="s2">&quot;rsa&quot;</span><span class="p">)</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1"># Motion-derived: reuse the per-frame pose records (no face, no extra inference)</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">respiration_from_motion</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">records</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Video</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="s2">&quot;in.mp4&quot;</span><span class="p">,</span> <span class="n">pose</span><span class="o">=</span><span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Person</span><span class="p">())</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>   <span class="c1"># per-frame detections</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">resp_wave</span><span class="p">,</span> <span class="n">rr_motion</span> <span class="o">=</span> <span class="n">respiration_from_motion</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">original_fps</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Which source?</p>
+<p>Face clearly visible → <strong>pulse</strong> (comes free with the rPPG estimator). Face occluded /
+far / masked (e.g. a <strong>VR headset</strong>) but the torso is visible → <strong>motion</strong>, which tracks
+the breathing rise-and-fall of the shoulders.</p>
+</div>
+<p><strong>Live overlay</strong> — <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;RespirationPlotter&lt;/span&gt;" href="../../api/signals/plotting/#physiotrack.signals.RespirationPlotter"><code>RespirationPlotter</code></a> (labelled
+<code>PULSE</code> or <code>MOTION</code>). In the <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Video&lt;/span&gt;" href="../../api/video/#physiotrack.Video"><code>Video</code></a> pipeline set <code>respiration=True</code> and
+choose <code>respiration_source="pulse"</code> or <code>"motion"</code> — see the
+<a href="../video/#vitals-rppg-heart-rate-hrv-respiration">Video guide</a>.</p>
+<hr />
 <h2 id="motion-features-joint-angles-rom">Motion features, Joint Angles &amp; ROM<a class="headerlink" href="#motion-features-joint-angles-rom" title="Permanent link">&para;</a></h2>
 <p>From per-frame pose records (the <code>detections</code> list produced by
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Video&lt;/span&gt;" href="../../api/video/#physiotrack.Video"><code>Video</code></a> / <code>Result.to_dict()</code>), the motion tools build keypoint
@@ -2421,18 +2596,18 @@ ROM.</p>
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">add_pelvic_centroid</span><span class="p">,</span> <span class="n">extract_keypoints_sequence</span><span class="p">,</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">get_relative_coordinates</span><span class="p">,</span> <span class="n">compute_all_motion_features</span><span class="p">,</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">resample_dataframe_by_interpolation</span><span class="p">,</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">)</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># `data` = detections from Video.run(...) / Result.to_dict(); `pose` is your Pose estimator</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">data</span> <span class="o">=</span> <span class="n">add_pelvic_centroid</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pose</span><span class="o">.</span><span class="n">architecture</span><span class="p">)</span>          <span class="c1"># id 135 = hip midpoint</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="n">kp_df</span> <span class="o">=</span> <span class="n">extract_keypoints_sequence</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">candidate_key_points</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">17</span><span class="p">))</span> <span class="o">+</span> <span class="p">[</span><span class="mi">135</span><span class="p">])</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">rel</span> <span class="o">=</span> <span class="n">get_relative_coordinates</span><span class="p">(</span><span class="n">kp_df</span><span class="p">,</span> <span class="n">reference_point_id</span><span class="o">=</span><span class="mi">135</span><span class="p">)</span>  <span class="c1"># pelvis-centered (translation-invariant)</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">motion_df</span> <span class="o">=</span> <span class="n">compute_all_motion_features</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>                   <span class="c1"># + velocity, acceleration, joint angles</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="n">motion_df</span> <span class="o">=</span> <span class="n">resample_dataframe_by_interpolation</span><span class="p">(</span><span class="n">motion_df</span><span class="p">,</span> <span class="n">input_fs</span><span class="o">=</span><span class="n">video_fps</span><span class="p">,</span> <span class="n">output_fs</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="n">add_pelvic_centroid</span><span class="p">,</span> <span class="n">extract_keypoints_sequence</span><span class="p">,</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="n">get_relative_coordinates</span><span class="p">,</span> <span class="n">compute_all_motion_features</span><span class="p">,</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">resample_dataframe_by_interpolation</span><span class="p">,</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">)</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># `data` = detections from Video.run(...) / Result.to_dict(); `pose` is your Pose estimator</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="n">data</span> <span class="o">=</span> <span class="n">add_pelvic_centroid</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pose</span><span class="o">.</span><span class="n">architecture</span><span class="p">)</span>          <span class="c1"># id 135 = hip midpoint</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="n">kp_df</span> <span class="o">=</span> <span class="n">extract_keypoints_sequence</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">candidate_key_points</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">17</span><span class="p">))</span> <span class="o">+</span> <span class="p">[</span><span class="mi">135</span><span class="p">])</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="n">rel</span> <span class="o">=</span> <span class="n">get_relative_coordinates</span><span class="p">(</span><span class="n">kp_df</span><span class="p">,</span> <span class="n">reference_point_id</span><span class="o">=</span><span class="mi">135</span><span class="p">)</span>  <span class="c1"># pelvis-centered (translation-invariant)</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="n">motion_df</span> <span class="o">=</span> <span class="n">compute_all_motion_features</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>                   <span class="c1"># + velocity, acceleration, joint angles</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="n">motion_df</span> <span class="o">=</span> <span class="n">resample_dataframe_by_interpolation</span><span class="p">(</span><span class="n">motion_df</span><span class="p">,</span> <span class="n">input_fs</span><span class="o">=</span><span class="n">video_fps</span><span class="p">,</span> <span class="n">output_fs</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Single-keypoint extraction</p>
@@ -2450,15 +2625,15 @@ eight major joints (left/right shoulder, elbow, hip, knee) directly on one frame
 no plotter needed. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;compute_rom_angles&lt;/span&gt;" href="../../api/signals/motion/#physiotrack.signals.compute_rom_angles"><code>compute_rom_angles</code></a> measures
 clinical range-of-motion movements (hip flexion / extension / abduction / adduction) against a
 body reference axis.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pt</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">joint_angles</span><span class="p">,</span> <span class="n">compute_rom_angles</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Person</span><span class="p">()</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">kps</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s2">&quot;detections&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;keypoints&quot;</span><span class="p">]</span>   <span class="c1"># [{&quot;id&quot;, &quot;x&quot;, &quot;y&quot;, &quot;confidence&quot;}, ...]</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">joint_angles</span><span class="p">(</span><span class="n">kps</span><span class="p">)</span>                                       <span class="c1"># {&#39;leftElbow&#39;: 152.3, &#39;leftKnee&#39;: 174.1, ...}  degrees</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">joint_angles</span><span class="p">(</span><span class="n">kps</span><span class="p">,</span> <span class="n">joints</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;leftElbow&quot;</span><span class="p">,</span> <span class="s2">&quot;rightElbow&quot;</span><span class="p">])</span>   <span class="c1"># subset</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="n">compute_rom_angles</span><span class="p">(</span><span class="n">kps</span><span class="p">,</span> <span class="n">movements</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;leftHipFlexion&quot;</span><span class="p">])</span>   <span class="c1"># {&#39;leftHipFlexion&#39;: 12.4}  degrees</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pt</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">joint_angles</span><span class="p">,</span> <span class="n">compute_rom_angles</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Person</span><span class="p">()</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">kps</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s2">&quot;detections&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;keypoints&quot;</span><span class="p">]</span>   <span class="c1"># [{&quot;id&quot;, &quot;x&quot;, &quot;y&quot;, &quot;confidence&quot;}, ...]</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">joint_angles</span><span class="p">(</span><span class="n">kps</span><span class="p">)</span>                                       <span class="c1"># {&#39;leftElbow&#39;: 152.3, &#39;leftKnee&#39;: 174.1, ...}  degrees</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="n">joint_angles</span><span class="p">(</span><span class="n">kps</span><span class="p">,</span> <span class="n">joints</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;leftElbow&quot;</span><span class="p">,</span> <span class="s2">&quot;rightElbow&quot;</span><span class="p">])</span>   <span class="c1"># subset</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="n">compute_rom_angles</span><span class="p">(</span><span class="n">kps</span><span class="p">,</span> <span class="n">movements</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;leftHipFlexion&quot;</span><span class="p">])</span>   <span class="c1"># {&#39;leftHipFlexion&#39;: 12.4}  degrees</span>
 </span></code></pre></div>
 <p>Both return <code>dict[str, float]</code> for only the confidently measured joints (all three involved
 keypoints must clear <code>conf_threshold</code>, default <code>0.3</code>).</p>
@@ -2506,40 +2681,40 @@ the live value in degrees, a 0–180° gauge and a sparkline. The definitions ar
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="end-to-end-via-video" name="__tabbed_2" type="radio" /><input id="standalone-frame-by-frame" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="end-to-end-via-video">End-to-end via Video</label><label for="standalone-frame-by-frame">Standalone, frame by frame</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pt</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">pt</span><span class="o">.</span><span class="n">Video</span><span class="p">(</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">source</span><span class="o">=</span><span class="s2">&quot;in.mp4&quot;</span><span class="p">,</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">detector</span><span class="o">=</span><span class="n">pt</span><span class="o">.</span><span class="n">Detection</span><span class="o">.</span><span class="n">Person</span><span class="p">(),</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">pose</span><span class="o">=</span><span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Person</span><span class="p">(),</span>          <span class="c1"># whole-body pose feeds the angle panel</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">plot_angles</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># interior joint-angle grid (left side)</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">rom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                       <span class="c1"># add clinical ROM grid + skeleton canvas</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="c1"># angle_joints=[&quot;leftElbow&quot;, &quot;rightElbow&quot;, &quot;leftKnee&quot;, &quot;rightKnee&quot;],  # optional subset</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="c1"># rom_render=False,             # keep ROM values in the grid but hide the skeleton canvas</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">output_video</span><span class="o">=</span><span class="s2">&quot;out_angles.mp4&quot;</span><span class="p">,</span> <span class="n">output_json</span><span class="o">=</span><span class="s2">&quot;poses.json&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pt</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">pt</span><span class="o">.</span><span class="n">Video</span><span class="p">(</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">source</span><span class="o">=</span><span class="s2">&quot;in.mp4&quot;</span><span class="p">,</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="n">detector</span><span class="o">=</span><span class="n">pt</span><span class="o">.</span><span class="n">Detection</span><span class="o">.</span><span class="n">Person</span><span class="p">(),</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">pose</span><span class="o">=</span><span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Person</span><span class="p">(),</span>          <span class="c1"># whole-body pose feeds the angle panel</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">plot_angles</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># interior joint-angle grid (left side)</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="n">rom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                       <span class="c1"># add clinical ROM grid + skeleton canvas</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="c1"># angle_joints=[&quot;leftElbow&quot;, &quot;rightElbow&quot;, &quot;leftKnee&quot;, &quot;rightKnee&quot;],  # optional subset</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="c1"># rom_render=False,             # keep ROM values in the grid but hide the skeleton canvas</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">output_video</span><span class="o">=</span><span class="s2">&quot;out_angles.mp4&quot;</span><span class="p">,</span> <span class="n">output_json</span><span class="o">=</span><span class="s2">&quot;poses.json&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pt</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">JointAnglePlotter</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">pose</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Person</span><span class="p">()</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">plotter</span> <span class="o">=</span> <span class="n">JointAnglePlotter</span><span class="p">(</span><span class="n">rom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>   <span class="c1"># 8 joints + clinical ROM</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">cap</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoCapture</span><span class="p">(</span><span class="s2">&quot;in.mp4&quot;</span><span class="p">)</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">ok</span><span class="p">,</span> <span class="n">frame</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">ok</span><span class="p">:</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        <span class="k">break</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>    <span class="n">pose_results</span> <span class="o">=</span> <span class="n">pose</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s2">&quot;detections&quot;</span><span class="p">]</span>
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="n">t</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_POS_MSEC</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1000.0</span>
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">plotter</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">pose_results</span><span class="p">,</span> <span class="n">frame_time</span><span class="o">=</span><span class="n">t</span><span class="p">)</span>
-</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="n">frame</span> <span class="o">=</span> <span class="n">plotter</span><span class="o">.</span><span class="n">attach_panels</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="s2">&quot;top_left&quot;</span><span class="p">)</span>  <span class="c1"># joint + ROM grids</span>
-</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="s2">&quot;joint angles&quot;</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
-</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>    <span class="k">if</span> <span class="n">cv2</span><span class="o">.</span><span class="n">waitKey</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFF</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;q&quot;</span><span class="p">):</span>
-</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>        <span class="k">break</span>
-</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pt</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">JointAnglePlotter</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">pose</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Person</span><span class="p">()</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="n">plotter</span> <span class="o">=</span> <span class="n">JointAnglePlotter</span><span class="p">(</span><span class="n">rom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>   <span class="c1"># 8 joints + clinical ROM</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="n">cap</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoCapture</span><span class="p">(</span><span class="s2">&quot;in.mp4&quot;</span><span class="p">)</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>    <span class="n">ok</span><span class="p">,</span> <span class="n">frame</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">ok</span><span class="p">:</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>        <span class="k">break</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>    <span class="n">pose_results</span> <span class="o">=</span> <span class="n">pose</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s2">&quot;detections&quot;</span><span class="p">]</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>    <span class="n">t</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_POS_MSEC</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1000.0</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>    <span class="n">plotter</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">pose_results</span><span class="p">,</span> <span class="n">frame_time</span><span class="o">=</span><span class="n">t</span><span class="p">)</span>
+</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>    <span class="n">frame</span> <span class="o">=</span> <span class="n">plotter</span><span class="o">.</span><span class="n">attach_panels</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="s2">&quot;top_left&quot;</span><span class="p">)</span>  <span class="c1"># joint + ROM grids</span>
+</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="s2">&quot;joint angles&quot;</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
+</span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>    <span class="k">if</span> <span class="n">cv2</span><span class="o">.</span><span class="n">waitKey</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFF</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;q&quot;</span><span class="p">):</span>
+</span><span id="__span-14-19"><a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a>        <span class="k">break</span>
+</span><span id="__span-14-20"><a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a><span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
 </span></code></pre></div>
 </div>
 </div>
@@ -2554,10 +2729,10 @@ is the same design taking the band as a pair. For zero-phase results use the <co
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;highpass_filter&lt;/span&gt;" href="../../api/signals/filters/#physiotrack.signals.highpass_filter"><code>highpass_filter</code></a> /
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;lowpass_filter&lt;/span&gt;" href="../../api/signals/filters/#physiotrack.signals.lowpass_filter"><code>lowpass_filter</code></a>, and remove mains hum with
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;notch_filter&lt;/span&gt;" href="../../api/signals/filters/#physiotrack.signals.notch_filter"><code>notch_filter</code></a>.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">bandpass_filter</span><span class="p">,</span> <span class="n">z_score_normalize</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">clean</span> <span class="o">=</span> <span class="n">bandpass_filter</span><span class="p">(</span><span class="n">bvp</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>      <span class="c1"># keep the 45–240 bpm heart-rate band</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">z</span> <span class="o">=</span> <span class="n">z_score_normalize</span><span class="p">(</span><span class="n">motion_df</span><span class="p">[</span><span class="s2">&quot;9_x&quot;</span><span class="p">])</span>             <span class="c1"># standardize a motion series (mean 0, std 1)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">bandpass_filter</span><span class="p">,</span> <span class="n">z_score_normalize</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">clean</span> <span class="o">=</span> <span class="n">bandpass_filter</span><span class="p">(</span><span class="n">bvp</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>      <span class="c1"># keep the 45–240 bpm heart-rate band</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">z</span> <span class="o">=</span> <span class="n">z_score_normalize</span><span class="p">(</span><span class="n">motion_df</span><span class="p">[</span><span class="s2">&quot;9_x&quot;</span><span class="p">])</span>             <span class="c1"># standardize a motion series (mean 0, std 1)</span>
 </span></code></pre></div>
 <p>The normalizers (<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;min_max_normalize&lt;/span&gt;" href="../../api/signals/normalize/#physiotrack.signals.min_max_normalize"><code>min_max_normalize</code></a>,
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;z_score_normalize&lt;/span&gt;" href="../../api/signals/normalize/#physiotrack.signals.z_score_normalize"><code>z_score_normalize</code></a>,
@@ -2616,15 +2791,15 @@ metrics first trim the inputs to a common length via
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">calculate_pearson_correlation</span><span class="p">,</span> <span class="n">calculate_dtw_distance</span><span class="p">,</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">compute_rmse</span><span class="p">,</span> <span class="n">compute_plv</span><span class="p">,</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="p">)</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="n">r</span>   <span class="o">=</span> <span class="n">calculate_pearson_correlation</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">estimate</span><span class="p">)</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">dtw</span> <span class="o">=</span> <span class="n">calculate_dtw_distance</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">estimate</span><span class="p">)</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="n">rmse</span> <span class="o">=</span> <span class="n">compute_rmse</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">estimate</span><span class="p">)</span>
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="n">plv</span> <span class="o">=</span> <span class="n">compute_plv</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">estimate</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack.signals</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="n">calculate_pearson_correlation</span><span class="p">,</span> <span class="n">calculate_dtw_distance</span><span class="p">,</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="n">compute_rmse</span><span class="p">,</span> <span class="n">compute_plv</span><span class="p">,</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="p">)</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="n">r</span>   <span class="o">=</span> <span class="n">calculate_pearson_correlation</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">estimate</span><span class="p">)</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="n">dtw</span> <span class="o">=</span> <span class="n">calculate_dtw_distance</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">estimate</span><span class="p">)</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="n">rmse</span> <span class="o">=</span> <span class="n">compute_rmse</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">estimate</span><span class="p">)</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="n">plv</span> <span class="o">=</span> <span class="n">compute_plv</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">estimate</span><span class="p">)</span>
 </span></code></pre></div>
 <p>See <code>examples/motion.py</code> for a full 2D-vs-3D comparison and the
 <a href="../../api/signals/evaluate/">Signal Metrics</a> API page for details.</p>
