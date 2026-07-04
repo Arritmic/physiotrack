@@ -59,7 +59,7 @@ systems. Developed at the **Center for Machine Vision and Signal Processing (CMV
 Foundational models are good at labeling *what* they see. Physiotrack is designed to help systems
 understand *what it means*. It converts RGB / Depth / Thermal streams into interpretable
 human-state features: pose and motion patterns, posture symmetry, head orientation and gaze
-stability, and rPPG-derived heart-rate / respiration-rate candidates.
+stability, and rPPG-derived heart rate, heart-rate variability (HRV) and respiration rate.
 
 The philosophy is simple: **"send meaning, not pixels"**, so downstream AI agents can reason about
 human *states* instead of processing raw video.
@@ -130,7 +130,7 @@ flowchart TB
     %% ====== TIER 3: human-state signals (the payload) ======
     subgraph SIGNAL["📡 Human-state signals · physiological · motion · behavioral"]
         direction LR
-        PPG["❤️ <b>rPPG → HR / RR</b> · physiological<br/>POS · CHROM · LGI · OMIT<br/><i>bandpass 0.75–4 Hz</i>"]
+        PPG["❤️ <b>rPPG → HR · HRV · RR</b> · physiological<br/>POS · CHROM · LGI · OMIT<br/><i>RR intervals · Lipponen-Tarvainen · Task-Force HRV</i>"]
         ANG["📐 <b>Joint angles &amp; ROM</b> · goniometry<br/>8 interior angles + clinical ROM<br/><i>flexion · extension · abd · add</i><br/><i>angle panel + ROM skeleton</i>"]
         MOT["🏃 <b>Motion features</b><br/>velocity · accel · trajectories<br/><i>centroids · filters · metrics</i>"]
         FORI["👁️ <b>Head orientation</b> · gaze<br/>6DRepNet360 · CMVS-FO-VR<br/><i>yaw · pitch · roll</i>"]
@@ -235,7 +235,7 @@ frames can be analyzed by the per-frame predictors when supplied as image stream
 | **Face parsing** | Face-part segmentation (19 classes) | SegFace (Swin-Base) |
 | **Depth** | Monocular dense depth estimation | Depth-Anything-V2 (s/b/l) |
 | **Face** | Face detection + 3D head orientation | YOLO-Face, 6DRepNet360, CMVS-FO-VR |
-| **Signals** | rPPG (HR/RR) + motion features | POS, CHROM, LGI, OMIT + filters |
+| **Signals** | rPPG heart rate, HRV, respiration + motion features | POS, CHROM, LGI, OMIT; RR intervals; Lipponen-Tarvainen artefact correction; Task-Force HRV |
 | **Joint angles & ROM** | 8 anatomical joint angles + clinical range-of-motion (flexion/extension/abduction/adduction) as rows in the left-side angle panel, plus a clean full-room **skeleton canvas** | goniometry from pose |
 | **Views** | Bird's-eye floor map, ego-video, depth & angle/ROM overlays | n/a |
 
@@ -304,11 +304,12 @@ physiotrack ─┬─ Detection.Person() / .Face() / .VR() / .VRStudent() / .Cus
                           ↳ .boxes · .keypoints · .seg_map · .names · .plot() · .to_dict()
 
 physiotrack.signals ─┬─ compute (plotter-free, use directly):
-                     │    joint_angles() · compute_rom_angles() · motion features
+                     │    joint_angles() · compute_rom_angles() · motion features · respiration_from_motion()
                      │    rPPG: POS/CHROM/LGI/OMIT · HeartRateEstimator · bvp_to_hr · bvp_snr
-                     │    filters · agreement metrics (Pearson, RMSE, DTW, …)
+                     │    pulse analysis: bvp_to_rri · correct_rr_artifacts · compute_hrv · respiration_from_pulse/rri
+                     │    filters · agreement metrics (Pearson, RMSE, DTW, hrv_errors, …)
                      └─ overlays (optional, wrap the compute above):
-                          JointAnglePlotter · RPPGPlotter · HeartRatePlotter · KeypointMotionPlotter · RealTimePlotter
+                          JointAnglePlotter · RPPGPlotter · HeartRatePlotter · HRVPlotter · RespirationPlotter · KeypointMotionPlotter · RealTimePlotter
 physiotrack.pose    ── keypoint name maps (COCO_WHOLEBODY_NAMES, HUMAN26M_NAMES)
 physiotrack.face    ── drawing helpers (draw_axis, plot_pose_cube)
 ```
@@ -422,7 +423,7 @@ for inst in orient.predict(image, boxes):
 </details>
 
 <details>
-<summary><b>Signals: rPPG / heart rate &amp; motion</b></summary>
+<summary><b>Signals: rPPG / heart rate / HRV / respiration &amp; motion</b></summary>
 
 The computation is **plotter-free** — use it directly; the overlay is an optional wrapper.
 
@@ -437,21 +438,32 @@ hr, _ = bvp_to_hr(clean, fps=30)                # HR (bpm) via the Welch-PSD pea
 
 # High level: SegFace face parsing -> rPPG on the skin (no plotter)
 fs  = FaceSkinExtractor()                        # SegFace (detects faces itself)
-est = HeartRateEstimator("POS", fps=30)          # POS / CHROM / LGI / OMIT; bands configurable
+est = HeartRateEstimator("POS", fps=30, window_sec=60)   # POS/CHROM/LGI/OMIT; bands configurable
 mask, skin_canvas = fs.extract(frame)            # skin ROI mask + image-res skin canvas
 est.update(frame, roi_mask=mask)                 # rPPG on the segmented skin; call per frame
 print(est.hr, est.snr)                           # HR (bpm), de Haan SNR (dB)
 
-# One SegFace pass for both the skin ROI and the full 19-class parsing (for display):
-# fp = fs.analyze(frame)   # -> FaceParsing(skin_mask, skin_canvas, parsing_canvas, seg_map)
+# The same window also yields the downstream pulse analytics (no re-computation):
+print(est.hrv())                                 # {RMSSD, SDNN, pNN50, SD1, SD2, LF/HF, ...}
+print(est.respiration_rate())                    # breaths/min (RIAV; use "rsa" for RSA)
+
+# Or step through the pulse-analysis chain explicitly:
+from physiotrack.signals import bvp_to_rri, correct_rr_artifacts, compute_hrv
+rri_ms, t   = bvp_to_rri(clean, fps=30)          # RR / inter-beat intervals (ms)
+rri_ms, _   = correct_rr_artifacts(rri_ms)       # Lipponen-Tarvainen (2019) beat correction
+hrv         = compute_hrv(rri_ms, t)             # time + frequency + non-linear HRV
 ```
 (`update` also accepts a face `box` as a lightweight fallback when you don't run segmentation.)
 
-For on-frame overlays, wrap a (shared) estimator with `RPPGPlotter` (the BVP pulse signal) and
-`HeartRatePlotter` (the derived bpm) — both read one `HeartRateEstimator`, so the rPPG is computed
-once. See [`examples/rppg_heartrate.py`](examples/rppg_heartrate.py). Also includes motion features,
+For on-frame overlays, wrap a (shared) estimator with `RPPGPlotter` (BVP pulse), `HeartRatePlotter`
+(bpm), `HRVPlotter` (HRV grid) and `RespirationPlotter` (breaths/min) — all read one
+`HeartRateEstimator`, so the rPPG is computed once. See
+[`examples/rppg_vitals.py`](examples/rppg_vitals.py) (all panels together); or enable them in the
+pipeline with `Video(..., rppg=True, hrv=True, respiration=True)`. Respiration also has a pose-based route
+(`respiration_from_motion`) that cross-validates the rPPG estimate. All HRV / artefact-correction
+formulas are numerically cross-checked against NeuroKit2. Also includes motion features,
 filters/normalizers, and signal-agreement metrics (`compute_rmse`,
-`calculate_pearson_correlation`, `calculate_dtw_distance`, …).
+`calculate_pearson_correlation`, `calculate_dtw_distance`, `hrv_errors`, …).
 </details>
 
 <details>
@@ -608,7 +620,7 @@ src/physiotrack/
 ├── depth/          # Depth estimation
 ├── face/           # Face detection + orientation
 ├── trackers/       # OC-SORT, ByteTrack, StrongSORT, BoostTrack
-├── signals/        # rPPG (POS/CHROM/LGI/OMIT), motion (joint angles, ROM), filters, plotting
+├── signals/        # rPPG (POS/CHROM/LGI/OMIT) + RR intervals/HRV/respiration, motion (joint angles, ROM), filters, plotting
 ├── core/           # inference loop, radar/floor view, ego view, depth view
 ├── modules/        # Neural backends (ViTPose, Sapiens, YOLO, DepthAnythingV2,
 │                   #   MotionBERT, DDHPose, 3DCPNet, 6DRepNet360, SegFace)

@@ -35,3 +35,9 @@ body/head/pelvic centroids, resample, and compute joint angles and range-of-moti
 ::: physiotrack.signals.get_keypoint_features
 
 ::: physiotrack.signals.select_feature_data
+
+## Respiration from motion
+
+Respiration from shoulder/torso motion is documented alongside the other respiration
+estimators: see [`respiration_from_motion`][physiotrack.signals.respiration_from_motion]
+in the [rPPG / Heart Rate](rppg.md#respiration) reference.

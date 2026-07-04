@@ -7,7 +7,7 @@ from physiotrack.signals import (
     resample_dataframe_by_interpolation, extract_keypoints_sequence,
     # motion: features
     get_relative_coordinates, compute_all_motion_features,
-    get_keypoint_features, select_feature_data,
+    get_keypoint_features, select_feature_data, respiration_from_motion,
     # normalization / filtering / signal-comparison metrics
     min_max_normalize, band_pass_filter,
     calculate_pearson_correlation, calculate_dtw_distance,
@@ -147,6 +147,13 @@ if __name__ == "__main__":
     # This block only runs when the script is executed directly,
     # not when it's imported by parallel workers
     detection_data_2D, detection_data_3D, results_3d, pose_estimator, sampling_freq, output_directory, video_name = run_motion_pipeline()
+
+    # Contactless respiration rate from chest/shoulder vertical motion. This pose-based
+    # route (shoulder keypoints 5 & 6) complements the rPPG respiration estimate and can
+    # cross-validate it when the torso is visible but the face/BVP is poor.
+    if detection_data_2D is not None:
+        _, resp_bpm = respiration_from_motion(detection_data_2D, sampling_freq)
+        print(f"Respiration rate from motion (shoulders): {resp_bpm:.1f} breaths/min")
 
     # file_path = 'CVSSP3D/s1/acting1/poses_3d_cvssp3d_s1_acting1.json'
     # with open(file_path, 'r', encoding='utf-8') as file:
