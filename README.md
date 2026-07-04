@@ -35,6 +35,22 @@ systems. Developed at the **Center for Machine Vision and Signal Processing (CMV
 
 </div>
 
+### Example outputs
+
+<div align="center">
+
+<img src="docs/images/full_inference_overlay.png" width="78%" alt="Full multi-task pipeline overlay" />
+
+<sub>Full pipeline on a single frame: tracked whole-body pose + instance/VR-head segmentation, with live joint-angle &amp; clinical-ROM panels, the ROM skeleton, the wrist-motion plot, and colorized monocular depth.</sub>
+
+<br/><br/>
+
+<img src="docs/images/rppg_heartrate_overlay.png" width="40%" alt="Contactless rPPG heart-rate overlay" />
+
+<sub>Contactless rPPG: a single SegFace pass yields the face parsing and skin ROI that drive the live blood-volume-pulse signal and the derived heart rate.</sub>
+
+</div>
+
 ## Why Physiotrack?
 
 Foundational models are good at labeling *what* they see. Physiotrack is designed to help systems
