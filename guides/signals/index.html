@@ -2329,7 +2329,7 @@ everything derived from that single inference:</p>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">est</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">roi_mask</span><span class="o">=</span><span class="n">fp</span><span class="o">.</span><span class="n">skin_mask</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Re-segmenting every few frames (the face region moves slowly) and reusing the mask in
-between keeps the loop fast — see <code>examples/rppg_heartrate.py</code>.</p>
+between keeps the loop fast — see <code>examples/rppg_vitals.py</code>.</p>
 </details>
 <h3 id="live-overlays">Live overlays<a class="headerlink" href="#live-overlays" title="Permanent link">&para;</a></h3>
 <p>The heart rate is derived from the same BVP signal that the pulse trace shows, so <strong>share one
@@ -2381,8 +2381,9 @@ estimator</strong> across both plotters and the rPPG is computed once per frame.
 <p class="admonition-title">All bands are configurable</p>
 <p>The analysis band is <code>hr_band=(0.75, 4.0)</code> Hz (45–240 bpm) by default and drives both the
 band-pass and the HR search. <code>window_sec</code> sets the sliding-window length; <code>smooth_hr</code>
-reports the median HR over recent windows. A full standalone example (four-panel overlay:
-face parsing, skin ROI, pulse, HR) lives in <code>examples/rppg_heartrate.py</code>.</p>
+reports the median HR over recent windows. A full standalone example (overlaying face
+parsing, skin ROI, the rPPG pulse, HR, HRV and respiration) lives in
+<code>examples/rppg_vitals.py</code>.</p>
 </div>
 <hr />
 <h2 id="motion-features-joint-angles-rom">Motion features, Joint Angles &amp; ROM<a class="headerlink" href="#motion-features-joint-angles-rom" title="Permanent link">&para;</a></h2>
