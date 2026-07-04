@@ -5,10 +5,59 @@ import numpy as np
 
 
 class SegmentationBase:
+    """Shared implementation for the segmentation presets.
+
+    Selects a backend (``YOLO``, ``Sapiens`` or ``SegFace``) from the model
+    enum's registry metadata, wraps it, and exposes the unified
+    [`predict`][physiotrack.Segmentation] interface returning a
+    [`Result`][physiotrack.Result] with a ``.seg_map`` class-index array.
+
+    Not used directly; instantiate a ``Segmentation.*`` preset.
+
+    Attributes:
+        model (Models.Segmentation.*): The resolved model enum in use.
+        segmentation_framework (str): Backend name, one of ``"YOLO"``,
+            ``"Sapiens"`` or ``"SegFace"``.
+        device (int | str): Inference device.
+        conf (float): Confidence threshold (YOLO backend).
+        iou (float): NMS/IoU threshold (YOLO backend).
+        classes (list[int] | None): Class filter (YOLO backend).
+    """
+
     default_model = None
 
     def __init__(self, model=None, *, conf=0.25, iou=0.45, classes=None,
                  device='cpu', filter=None, verbose=False, **kwargs):
+        """Configure a segmenter.
+
+        Args:
+            model (Models.Segmentation.*, optional): A validated segmentation
+                model enum. Defaults to ``None`` (uses the preset's class-level
+                ``default_model``).
+            conf (float, optional): Confidence threshold in ``[0.0, 1.0]`` (YOLO
+                backend). Defaults to ``0.25``.
+            iou (float, optional): NMS/IoU threshold in ``[0.0, 1.0]`` (YOLO
+                backend). Defaults to ``0.45``.
+            classes (list[int], optional): Restrict segmentation to these class
+                ids (YOLO backend). Defaults to ``None`` (all classes).
+            device (int | str, optional): Inference device, e.g. ``'cpu'``,
+                ``'cuda'``, ``'mps'`` or a device index. Defaults to ``'cpu'``.
+            filter (dict, optional): Bounding-box filtering options with keys
+                ``'bbox_filter'`` (bool), ``'detector_index'`` and
+                ``'detector_class_filter'``. Defaults to ``None`` (no filtering).
+            verbose (bool, optional): Print backend inference logs. Defaults to
+                ``False``.
+            **kwargs (Any): Additional keyword arguments forwarded to the underlying
+                segmentation backend.
+
+        Raises:
+            ValueError: If no model can be resolved, or the model maps to an
+                unsupported backend.
+
+        Note:
+            On first use the model weights are auto-downloaded from Hugging Face
+            and cached.
+        """
         if model is None:
             if self.default_model is None:
                 raise ValueError("Model must be provided either as parameter or class attribute")
@@ -68,16 +117,35 @@ class SegmentationBase:
         return filtered
 
     def predict(self, source, boxes=None):
-        """Run segmentation on an image or a list of images.
+        """Run segmentation on one image or a batch of images.
 
         Args:
-            source: a single BGR frame (HxWx3) or a list of frames.
-            boxes: optional ``[[x1,y1,x2,y2], ...]``; only segmentation inside these
-                boxes is kept.
+            source (np.ndarray | list[np.ndarray] | tuple[np.ndarray]): A single
+                BGR image ``(H, W, 3)`` or a list/tuple of such frames for batch
+                inference.
+            boxes (list | np.ndarray, optional): Bounding boxes
+                ``[[x1, y1, x2, y2], ...]``; only the segmentation inside these
+                boxes is kept (the rest is zeroed). Defaults to ``None`` (keep the
+                full-frame map).
 
         Returns:
-            A :class:`Result` (task="segment") whose ``.seg_map`` is the class-index
-            map. ``result.plot()`` overlays the colorized segmentation.
+            Result | list[Result]: A [`Result`][physiotrack.Result] with
+                ``task="segment"`` whose ``.seg_map`` is the ``(H, W)`` class-index
+                array, or a ``list[Result]`` when ``source`` is a list/tuple.
+                ``result.plot()`` overlays the colorized segmentation.
+
+        Example:
+            ```python
+            import physiotrack as pt
+
+            seg = pt.Segmentation.Person()
+            result = seg.predict(frame)          # or: seg(frame)
+            seg_map = result.seg_map             # (H, W) class-index map
+            overlay = result.plot()
+            ```
+
+        See Also:
+            [`Result`][physiotrack.Result]: the returned segmentation container.
         """
         if isinstance(source, (list, tuple)):
             return [self._predict_one(frame, boxes) for frame in source]
@@ -91,6 +159,19 @@ class SegmentationBase:
                       seg_map=segmentation_map)
 
     def __call__(self, source, boxes=None):
+        """Alias for [`predict`][physiotrack.Segmentation].
+
+        Lets a segmenter instance be called directly, e.g. ``seg(frame)``.
+
+        Args:
+            source (np.ndarray | list[np.ndarray]): A single BGR frame ``(H, W, 3)``
+                or a list of frames.
+            boxes (list | np.ndarray, optional): See
+                [`predict`][physiotrack.Segmentation]. Defaults to ``None``.
+
+        Returns:
+            Result | list[Result]: See [`predict`][physiotrack.Segmentation].
+        """
         return self.predict(source, boxes)
 
     def get_avg_inference_time(self):
@@ -107,36 +188,157 @@ class SegmentationBase:
 
 
 class Segmentation:
+    """Segmentation predictors, grouped as ready-to-use presets.
+
+    ``Segmentation`` is a namespace of nested predictor classes covering three
+    backends (YOLO, Sapiens, SegFace). Instantiate a preset, then call
+    [`predict`][physiotrack.Segmentation] (or the instance directly) to
+    get a [`Result`][physiotrack.Result] with a ``.seg_map`` class-index array;
+    ``result.plot()`` overlays the colorized mask.
+
+    Presets:
+        - [`Person`][physiotrack.Segmentation.Person]: whole-person instance
+          segmentation (YOLO).
+        - [`VRHead`][physiotrack.Segmentation.VRHead]: VR-head segmentation (YOLO).
+        - [`BodyPart`][physiotrack.Segmentation.BodyPart]: body-part parsing
+          (Sapiens/Goliath).
+        - [`Face`][physiotrack.Segmentation.Face]: 19-class face-part parsing
+          (SegFace/CelebAMask-HQ).
+        - [`Custom`][physiotrack.Segmentation.Custom]: any validated segmentation
+          model.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        seg = pt.Segmentation.Person()
+        seg_map = seg.predict(frame).seg_map     # (H, W) class map
+        ```
+
+    Note:
+        Weights are auto-downloaded from Hugging Face on first use and cached.
+
+    See Also:
+        [`Detection`][physiotrack.Detection]: box-based prediction.
+    """
+
     class Custom(SegmentationBase):
+        """Segmenter backed by any user-specified validated segmentation model.
+
+        Example:
+            ```python
+            import physiotrack as pt
+            from physiotrack import Models
+
+            seg = pt.Segmentation.Custom(model=Models.Segmentation.YOLO.PERSON.l_person)
+            result = seg.predict(frame)
+            ```
+        """
+
         def __init__(self, model, *, conf=0.25, iou=0.45, classes=None,
                      device='cpu', filter=None, verbose=False, **kwargs):
+            """Configure a custom segmenter.
+
+            Args:
+                model (Models.Segmentation.*): A validated segmentation model
+                    enum, e.g. ``Models.Segmentation.YOLO.PERSON.m_person``.
+                conf (float, optional): Confidence threshold in ``[0.0, 1.0]``
+                    (YOLO backend). Defaults to ``0.25``.
+                iou (float, optional): NMS/IoU threshold in ``[0.0, 1.0]`` (YOLO
+                    backend). Defaults to ``0.45``.
+                classes (list[int], optional): Restrict to these class ids (YOLO
+                    backend). Defaults to ``None`` (all classes).
+                device (int | str, optional): Inference device. Defaults to
+                    ``'cpu'``.
+                filter (dict, optional): Bounding-box filtering options. See
+                    [`SegmentationBase`][physiotrack.Segmentation].
+                    Defaults to ``None``.
+                verbose (bool, optional): Print backend inference logs. Defaults
+                    to ``False``.
+                **kwargs (Any): Forwarded to the underlying segmentation backend.
+            """
             Models.validate_seg_model(model)
             super().__init__(model=model, conf=conf, iou=iou, classes=classes,
                              device=device, filter=filter, verbose=verbose, **kwargs)
 
     class VRHead(SegmentationBase):
+        """VR-head segmenter.
+
+        Wraps ``Models.Segmentation.YOLO.VRHEAD.M11`` (YOLO backend). See
+        [`SegmentationBase`][physiotrack.Segmentation] for
+        constructor arguments.
+        """
         default_model = Models.Segmentation.YOLO.VRHEAD.M11
 
     class Person(SegmentationBase):
+        """Whole-person instance segmenter.
+
+        Wraps ``Models.Segmentation.YOLO.PERSON.m_person`` (YOLO backend). See
+        [`SegmentationBase`][physiotrack.Segmentation] for
+        constructor arguments.
+        """
         default_model = Models.Segmentation.YOLO.PERSON.m_person
 
     class BodyPart(SegmentationBase):
+        """Body-part parser (Sapiens / Goliath).
+
+        Wraps ``Models.Segmentation.Sapiens.BodyPart.B1_TS_SEG`` (Sapiens
+        backend). See
+        [`SegmentationBase`][physiotrack.Segmentation] for
+        constructor arguments.
+        """
         default_model = Models.Segmentation.Sapiens.BodyPart.B1_TS_SEG
 
     class Face(SegmentationBase):
-        """SegFace face-part parsing (CelebAMask-HQ, 19 classes).
+        """SegFace face-part parser (CelebAMask-HQ, 19 classes).
 
-        Unlike the whole-frame segmenters, SegFace runs on face crops. If
-        ``predict`` is called without ``boxes``, faces are auto-detected with a
-        YOLO face detector (mirroring how ``Pose`` auto-detects people). The
-        returned :class:`Result` carries a full-frame ``seg_map`` of face-part
-        class indices; ``result.plot()`` overlays the parsing with the 19-class
-        palette.
+        Wraps ``Models.Segmentation.SegFace.Face.swinb_celeba_512`` (SegFace
+        backend). Unlike the whole-frame segmenters, SegFace runs on face crops.
+        If [`predict`][physiotrack.Segmentation] is called without
+        ``boxes``, faces are auto-detected with a YOLO face detector (mirroring
+        how ``Pose`` auto-detects people). The returned
+        [`Result`][physiotrack.Result] carries a full-frame ``seg_map`` of
+        face-part class indices and a 19-class ``palette``; ``result.plot()``
+        overlays the parsing with that palette.
+
+        Example:
+            ```python
+            import physiotrack as pt
+
+            parse = pt.Segmentation.Face()
+            result = parse.predict(frame)        # auto-detects faces if no boxes
+            overlay = result.plot()
+            ```
+
+        See Also:
+            [`Detection.Face`][physiotrack.Detection.Face]: the auto-detector used
+                when ``boxes`` is omitted.
         """
         default_model = Models.Segmentation.SegFace.Face.swinb_celeba_512
 
         def __init__(self, model=None, *, device='cpu', face_detector=None,
                      face_conf=0.25, face_iou=0.45, verbose=False, **kwargs):
+            """Configure the SegFace face-part parser.
+
+            Args:
+                model (Models.Segmentation.SegFace.*, optional): Override the
+                    default SegFace model. Defaults to ``None`` (uses
+                    ``swinb_celeba_512``).
+                device (int | str, optional): Inference device, e.g. ``'cpu'``,
+                    ``'cuda'`` or a device index. Defaults to ``'cpu'``.
+                face_detector (optional): A pre-built face detector to reuse for
+                    auto-detection when ``predict`` is called without ``boxes``.
+                    Defaults to ``None`` (lazily builds a
+                    [`Detection.Face`][physiotrack.Detection.Face]).
+                face_conf (float, optional): Confidence threshold in ``[0.0, 1.0]``
+                    for the auto-built face detector. Defaults to ``0.25``.
+                face_iou (float, optional): NMS/IoU threshold in ``[0.0, 1.0]``
+                    for the auto-built face detector. Defaults to ``0.45``.
+                verbose (bool, optional): Print backend inference logs. Defaults
+                    to ``False``.
+                **kwargs (Any): Forwarded to
+                    [`SegmentationBase`][physiotrack.Segmentation].
+            """
             super().__init__(model=model, device=device, verbose=verbose, **kwargs)
             self._face_detector = face_detector
             self._face_conf = face_conf

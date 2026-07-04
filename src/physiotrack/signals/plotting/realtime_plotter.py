@@ -12,9 +12,85 @@ import io
 
 # Plot values in opencv program
 class RealTimePlotter:
+    """Scrolling real-time line plot for debugging/inspecting streamed signals.
+
+    Maintains a fixed-length sliding window of the most recent samples for one or more
+    signals and re-renders it on each [`plot`][physiotrack.signals.RealTimePlotter.plot]
+    call, returning an image you can display or composite. Two rendering backends are
+    supported via ``plotting_method``: ``"MPL"`` (Matplotlib, drawn to an Agg canvas and
+    returned as an RGBA array) and ``"OCV"`` (a lightweight OpenCV line drawing).
+
+    Incoming values are normalized by ``max_values_y_axis`` before plotting, so pick that
+    to match your signal's expected magnitude.
+
+    Attributes:
+        width (int): Plot canvas width in pixels.
+        height (int): Plot canvas height in pixels.
+        fps (int): Assumed sample rate, used to convert the sample window to seconds.
+        number_of_signals (int): Number of concurrent signals plotted.
+        plotting_method (str): Active backend, ``"MPL"`` or ``"OCV"``.
+        plot_image (numpy.ndarray): The most recently rendered plot image.
+        colors (list): Per-signal line colors.
+        signalLabels (list): Per-signal legend labels.
+
+    Example:
+        ```python
+        import cv2
+        from physiotrack.signals import RealTimePlotter
+
+        plotter = RealTimePlotter(
+            plot_width=400, plot_height=200, max_values_y_axis=1.0,
+            number_of_signals=1, plotting_method="MPL", title="signal",
+        )
+        for sample in stream:                 # a scalar per frame
+            img = plotter.plot(sample)         # RGBA array
+            cv2.imshow("signal", img)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+        ```
+
+    See Also:
+        [`KeypointMotionPlotter`][physiotrack.signals.KeypointMotionPlotter]: a
+            higher-level, pose-aware motion plot.
+    """
+
     def __init__(self, plot_width, plot_height, max_values_y_axis, seconds_x_axis=10, number_samples_x_axis=150, fps=30,
                  number_of_signals=1, plotting_method="MPL", title='', axisLabels=None, axisLimits=None, signalLabels=None,
                  colors=None, figure=None, canvas=None, index=0, dpi=100):
+        """Configure the scrolling plot window, backend and per-signal styling.
+
+        Args:
+            plot_width (int): Canvas width in pixels.
+            plot_height (int): Canvas height in pixels.
+            max_values_y_axis (float | list[float]): Normalization divisor(s) applied to
+                incoming values. A scalar when ``number_of_signals == 1``, otherwise a
+                list with one maximum per signal.
+            seconds_x_axis (int, optional): Nominal x-axis span in seconds. Defaults to
+                ``10``. (The effective span is derived from ``number_samples_x_axis / fps``.)
+            number_samples_x_axis (int, optional): Number of samples held in the sliding
+                window (the x-axis length). Defaults to ``150``.
+            fps (int, optional): Assumed sample rate, used to label the time axis.
+                Defaults to ``30``.
+            number_of_signals (int, optional): Number of concurrent signals. Defaults to ``1``.
+            plotting_method (str, optional): Backend, ``"MPL"`` (Matplotlib/Agg) or
+                ``"OCV"`` (OpenCV). Defaults to ``"MPL"``.
+            title (str, optional): Figure title. Defaults to ``""``.
+            axisLabels (list[str], optional): ``[x_label, y_label]``. Defaults to ``None``
+                (``["Seconds (s)", "Normalized Acceleration (m/s)"]``).
+            axisLimits (list[float], optional): ``[xmin, xmax, ymin, ymax]``. Defaults to
+                ``None`` (``[0, number_samples_x_axis / fps, -1.0, 1.0]``).
+            signalLabels (list[str], optional): Legend label per signal. Defaults to
+                ``None`` (``["acc x coord", "acc y coord", "acc z coord"]``).
+            colors (list[str], optional): Line color per signal. Defaults to ``None``
+                (``["red", "green", "blue", "orange", "brown", "black"]``).
+            figure (matplotlib.figure.Figure, optional): Existing figure to draw into
+                (MPL backend), to share one figure across plotters. Defaults to ``None``
+                (a new figure is created).
+            canvas (matplotlib.backends.backend_agg.FigureCanvasAgg, optional): Existing
+                Agg canvas paired with ``figure``. Defaults to ``None``.
+            index (int, optional): Matplotlib figure id for this plotter. Defaults to ``0``.
+            dpi (int, optional): Figure DPI. Defaults to ``100``.
+        """
 
         # Plotting methods:
         #    - MPL: MatPlotLib
@@ -81,6 +157,22 @@ class RealTimePlotter:
             self.plot_image = np.ones((self.height, self.width, 3)) * 255  # For OpenCV option
 
     def plot(self, values, label='plot'):
+        """Push the current frame's sample(s), re-render and return the plot image.
+
+        Normalizes the value(s) by ``max_values_y_axis``, appends them to the sliding
+        window (dropping the oldest once full), then re-renders via
+        [`show_plot`][physiotrack.signals.RealTimePlotter.show_plot].
+
+        Args:
+            values (float | list[float] | numpy.ndarray): One sample for a single-signal
+                plotter, or one sample per signal for a multi-signal plotter.
+            label (str, optional): Window/label name (used by the OpenCV backend's
+                ``imshow``). Defaults to ``"plot"``.
+
+        Returns:
+            numpy.ndarray: The rendered plot image. For the ``"MPL"`` backend this is an
+                RGBA array from the Agg canvas; for ``"OCV"`` it is the BGR line drawing.
+        """
         # Update new values in plot
         # values: scalar or array with data for plotting in Real-Time.
         # values contains the samples of signals in the current "frame".
@@ -117,6 +209,16 @@ class RealTimePlotter:
         return self.plot_image
 
     def show_plot(self, label):
+        """Render the current window with the active backend.
+
+        For ``"OCV"`` this draws the line trace and calls ``cv2.imshow(label, ...)``.
+        For ``"MPL"`` it redraws the Matplotlib figure and stores the resulting RGBA
+        array in ``self.plot_image``. Usually called for you by
+        [`plot`][physiotrack.signals.RealTimePlotter.plot].
+
+        Args:
+            label (str): Window/label name (used by the OpenCV backend's ``imshow``).
+        """
         # Show plot using opencv imshow
         if self.plotting_method == "OCV":
             self.plot_image = np.ones((self.height, self.width, 3)) * 255
@@ -168,6 +270,18 @@ class RealTimePlotter:
 
     # define a function which returns an image as numpy array from figure
     def get_img_from_fig(self, dpi=180):
+        """Rasterize the current Matplotlib figure to an RGB image array.
+
+        Saves the figure to a PNG buffer, decodes it, converts BGR->RGB and also shows
+        it with ``cv2.imshow(self.title, ...)``. An alternative to reading the Agg
+        canvas buffer directly.
+
+        Args:
+            dpi (int, optional): Rasterization DPI. Defaults to ``180``.
+
+        Returns:
+            numpy.ndarray: The figure as an ``(H, W, 3)`` RGB image.
+        """
         self.buf = io.BytesIO()
         self.fig.savefig(self.buf, format="png", dpi=dpi)
         self.buf.seek(0)

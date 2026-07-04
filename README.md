@@ -8,6 +8,9 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-green.svg)](https://www.python.org/downloads/release/python-380/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9-ee4c2c.svg)](https://pytorch.org/)
 ![Status](https://img.shields.io/badge/status-under%20construction-FF0000)
+[![Docs](https://img.shields.io/badge/docs-physiotrack-00897b.svg)](https://tharindu326.github.io/physiotrack/)
+
+📖 **[Full documentation & API reference](https://tharindu326.github.io/physiotrack/)**
 
 [Why Physiotrack](#why-physiotrack) ·
 [Architecture](#architecture) ·

@@ -28,7 +28,21 @@ from typing import NamedTuple, Optional, Sequence, Tuple
 
 
 class FaceParsing(NamedTuple):
-    """Outputs of one SegFace pass over a frame."""
+    """Outputs of one SegFace pass over a frame.
+
+    Returned by [`FaceSkinExtractor.analyze`][physiotrack.signals.FaceSkinExtractor.analyze];
+    all fields share the input frame's height and width.
+
+    Attributes:
+        skin_mask (np.ndarray): Boolean ``(H, W)`` mask of the skin ROI (the
+            configured ``skin_classes``).
+        skin_canvas (np.ndarray): BGR ``(H, W, 3)`` image holding only the skin
+            pixels; all other pixels set to the background colour.
+        parsing_canvas (np.ndarray): BGR ``(H, W, 3)`` image with every SegFace
+            class colorized (CelebAMask-HQ palette) on the background canvas.
+        seg_map (np.ndarray): Integer ``(H, W)`` raw class-index map (all 19
+            CelebAMask-HQ classes; 0 = background).
+    """
     skin_mask: np.ndarray       # bool (H, W) -- skin ROI (the ``skin_classes``)
     skin_canvas: np.ndarray     # BGR (H, W, 3) -- skin pixels only, rest = background
     parsing_canvas: np.ndarray  # BGR (H, W, 3) -- all face classes, palette-colorized
@@ -36,7 +50,36 @@ class FaceParsing(NamedTuple):
 
 
 class FaceSkinExtractor:
-    """Segment the face with SegFace; expose skin ROI, skin canvas, full parsing."""
+    """Segment the face with SegFace; expose skin ROI, skin canvas, full parsing.
+
+    A reusable, plotter-free wrapper around a SegFace face-parsing segmenter
+    (CelebAMask-HQ, 19 classes; detects faces itself). Each call runs the
+    segmenter once and can return the skin ROI mask, a skin-only canvas, the full
+    colorized parsing canvas, or all of them via :meth:`analyze`. The skin ROI is
+    the natural input to
+    [`HeartRateEstimator.update`][physiotrack.signals.HeartRateEstimator].
+
+    Attributes:
+        segmenter: The underlying SegFace segmenter (a ``Segmentation.Face``
+            instance unless one was injected).
+        skin_classes (tuple[str, ...]): Lower-cased class names treated as skin for
+            the ROI.
+        background (tuple[int, int, int]): BGR fill colour for non-skin pixels on
+            the canvases.
+
+    Example:
+        ```python
+        from physiotrack.signals import FaceSkinExtractor, HeartRateEstimator
+        fs = FaceSkinExtractor()               # SegFace (detects faces itself)
+        est = HeartRateEstimator("POS", fps=30)
+        fp = fs.analyze(frame)                  # one SegFace pass
+        est.update(frame, roi_mask=fp.skin_mask)
+        ```
+
+    See Also:
+        [`HeartRateEstimator`][physiotrack.signals.HeartRateEstimator]: consumes
+            the skin ROI mask for rPPG.
+    """
 
     def __init__(self,
                  segmenter=None,
@@ -45,6 +88,23 @@ class FaceSkinExtractor:
                  skin_classes: Sequence[str] = ("skin",),
                  background: Tuple[int, int, int] = (0, 0, 0),
                  verbose: bool = False):
+        """Initialize the extractor.
+
+        Args:
+            segmenter (optional): A pre-built SegFace-style segmenter exposing
+                ``predict``. If ``None``, a ``Segmentation.Face`` is created with
+                ``device`` and ``verbose``. Defaults to ``None``.
+            device (str, optional): Device for the auto-created segmenter, e.g.
+                ``"cpu"`` or a CUDA index like ``0``. Ignored if ``segmenter`` is
+                given. Defaults to ``"cpu"``.
+            skin_classes (Sequence[str], optional): SegFace class names to treat as
+                the skin ROI (case-insensitive), e.g. ``("skin", "neck")``.
+                Defaults to ``("skin",)``.
+            background (tuple[int, int, int], optional): BGR fill colour for
+                non-skin canvas pixels. Defaults to ``(0, 0, 0)``.
+            verbose (bool, optional): Verbosity for the auto-created segmenter.
+                Defaults to ``False``.
+        """
         if segmenter is None:
             from physiotrack.segment import Segmentation
             segmenter = Segmentation.Face(device=device, verbose=verbose)
@@ -98,29 +158,85 @@ class FaceSkinExtractor:
 
     # -- public API --------------------------------------------------------
     def skin_mask(self, frame_bgr, boxes=None) -> np.ndarray:
-        """Boolean image-resolution mask of the segmented facial skin (ROI)."""
+        """Boolean image-resolution mask of the segmented facial skin (ROI).
+
+        Args:
+            frame_bgr (np.ndarray): BGR frame of shape ``(H, W, 3)``.
+            boxes (optional): Optional face boxes to restrict segmentation; passed
+                through to the segmenter. Defaults to ``None`` (SegFace detects
+                faces itself).
+
+        Returns:
+            np.ndarray: Boolean mask of shape ``(H, W)`` for the ``skin_classes``.
+        """
         result = self._predict(frame_bgr, boxes=boxes)
         return self._skin_mask_from(result, frame_bgr.shape)
 
     def canvas(self, frame_bgr, mask=None, boxes=None) -> np.ndarray:
-        """Image-resolution canvas holding only the extracted skin (rest = background)."""
+        """Image-resolution canvas holding only the extracted skin (rest = background).
+
+        Args:
+            frame_bgr (np.ndarray): BGR frame of shape ``(H, W, 3)``.
+            mask (np.ndarray, optional): Precomputed boolean skin mask; if ``None``
+                the frame is segmented first. Defaults to ``None``.
+            boxes (optional): Optional face boxes forwarded to the segmenter when a
+                mask must be computed. Defaults to ``None``.
+
+        Returns:
+            np.ndarray: BGR image ``(H, W, 3)`` with skin pixels kept and the rest
+                set to :attr:`background`.
+        """
         if mask is None:
             mask = self.skin_mask(frame_bgr, boxes=boxes)
         return self._canvas_from_mask(frame_bgr, mask)
 
     def parsing_canvas(self, frame_bgr, boxes=None) -> np.ndarray:
-        """Image-resolution canvas with the full face parsing (all classes colorized)."""
+        """Image-resolution canvas with the full face parsing (all classes colorized).
+
+        Args:
+            frame_bgr (np.ndarray): BGR frame of shape ``(H, W, 3)``.
+            boxes (optional): Optional face boxes forwarded to the segmenter.
+                Defaults to ``None``.
+
+        Returns:
+            np.ndarray: BGR image ``(H, W, 3)`` with every face class colorized on
+                the background canvas.
+        """
         result = self._predict(frame_bgr, boxes=boxes)
         return self._parsing_canvas_from(result, frame_bgr)
 
     def extract(self, frame_bgr, boxes=None) -> Tuple[np.ndarray, np.ndarray]:
-        """Return ``(skin_mask, skin_canvas)`` -- the ROI mask and the skin canvas."""
+        """Segment once and return the skin ROI mask and skin canvas.
+
+        Args:
+            frame_bgr (np.ndarray): BGR frame of shape ``(H, W, 3)``.
+            boxes (optional): Optional face boxes forwarded to the segmenter.
+                Defaults to ``None``.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: ``(skin_mask, skin_canvas)`` -- the
+                boolean ``(H, W)`` ROI mask and the BGR ``(H, W, 3)`` skin canvas.
+        """
         result = self._predict(frame_bgr, boxes=boxes)
         mask = self._skin_mask_from(result, frame_bgr.shape)
         return mask, self._canvas_from_mask(frame_bgr, mask)
 
     def analyze(self, frame_bgr, boxes=None) -> FaceParsing:
-        """Run SegFace once; return skin mask, skin canvas, full parsing canvas, seg map."""
+        """Run SegFace once and return all derived outputs.
+
+        Segments the frame a single time and builds the skin mask, skin canvas,
+        full parsing canvas, and raw seg map from that one inference.
+
+        Args:
+            frame_bgr (np.ndarray): BGR frame of shape ``(H, W, 3)``.
+            boxes (optional): Optional face boxes forwarded to the segmenter.
+                Defaults to ``None`` (SegFace detects faces itself).
+
+        Returns:
+            FaceParsing: A [`FaceParsing`][physiotrack.signals.FaceParsing] named
+                tuple with ``skin_mask``, ``skin_canvas``, ``parsing_canvas``, and
+                ``seg_map``.
+        """
         result = self._predict(frame_bgr, boxes=boxes)
         mask = self._skin_mask_from(result, frame_bgr.shape)
         seg = result.seg_map

@@ -8,8 +8,84 @@ from ..core.overlay import draw_label
 
 
 class Tracker:
+    """Unified multi-object tracker that turns per-frame detections into tracks.
+
+    Wraps four interchangeable tracking backends behind one API. You feed it a
+    frame plus that frame's detection boxes and it returns a
+    [`TrackResult`][physiotrack.TrackResult] whose instances carry persistent
+    ``id``s across frames. The backend is selected by
+    [`TrackerConfig.tracker_type`][physiotrack.TrackerConfig]:
+
+    - ``"bytetrack"`` — [ByteTrack][physiotrack.Tracker], IOU + high/low score
+      association (no appearance model).
+    - ``"strongsort"`` — [StrongSORT][physiotrack.Tracker], Kalman motion plus an
+      OSNet ReID appearance model (runs on :attr:`TrackerConfig.device`).
+    - ``"ocsort"`` — [OC-SORT][physiotrack.Tracker], observation-centric SORT (the
+      default backend).
+    - ``"boosttrack"`` — [BoostTrack][physiotrack.Tracker], IOU/Mahalanobis/shape
+      similarity with detection-confidence boosting.
+
+    On top of raw tracking it can optionally isolate a single subject (the
+    "student") via a stability + IOU heuristic and draw a rich overlay (per-track
+    boxes, the student box, and movement trails), all controlled by the config.
+
+    Detections are expected as rows ``[x1, y1, x2, y2, conf, cls]``; only rows whose
+    ``cls`` is in :attr:`TrackerConfig.classes` are tracked.
+
+    Attributes:
+        config (TrackerConfig): The active configuration.
+        frame_ID (int): Frame counter (informational).
+        student_track_id (int | None): Id of the currently locked student track, or
+            ``None`` when no student is being tracked.
+        track_history (dict[int, collections.deque]): Recent center/box history per
+            track id, used for trail drawing.
+
+    Example:
+        ```python
+        import numpy as np
+        import physiotrack as pt
+
+        det = pt.Detection.Person()
+        tracker = pt.Tracker(pt.TrackerConfig(tracker="ocsort", classes=[0]))
+
+        for frame in frames:                     # BGR frames, e.g. from OpenCV
+            res = det.predict(frame)
+            # Build the (N, 6) [x1, y1, x2, y2, conf, cls] array the tracker expects.
+            detections = np.array(
+                [[*i.box, i.confidence, i.cls] for i in res], dtype=np.float32
+            ) if len(res) else np.empty((0, 6), np.float32)
+            result = tracker.track(frame, detections)  # -> pt.TrackResult
+            annotated = result.plot()                  # rich tracker overlay
+            for inst in result:                        # persistent ids
+                print(inst.id, inst.box)
+        ```
+
+    Note:
+        The tracker is stateful: call [`track`][physiotrack.Tracker.track] once per
+        frame in order, and use one ``Tracker`` instance per video stream.
+
+    See Also:
+        [`TrackerConfig`][physiotrack.TrackerConfig]: all tunable options.
+
+        [`TrackResult`][physiotrack.TrackResult]: the returned per-frame result.
+
+        [`Detection`][physiotrack.Detection]: produces the detection boxes fed in.
+    """
+
     def __init__(self, config=None):
-        """Initialize tracker with configuration and tracking variables."""
+        """Initialize the tracker and instantiate the selected backend.
+
+        Args:
+            config (TrackerConfig, optional): Tracker configuration. Defaults to
+                ``None``, in which case a default
+                [`TrackerConfig`][physiotrack.TrackerConfig] is created (OC-SORT,
+                tracking the person class). The backend named by
+                ``config.tracker_type`` is constructed immediately.
+
+        Raises:
+            ValueError: If ``config.tracker_type`` is not one of ``"bytetrack"``,
+                ``"strongsort"``, ``"ocsort"``, or ``"boosttrack"``.
+        """
         self.config = config if config is not None else TrackerConfig()
         self.frame_ID = 0
         self.id_list = []
@@ -302,16 +378,49 @@ class Tracker:
     
     # ===== Main Tracking Method =====
     def track(self, frame, detections) -> TrackResult:
-        """Update tracks with the current frame's detections.
+        """Advance the tracker by one frame and return the current tracks.
+
+        Filters ``detections`` to the configured classes, updates the selected
+        backend, refreshes trail history, optionally updates the student track, and
+        renders the overlay. Call this once per frame, in order, for the life of a
+        video stream.
 
         Args:
-            frame: the current BGR frame.
-            detections: detection rows ``[x1,y1,x2,y2,conf,cls]`` (e.g.
-                ``detection_result.to_dict()`` boxes, or a YOLO det array).
+            frame (np.ndarray): The current BGR frame ``(H, W, 3)``. Used by
+                appearance-based backends and for rendering the overlay.
+            detections (np.ndarray): Detection rows shaped ``(N, 6)`` as
+                ``[x1, y1, x2, y2, conf, cls]``. Build this from a
+                [`Result`][physiotrack.Result] with
+                ``np.array([[*i.box, i.confidence, i.cls] for i in result])``,
+                or pass a raw YOLO detection array directly. Rows whose ``cls`` is not
+                in [`TrackerConfig.classes`][physiotrack.TrackerConfig] are dropped.
 
         Returns:
-            A :class:`~physiotrack.results.TrackResult`; ``.instances`` carry persistent
-            ``id``s, ``.rendered`` is the overlay frame, ``result.plot()`` returns it.
+            TrackResult: A [`TrackResult`][physiotrack.TrackResult] whose
+                ``.instances`` carry persistent ``id``s (each an
+                [`Instance`][physiotrack.Instance] with ``box``/``cls``/
+                ``confidence``), ``.rendered`` is the overlay frame, and
+                ``result.plot()`` returns that overlay.
+
+        Example:
+            ```python
+            import numpy as np
+            import physiotrack as pt
+
+            det = pt.Detection.Person()
+            tracker = pt.Tracker(pt.TrackerConfig(tracker="ocsort", classes=[0]))
+
+            res = det.predict(frame)
+            detections = np.array(
+                [[*i.box, i.confidence, i.cls] for i in res], dtype=np.float32
+            ) if len(res) else np.empty((0, 6), np.float32)
+            result = tracker.track(frame, detections)
+            print(result.ids)          # persistent track ids this frame
+            annotated = result.plot()  # tracker overlay
+            ```
+
+        See Also:
+            [`TrackResult`][physiotrack.TrackResult]: the returned result object.
         """
         start = time.time()
 
@@ -342,13 +451,23 @@ class Tracker:
                            rendered=rendered, raw=online_targets)
 
     def get_avg_inference_time(self):
-        """Get average inference time in milliseconds."""
+        """Return the mean per-frame tracking time over a rolling window.
+
+        Returns:
+            float: Average time in milliseconds across the last (up to) 100 calls to
+                [`track`][physiotrack.Tracker.track], or ``0.0`` if none yet.
+        """
         if len(self.inference_times) == 0:
             return 0.0
         return (sum(self.inference_times) / len(self.inference_times)) * 1000
 
     def get_avg_fps(self):
-        """Get average FPS based on inference times."""
+        """Return the mean tracking throughput over a rolling window.
+
+        Returns:
+            float: Average frames per second derived from the last (up to) 100 calls
+                to [`track`][physiotrack.Tracker.track], or ``0.0`` if none yet.
+        """
         if len(self.inference_times) == 0:
             return 0.0
         avg_time = sum(self.inference_times) / len(self.inference_times)

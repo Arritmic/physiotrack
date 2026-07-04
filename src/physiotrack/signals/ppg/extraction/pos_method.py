@@ -3,19 +3,60 @@ from scipy import signal
 
 
 class POS:
-    """
-        POS algorithm described in "Algorithmic Principles of Remote PPG"
-        (https://ieeexplore.ieee.org/document/7565547 )
-        Numbers in brackets refer to the line numbers in the "Algorithm 1" of the paper
+    """Plane-Orthogonal-to-Skin (POS) blood-volume-pulse extractor.
+
+    Recovers a blood-volume-pulse (BVP) signal from an RGB skin colour trace by
+    projecting the temporally-normalised RGB onto a plane orthogonal to the skin
+    tone and overlap-adding the result across a sliding window. This is the POS
+    method of Wang et al., "Algorithmic Principles of Remote PPG" (IEEE TBME,
+    2017, https://ieeexplore.ieee.org/document/7565547).
+
+    Attributes:
+        method_name (str): Method identifier, ``"POS"``.
+        projection (np.ndarray): Fixed ``(2, 3)`` projection matrix
+            ``[[0, 1, -1], [-2, 1, 1]]`` applied to the normalised RGB.
+        frameRate (float): Sampling rate (frames per second) used to size the
+            sliding window.
+
+    Example:
+        ```python
+        from physiotrack.signals import POS
+        bvp = POS(fps=30).apply(rgb_trace)   # rgb_trace: (3, N) rows R, G, B
+        ```
+
+    See Also:
+        [`CHROM`][physiotrack.signals.CHROM], [`LGI`][physiotrack.signals.LGI],
+        [`OMIT`][physiotrack.signals.OMIT]: other rPPG extraction methods.
+        [`HeartRateEstimator`][physiotrack.signals.HeartRateEstimator]: high-level
+            estimator that wraps these methods.
     """
 
     method_name = 'POS'
     projection = np.array([[0, 1, -1], [-2, 1, 1]])
 
     def __init__(self, fps=30):
+        """Initialize the POS extractor.
+
+        Args:
+            fps (float, optional): Frame rate of the RGB trace in Hz, used to set
+                the sliding-window length (``1.6 s`` of samples). Defaults to
+                ``30``.
+        """
         self.frameRate = fps
 
     def apply(self, signal):
+        """Extract the BVP signal from an RGB skin trace.
+
+        Runs the POS algorithm over a sliding window of ``1.6 s`` (32 samples at
+        20 fps) with overlap-add, per "Algorithm 1" of the paper.
+
+        Args:
+            signal (np.ndarray): RGB skin colour trace of shape ``(3, N)`` with
+                rows ordered R, G, B and ``N`` time samples.
+
+        Returns:
+            np.ndarray: The 1-D blood-volume-pulse signal of length ``N``.
+        """
         # Run the pos algorithm on the RGB color signal c with sliding window length wlen
         # Recommended value for wlen is 32 for a 20 fps camera (1.6 s)
 

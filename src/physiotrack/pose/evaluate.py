@@ -71,15 +71,42 @@ def compute_similarity_transform(X: np.ndarray, Y: np.ndarray,
 
 
 def calculate_mpjpe(preds: np.ndarray, gts: np.ndarray) -> float:
-    """
-    Calculate Mean Per Joint Position Error (MPJPE).
-    
+    """Compute the Mean Per Joint Position Error (MPJPE).
+
+    MPJPE is the mean, over all joints and all samples, of the Euclidean distance
+    between each predicted joint and its ground-truth position:
+    ``mean_{n,j} || preds[n, j] - gts[n, j] ||_2``. No alignment is applied, so the
+    predictions and ground truth must already share the same coordinate frame,
+    scale, and root placement. For a rigid-alignment-invariant variant use
+    [`calculate_pampjpe`][physiotrack.calculate_pampjpe].
+
     Args:
-        preds: Predicted poses, shape (N, J, 3) where N is batch size, J is number of joints
-        gts: Ground truth poses, shape (N, J, 3)
-        
+        preds (np.ndarray): Predicted poses, shape ``(N, J, 3)`` where ``N`` is the
+            number of samples and ``J`` the number of joints. Coordinates are in
+            arbitrary length units (e.g. meters).
+        gts (np.ndarray): Ground-truth poses, shape ``(N, J, 3)``, in the same
+            units and frame as ``preds``.
+
     Returns:
-        mpjpe: Mean per joint position error in the same units as input
+        float: The MPJPE, in the same units as the inputs (e.g. meters).
+
+    Raises:
+        AssertionError: If ``preds`` and ``gts`` do not have identical shapes.
+
+    Example:
+        ```python
+        import numpy as np
+        import physiotrack as pt
+
+        preds = np.random.randn(64, 17, 3)
+        gts = np.random.randn(64, 17, 3)
+        err = pt.calculate_mpjpe(preds, gts)  # meters; multiply by 1000 for mm
+        ```
+
+    See Also:
+        [`calculate_pampjpe`][physiotrack.calculate_pampjpe]: Procrustes-aligned MPJPE.
+        [`evaluate_pose_predictions`][physiotrack.evaluate_pose_predictions]: bundles
+            MPJPE with other metrics and rescales to millimeters.
     """
     assert preds.shape == gts.shape, f"Shape mismatch: preds {preds.shape} vs gts {gts.shape}"
     
@@ -93,16 +120,36 @@ def calculate_mpjpe(preds: np.ndarray, gts: np.ndarray) -> float:
 
 
 def calculate_pampjpe(preds: np.ndarray, gts: np.ndarray) -> float:
-    """
-    Calculate Procrustes Aligned Mean Per Joint Position Error (PA-MPJPE).
-    This metric aligns each predicted pose to the ground truth using similarity transform.
-    
+    """Compute the Procrustes-Aligned Mean Per Joint Position Error (PA-MPJPE).
+
+    For each sample, the predicted pose is first optimally aligned to the ground
+    truth with a similarity transform (rotation, translation, and scale) solved via
+    Procrustes analysis, then MPJPE is computed on the aligned pose. Because it
+    removes rigid misalignment and global scale, PA-MPJPE (also called "reconstruction
+    error") isolates the quality of the pose *shape* independent of orientation and
+    size. The per-sample errors are averaged over the batch.
+
     Args:
-        preds: Predicted poses, shape (N, J, 3)
-        gts: Ground truth poses, shape (N, J, 3)
-        
+        preds (np.ndarray): Predicted poses, shape ``(N, J, 3)`` where ``N`` is the
+            number of samples and ``J`` the number of joints.
+        gts (np.ndarray): Ground-truth poses, shape ``(N, J, 3)``, in the same
+            units as ``preds``.
+
     Returns:
-        pampjpe: Procrustes aligned MPJPE
+        float: The PA-MPJPE, in the same units as the inputs (e.g. meters).
+
+    Raises:
+        AssertionError: If ``preds`` and ``gts`` do not have identical shapes.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        pa = pt.calculate_pampjpe(preds, gts)  # rigid + scale aligned error
+        ```
+
+    See Also:
+        [`calculate_mpjpe`][physiotrack.calculate_mpjpe]: unaligned position error.
     """
     assert preds.shape == gts.shape, f"Shape mismatch: preds {preds.shape} vs gts {gts.shape}"
     
@@ -131,17 +178,42 @@ def calculate_pampjpe(preds: np.ndarray, gts: np.ndarray) -> float:
 def calculate_rotation_error(pred_rotation: np.ndarray, gt_rotation: np.ndarray, 
                             return_degrees: bool = True,
                             method: str = 'frobenius') -> float:
-    """
-    Calculate rotation error between predicted and ground truth rotation matrices.
-    
+    """Compute the mean rotation error between predicted and ground-truth rotations.
+
+    Two error definitions are available. ``"frobenius"`` (the default, matching the
+    3DPCNet reference implementation) averages the Frobenius norm of the matrix
+    difference ``||R_pred - R_gt||_F`` and treats that value as radians. ``"geodesic"``
+    computes the true relative rotation angle per sample,
+    ``angle = arccos((trace(R_gt @ R_pred^T) - 1) / 2)``, and averages it. The
+    Frobenius variant is not a true angle but is retained for parity with published
+    3DPCNet numbers; prefer ``"geodesic"`` for a physically meaningful angular error.
+
     Args:
-        pred_rotation: Predicted rotation matrices, shape (N, 3, 3)
-        gt_rotation: Ground truth rotation matrices, shape (N, 3, 3)
-        return_degrees: If True, return error in degrees; if False, in radians
-        method: 'geodesic' for proper rotation angle, 'frobenius' to match 3DPCNet (default)
-        
+        pred_rotation (np.ndarray): Predicted rotation matrices, shape ``(N, 3, 3)``.
+        gt_rotation (np.ndarray): Ground-truth rotation matrices, shape ``(N, 3, 3)``.
+        return_degrees (bool, optional): If ``True`` return the error in degrees;
+            if ``False`` return it in radians. Defaults to ``True``.
+        method (str, optional): Error definition, one of ``"frobenius"`` (default,
+            3DPCNet-compatible) or ``"geodesic"`` (true relative rotation angle).
+            Defaults to ``"frobenius"``.
+
     Returns:
-        rotation_error: Mean rotation error
+        float: The mean rotation error, in degrees if ``return_degrees`` else radians.
+
+    Raises:
+        AssertionError: If ``pred_rotation`` and ``gt_rotation`` do not have
+            identical shapes.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        err_deg = pt.calculate_rotation_error(pred_R, gt_R, method="geodesic")
+        ```
+
+    See Also:
+        [`evaluate_canonicalization`][physiotrack.evaluate_canonicalization]: reports
+            this rotation error alongside pose metrics.
     """
     assert pred_rotation.shape == gt_rotation.shape, f"Shape mismatch: {pred_rotation.shape} vs {gt_rotation.shape}"
     
@@ -176,16 +248,41 @@ def calculate_rotation_error(pred_rotation: np.ndarray, gt_rotation: np.ndarray,
 
 def evaluate_pose_predictions(preds: np.ndarray, gts: np.ndarray, 
                              scale: float = 1000.0) -> Dict[str, float]:
-    """
-    Evaluate 3D pose predictions with multiple metrics.
-    
+    """Evaluate 3D pose predictions with a bundle of position-error metrics.
+
+    Computes MPJPE and PA-MPJPE together with per-joint error statistics, and
+    multiplies every reported value by ``scale`` (so passing ``scale=1000`` reports
+    results in millimeters when the inputs are in meters). Torch tensors are accepted
+    and are detached and moved to CPU automatically.
+
     Args:
-        preds: Predicted poses, shape (N, J, 3)
-        gts: Ground truth poses, shape (N, J, 3)
-        scale: Scale factor for output (e.g., 1000 to convert meters to millimeters)
-        
+        preds (np.ndarray | torch.Tensor): Predicted poses, shape ``(N, J, 3)``.
+        gts (np.ndarray | torch.Tensor): Ground-truth poses, shape ``(N, J, 3)``.
+        scale (float, optional): Multiplier applied to every returned metric, e.g.
+            ``1000.0`` to convert meters to millimeters. Defaults to ``1000.0``.
+
     Returns:
-        Dictionary containing evaluation metrics
+        dict[str, float]: A dictionary with keys:
+
+            - ``"mpjpe"`` (float): Mean Per Joint Position Error, scaled.
+            - ``"pampjpe"`` (float): Procrustes-aligned MPJPE, scaled.
+            - ``"mpjpe_per_joint"`` (list[float]): Per-joint mean error, length ``J``, scaled.
+            - ``"max_joint_error"`` (float): Largest per-joint mean error, scaled.
+            - ``"min_joint_error"`` (float): Smallest per-joint mean error, scaled.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        metrics = pt.evaluate_pose_predictions(preds, gts, scale=1000.0)
+        print(f"MPJPE: {metrics['mpjpe']:.2f} mm")
+        ```
+
+    See Also:
+        [`evaluate_canonicalization`][physiotrack.evaluate_canonicalization]: adds
+            canonicalization-specific pose and rotation errors.
+        [`calculate_mpjpe`][physiotrack.calculate_mpjpe],
+        [`calculate_pampjpe`][physiotrack.calculate_pampjpe]: the underlying metrics.
     """
     # Convert to numpy if needed
     if isinstance(preds, torch.Tensor):
@@ -214,18 +311,60 @@ def evaluate_canonicalization(pred_canonical: np.ndarray, gt_canonical: np.ndarr
                              pred_rotation: Optional[np.ndarray] = None, 
                              gt_rotation: Optional[np.ndarray] = None,
                              scale: float = 1000.0) -> Dict[str, float]:
-    """
-    Evaluate pose canonicalization results.
-    
+    """Evaluate pose canonicalization results, including optional rotation error.
+
+    Runs [`evaluate_pose_predictions`][physiotrack.evaluate_pose_predictions] on the
+    predicted vs. ground-truth canonical poses, adds a direct L2 pose error, and — when
+    both rotation arguments are supplied — the rotation error in degrees and radians.
+    Torch tensors are accepted for any input and are converted to NumPy automatically.
+
     Args:
-        pred_canonical: Predicted canonical poses, shape (N, J, 3)
-        gt_canonical: Ground truth canonical poses, shape (N, J, 3)
-        pred_rotation: Optional predicted rotation matrices, shape (N, 3, 3)
-        gt_rotation: Optional ground truth rotation matrices, shape (N, 3, 3)
-        scale: Scale factor for pose errors (e.g., 1000 for mm)
-        
+        pred_canonical (np.ndarray | torch.Tensor): Predicted canonical poses, shape
+            ``(N, J, 3)``.
+        gt_canonical (np.ndarray | torch.Tensor): Ground-truth canonical poses, shape
+            ``(N, J, 3)``.
+        pred_rotation (np.ndarray | torch.Tensor, optional): Predicted rotation
+            matrices, shape ``(N, 3, 3)``. Defaults to ``None`` (rotation metrics
+            skipped).
+        gt_rotation (np.ndarray | torch.Tensor, optional): Ground-truth rotation
+            matrices, shape ``(N, 3, 3)``. Defaults to ``None`` (rotation metrics
+            skipped).
+        scale (float, optional): Multiplier applied to pose errors, e.g. ``1000.0``
+            to report millimeters. Defaults to ``1000.0``.
+
     Returns:
-        Dictionary containing all evaluation metrics
+        dict[str, float]: All keys from
+            [`evaluate_pose_predictions`][physiotrack.evaluate_pose_predictions]
+            (``"mpjpe"``, ``"pampjpe"``, ``"mpjpe_per_joint"``, ``"max_joint_error"``,
+            ``"min_joint_error"``) plus:
+
+            - ``"pose_error_mm"`` (float): Mean per-joint L2 distance between
+              predicted and ground-truth canonical poses, scaled by ``scale``.
+            - ``"rotation_error_deg"`` (float): Mean rotation error in degrees.
+              Present only when both rotation arguments are given.
+            - ``"rotation_error_rad"`` (float): Mean rotation error in radians.
+              Present only when both rotation arguments are given.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        canonical, rotation = pt.canonicalize_pose(
+            poses, model=pt.Models.Pose3D.Canonicalizer.Models.GEOMETRIC,
+            view="front", return_rotation=True,
+        )
+        metrics = pt.evaluate_canonicalization(
+            canonical, gt_canonical,
+            pred_rotation=rotation, gt_rotation=gt_rotation, scale=1000.0,
+        )
+        print(metrics["mpjpe"], metrics.get("rotation_error_deg"))
+        ```
+
+    See Also:
+        [`canonicalize_pose`][physiotrack.canonicalize_pose]: produces the canonical
+            poses and rotations evaluated here.
+        [`calculate_rotation_error`][physiotrack.calculate_rotation_error]: the
+            rotation metric used internally.
     """
     # Convert to numpy if needed
     if isinstance(pred_canonical, torch.Tensor):

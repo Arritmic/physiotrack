@@ -11,19 +11,50 @@ from typing import Optional, Tuple, Union, List
 
 
 class DepthBase:
-    """Base class for depth estimation."""
+    """Shared implementation for the monocular depth presets.
+
+    Resolves a depth model enum, wraps the corresponding backend (currently
+    Depth-Anything-V2), and exposes the unified
+    [`predict`][physiotrack.Depth] interface returning a
+    [`DepthResult`][physiotrack.DepthResult].
+
+    Not used directly; instantiate a ``Depth.*`` preset.
+
+    Attributes:
+        model (Models.Depth.*): The resolved model enum in use.
+        depth_framework (str): Backend name, e.g. ``"DepthAnythingV2"``.
+        device (int | str): Inference device.
+        input_size (int): Square input resolution used for inference.
+        verbose (bool): Whether initialization info is printed.
+    """
+
     default_model = None
 
     def __init__(self, model=None, device='cpu', input_size: int = 518,
                  verbose: bool = True, **kwargs):
-        """
-        Initialize depth estimator.
+        """Configure a depth estimator.
 
         Args:
-            model: Model enum from Models.Depth (e.g., Models.Depth.DepthAnythingV2.vitl)
-            device: Device to run inference on (0, 'cuda', 'cpu', 'mps')
-            input_size: Input image size for inference (default: 518)
-            verbose: Whether to print initialization info
+            model (Models.Depth.*, optional): A validated depth model enum, e.g.
+                ``Models.Depth.DepthAnythingV2.vitl``. Defaults to ``None`` (uses
+                the preset's class-level ``default_model``).
+            device (int | str, optional): Inference device, e.g. ``'cpu'``,
+                ``'cuda'``, ``'mps'`` or a device index like ``0``. Defaults to
+                ``'cpu'``.
+            input_size (int, optional): Square input resolution used for
+                inference. Defaults to ``518``.
+            verbose (bool, optional): Print initialization info. Defaults to
+                ``True``.
+            **kwargs (Any): Reserved for forward-compatibility; currently unused by the
+                Depth-Anything-V2 backend.
+
+        Raises:
+            ValueError: If no model can be resolved, or the model maps to an
+                unsupported backend.
+
+        Note:
+            On first use the model weights are auto-downloaded from Hugging Face
+            and cached.
         """
         if model is None:
             if self.default_model is None:
@@ -60,16 +91,33 @@ class DepthBase:
         self.verbose = verbose
 
     def predict(self, source) -> Union[DepthResult, List[DepthResult]]:
-        """Estimate depth for an image or a list of images.
+        """Estimate depth for one image or a batch of images.
 
         Args:
-            source: a single BGR frame (HxWx3) or a list of frames.
+            source (np.ndarray | list[np.ndarray] | tuple[np.ndarray]): A single
+                BGR image ``(H, W, 3)`` or a list/tuple of such frames for batch
+                inference.
 
         Returns:
-            A :class:`~physiotrack.results.DepthResult` for a single frame, or a
-            ``list[DepthResult]`` for a list. Get the raw map via ``result.depth``,
-            a colorized view via ``result.plot(colormap=...)``, and ``0..1`` data
-            via ``result.normalized()``.
+            DepthResult | list[DepthResult]: A
+                [`DepthResult`][physiotrack.DepthResult] for a single frame, or a
+                ``list[DepthResult]`` when ``source`` is a list/tuple. Access the
+                raw ``(H, W)`` float map via ``result.depth``, a colorized BGR
+                view via ``result.plot(colormap=...)``, and a ``0..1`` normalized
+                map via ``result.normalized()``.
+
+        Example:
+            ```python
+            import physiotrack as pt
+
+            depth = pt.Depth.DepthAnythingV2Base(device=0)
+            result = depth.predict(frame)        # or: depth(frame)
+            raw = result.depth                   # (H, W) float depth
+            colored = result.plot(colormap="inferno")
+            ```
+
+        See Also:
+            [`DepthResult`][physiotrack.DepthResult]: the returned depth container.
         """
         if isinstance(source, (list, tuple)):
             depths = self.depth_estimator.inference_batch(list(source), False, None)
@@ -79,6 +127,18 @@ class DepthBase:
         return DepthResult(orig_img=source, depth=depth)
 
     def __call__(self, source):
+        """Alias for [`predict`][physiotrack.Depth].
+
+        Lets a depth estimator instance be called directly, e.g. ``depth(frame)``.
+
+        Args:
+            source (np.ndarray | list[np.ndarray]): A single BGR frame ``(H, W, 3)``
+                or a list of frames.
+
+        Returns:
+            DepthResult | list[DepthResult]: See
+                [`predict`][physiotrack.Depth].
+        """
         return self.predict(source)
 
     def get_avg_inference_time(self) -> float:
@@ -95,30 +155,68 @@ class DepthBase:
 
 
 class Depth:
-    """
-    High-level interface for depth estimation.
+    """Monocular depth predictors, grouped as ready-to-use presets.
 
-    Usage:
-        depth = Depth.DepthAnythingV2Base(device=0)
-        result = depth.predict(frame)            # or depth(frame)
-        raw = result.depth                       # raw float depth map (HxW)
-        colored = result.plot(colormap='inferno')
+    ``Depth`` is a namespace of nested predictor classes. Instantiate a preset,
+    then call [`predict`][physiotrack.Depth] (or the instance directly)
+    on a frame to get a [`DepthResult`][physiotrack.DepthResult].
+
+    Presets:
+        - [`DepthAnythingV2Small`][physiotrack.Depth.DepthAnythingV2Small]:
+          ``vits`` — fastest, least accurate.
+        - [`DepthAnythingV2Base`][physiotrack.Depth.DepthAnythingV2Base]:
+          ``vitb`` — balanced.
+        - [`DepthAnythingV2Large`][physiotrack.Depth.DepthAnythingV2Large] /
+          [`DepthAnythingV2`][physiotrack.Depth.DepthAnythingV2]: ``vitl`` — most
+          accurate.
+        - [`Custom`][physiotrack.Depth.Custom]: any validated depth model.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        depth = pt.Depth.DepthAnythingV2Base(device=0)
+        result = depth.predict(frame)            # or: depth(frame)
+        raw = result.depth                       # raw float depth map (H, W)
+        colored = result.plot(colormap="inferno")
         norm = result.normalized()               # 0..1
+        ```
+
+    Note:
+        Weights are auto-downloaded from Hugging Face on first use and cached.
+
+    See Also:
+        [`DepthResult`][physiotrack.DepthResult]: depth output container.
     """
 
     class Custom(DepthBase):
-        """Custom depth estimation with user-specified model."""
+        """Depth estimator backed by any user-specified validated depth model.
+
+        Example:
+            ```python
+            import physiotrack as pt
+            from physiotrack import Models
+
+            depth = pt.Depth.Custom(model=Models.Depth.DepthAnythingV2.vitl)
+            result = depth.predict(frame)
+            ```
+        """
 
         def __init__(self, model, device='cpu', input_size: int = 518,
                      verbose: bool = True, **kwargs):
-            """
-            Initialize custom depth estimator.
+            """Configure a custom depth estimator.
 
             Args:
-                model: Model enum from Models.Depth (e.g., Models.Depth.DepthAnythingV2.vitl)
-                device: Device to run inference on (0, 'cuda', 'cpu', 'mps')
-                input_size: Input image size for inference (default: 518)
-                verbose: Whether to print initialization info
+                model (Models.Depth.*): A validated depth model enum, e.g.
+                    ``Models.Depth.DepthAnythingV2.vitl``.
+                device (int | str, optional): Inference device, e.g. ``'cpu'``,
+                    ``'cuda'``, ``'mps'`` or a device index. Defaults to ``'cpu'``.
+                input_size (int, optional): Square input resolution used for
+                    inference. Defaults to ``518``.
+                verbose (bool, optional): Print initialization info. Defaults to
+                    ``True``.
+                **kwargs (Any): Forwarded to
+                    [`DepthBase`][physiotrack.Depth].
             """
             Models.validate_depth_model(model)
             super().__init__(
@@ -130,17 +228,37 @@ class Depth:
             )
 
     class DepthAnythingV2(DepthBase):
-        """DepthAnythingV2 depth estimation with default Large model."""
+        """Depth-Anything-V2 estimator (Large ``vitl`` by default).
+
+        Wraps ``Models.Depth.DepthAnythingV2.vitl``. See
+        [`DepthBase`][physiotrack.Depth] for constructor
+        arguments.
+        """
         default_model = Models.Depth.DepthAnythingV2.vitl
 
     class DepthAnythingV2Small(DepthBase):
-        """DepthAnythingV2 depth estimation with Small model (faster, less accurate)."""
+        """Depth-Anything-V2 Small estimator (faster, less accurate).
+
+        Wraps ``Models.Depth.DepthAnythingV2.vits``. See
+        [`DepthBase`][physiotrack.Depth] for constructor
+        arguments.
+        """
         default_model = Models.Depth.DepthAnythingV2.vits
 
     class DepthAnythingV2Base(DepthBase):
-        """DepthAnythingV2 depth estimation with Base model (balanced)."""
+        """Depth-Anything-V2 Base estimator (balanced speed/accuracy).
+
+        Wraps ``Models.Depth.DepthAnythingV2.vitb``. See
+        [`DepthBase`][physiotrack.Depth] for constructor
+        arguments.
+        """
         default_model = Models.Depth.DepthAnythingV2.vitb
 
     class DepthAnythingV2Large(DepthBase):
-        """DepthAnythingV2 depth estimation with Large model (most accurate)."""
+        """Depth-Anything-V2 Large estimator (most accurate).
+
+        Wraps ``Models.Depth.DepthAnythingV2.vitl``. See
+        [`DepthBase`][physiotrack.Depth] for constructor
+        arguments.
+        """
         default_model = Models.Depth.DepthAnythingV2.vitl

@@ -9,6 +9,9 @@ examples/output
 # dataset / generated evaluation outputs
 examples/CVSSP3D/
 examples/cananon_evaluation_outputs/
+docs/paper/
+# built MkDocs site (published to the gh-pages branch by CI, not tracked on main)
+site/
 
 # model files
 *.pt
