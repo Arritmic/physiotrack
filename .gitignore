@@ -30,6 +30,7 @@ main.py
 *.mp4
 *.wav
 *.json
+!.releaserc.json
 
 # data / arrays
 *.npz
