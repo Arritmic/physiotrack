@@ -1,0 +1,42 @@
+name: Release
+
+# Cut a semantic-release version (tag + GitHub release) on every push to main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history for tags)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js (for semantic-release)
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Semantic Release (creates tag on main)
+        id: semrel
+        uses: cycjimmy/semantic-release-action@v6
+        with:
+          semantic_version: 22
+          extra_plugins: |
+            @semantic-release/commit-analyzer@11
+            @semantic-release/release-notes-generator@12
+            @semantic-release/github@10
+            @semantic-release/git@10
+            conventional-changelog-conventionalcommits@7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
