@@ -40,7 +40,54 @@ _RIGHT_COLOR = (114, 59, 162)   # #A23B72
 
 
 class JointAnglePlotter:
-    """Render interior joint angles and clinical ROM as 2-column grid panels."""
+    """Render interior joint angles and clinical ROM as 2-column grid overlays.
+
+    Per frame, measures the interior anatomical joint angles (shoulders, elbows, hips,
+    knees) and, optionally, clinical range-of-motion movements (hip flexion / extension
+    / abduction / adduction), keeps a smoothing window per quantity, and draws them as
+    compact semi-transparent 2-column (left | right) grid panels that composite onto a
+    video frame. Each cell shows a label, the live value in degrees, a 0-180 deg gauge
+    bar and a sparkline of the recent trace. Angle/ROM definitions and per-movement
+    colors are shared with
+    [`physiotrack.signals.motion.features`][physiotrack.signals.joint_angles] so the
+    panels and any skeleton arcs agree.
+
+    Attributes:
+        joints (list[str]): Configured interior joints (subset of ``JOINT_ANGLE_TRIPLETS``).
+        rom_movements (list[str]): Configured ROM movements (subset of ``ROM_DEFINITIONS``).
+        fps (float): Frame rate (used for the time window; falls back to ``30.0``).
+        window_size (int): Samples retained per angle for smoothing/sparkline.
+        canvas_width (int): Default grid width in pixels.
+        conf_threshold (float): Minimum keypoint confidence for a measurement.
+
+    Example:
+        ```python
+        import cv2
+        import physiotrack as pt
+        from physiotrack.signals import JointAnglePlotter
+
+        pose = pt.Pose.Person()
+        plotter = JointAnglePlotter(rom=True, fps=30.0)   # 8 joints + clinical ROM
+
+        cap = cv2.VideoCapture("in.mp4")
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            pose_results = pose.predict(frame).to_dict()["detections"]
+            t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            plotter.update(pose_results, frame_time=t)
+            frame = plotter.attach_panels(frame, position="top_left")
+            cv2.imshow("angles", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+        ```
+
+    See Also:
+        [`joint_angles`][physiotrack.signals.joint_angles],
+        [`compute_rom_angles`][physiotrack.signals.compute_rom_angles]: the underlying
+            plotter-free measurement functions.
+    """
 
     _JOINT_TYPE_ORDER = ["Shoulder", "Elbow", "Hip", "Knee"]
     _ROM_TYPE_ORDER = ["Flexion", "Extension", "Abduction", "Adduction"]
@@ -56,6 +103,36 @@ class JointAnglePlotter:
                  smooth: bool = True,
                  show_sparkline: bool = True,
                  bg_alpha: float = 0.7):
+        """Configure which joints/ROM movements to measure and how to render them.
+
+        Args:
+            joints (Sequence[str], optional): Interior joints to measure, keys of
+                ``JOINT_ANGLE_TRIPLETS`` (``leftShoulder``, ``rightShoulder``,
+                ``leftElbow``, ``rightElbow``, ``leftHip``, ``rightHip``, ``leftKnee``,
+                ``rightKnee``). Defaults to ``None`` (all eight).
+            rom (bool | Sequence[str], optional): Clinical ROM to add. ``True`` uses the
+                default hip set (``DEFAULT_ROM_MOVEMENTS``); ``None``/``False`` disables
+                ROM; a sequence selects specific movements from ``ROM_DEFINITIONS``.
+                Defaults to ``None``.
+            fps (float, optional): Frame rate. Defaults to ``30.0`` (also used as the
+                fallback when a non-positive value is passed).
+            window_size (int, optional): Samples kept per angle for smoothing and the
+                sparkline. Defaults to ``150``.
+            canvas_width (int, optional): Default panel width in pixels (min 240 when
+                rendered). Defaults to ``360``.
+            conf_threshold (float, optional): Minimum keypoint confidence in ``[0, 1]``.
+                Defaults to ``0.3``.
+            smooth (bool, optional): Report the median of the last 3 samples instead of
+                the latest raw value. Defaults to ``True``.
+            show_sparkline (bool, optional): Draw the recent-trace sparkline in each cell
+                (taller rows). Defaults to ``True``.
+            bg_alpha (float, optional): Panel background opacity in ``[0, 1]``. Defaults
+                to ``0.7``.
+
+        Raises:
+            ValueError: If ``joints`` contains an unknown joint name, or ``rom`` contains
+                an unknown ROM movement name.
+        """
         if joints is None:
             joints = list(JOINT_ANGLE_TRIPLETS.keys())
         unknown = [j for j in joints if j not in JOINT_ANGLE_TRIPLETS]
@@ -87,7 +164,17 @@ class JointAnglePlotter:
 
     # ------------------------------------------------------------------ update
     def update(self, pose_results: List[dict], frame_time: float = 0.0) -> None:
-        """Measure the configured angles from one frame's pose results."""
+        """Measure the configured angles from one frame's pose results.
+
+        Uses the first person with keypoints, measures each configured joint angle (and
+        ROM movement, if enabled) and appends them to the smoothing buffers; ``NaN`` is
+        stored for anything not confidently measured this frame.
+
+        Args:
+            pose_results (list[dict]): Per-person pose results, each with a
+                ``"keypoints"`` list (e.g. ``result.to_dict()["detections"]``).
+            frame_time (float, optional): Frame timestamp in seconds. Defaults to ``0.0``.
+        """
         keypoints = self._first_keypoints(pose_results)
         angles = self._measure(keypoints)
         for joint in self.joints:
@@ -137,9 +224,18 @@ class JointAnglePlotter:
     def render_grid(self, which: str, width: int) -> Optional[np.ndarray]:
         """Render a 2-column (L | R) grid of angle cells to a BGRA canvas.
 
-        ``which='joint'`` -> interior joint angles; ``which='rom'`` -> clinical ROM.
-        Columns are body side, rows are movement type; each cell is a full plot
-        (label, value, gauge, sparkline). Returns None if there is nothing to show.
+        Columns are body side (left | right), rows are movement type; each cell is a
+        small plot (label, live value in degrees, 0-180 gauge bar and optional
+        sparkline).
+
+        Args:
+            which (str): ``"joint"`` for interior joint angles, ``"rom"`` for clinical
+                ROM movements.
+            width (int): Target grid width in pixels (clamped to a minimum of 240).
+
+        Returns:
+            numpy.ndarray | None: The grid as a BGRA (4-channel) canvas, or ``None`` if
+                there is nothing to show (no configured rows for ``which``).
         """
         if which == "joint":
             title, order = "JOINT ANGLES (deg)", self._JOINT_TYPE_ORDER
@@ -213,7 +309,27 @@ class JointAnglePlotter:
     def attach_canvas(self, frame: np.ndarray, canvas: Optional[np.ndarray],
                       position: str = "top_left", margin: int = 10,
                       above_element_height: int = 0) -> np.ndarray:
-        """Alpha-composite a BGRA grid canvas onto the frame."""
+        """Alpha-composite a BGRA grid canvas onto the frame at a corner.
+
+        Downscales the canvas if it is wider than the available width, then blends it in
+        using its alpha channel. Returns the frame unchanged if ``canvas`` is ``None`` or
+        it would not fit.
+
+        Args:
+            frame (numpy.ndarray): Target BGR frame ``(H, W, 3)``.
+            canvas (numpy.ndarray | None): A BGRA grid from
+                [`render_grid`][physiotrack.signals.JointAnglePlotter.render_grid].
+            position (str, optional): Placement; ``"top"``/``"bottom"`` and
+                ``"left"``/``"right"`` substrings are honored (e.g. ``"top_left"``,
+                ``"bottom_right"``). Defaults to ``"top_left"``.
+            margin (int, optional): Margin from the frame edge in pixels. Defaults to ``10``.
+            above_element_height (int, optional): Vertical offset in pixels to stack this
+                panel below/above another one. Defaults to ``0``.
+
+        Returns:
+            numpy.ndarray: A copy of ``frame`` with the canvas composited (or the
+                original ``frame`` if it does not fit).
+        """
         if canvas is None:
             return frame
         h, w = frame.shape[:2]
@@ -237,7 +353,24 @@ class JointAnglePlotter:
 
     def attach_panels(self, frame: np.ndarray, position: str = "top_left",
                       margin: int = 10, width: Optional[int] = None) -> np.ndarray:
-        """Convenience: stack the joint-angle grid then the ROM grid on the frame."""
+        """Stack the joint-angle grid then the ROM grid onto the frame (convenience).
+
+        Renders both grids and composites them at the same corner, offset so they stack
+        without overlapping. This is the one-call method used in the standalone example.
+
+        Args:
+            frame (numpy.ndarray): Target BGR frame ``(H, W, 3)``.
+            position (str, optional): Placement corner (see
+                [`attach_canvas`][physiotrack.signals.JointAnglePlotter.attach_canvas]).
+                Defaults to ``"top_left"``.
+            margin (int, optional): Margin from the frame edge in pixels. Defaults to ``10``.
+            width (int, optional): Grid width in pixels. Defaults to ``None``
+                (uses ``self.canvas_width``).
+
+        Returns:
+            numpy.ndarray: The frame with the joint-angle and (if enabled) ROM grids
+                composited on top.
+        """
         width = self.canvas_width if width is None else width
         offset = 0
         for which in ("joint", "rom"):
@@ -250,14 +383,26 @@ class JointAnglePlotter:
 
     # ------------------------------------------------------------------ access
     def values(self) -> Dict[str, Optional[float]]:
-        """Current interior joint angle (degrees) per configured joint."""
+        """Return the current interior joint angle (degrees) per configured joint.
+
+        Returns:
+            dict[str, float | None]: ``{joint_name: degrees}``; the value is ``None`` for
+                joints with no confident measurement yet. Reflects the smoothing set by
+                ``smooth``.
+        """
         return {j: self._latest(self._buffers[j]) for j in self.joints}
 
     def rom_values(self) -> Dict[str, Optional[float]]:
-        """Current clinical ROM angle (degrees) per configured movement."""
+        """Return the current clinical ROM angle (degrees) per configured movement.
+
+        Returns:
+            dict[str, float | None]: ``{movement_name: degrees}``; ``None`` for movements
+                with no confident measurement yet.
+        """
         return {m: self._latest(self._rom_buffers[m]) for m in self.rom_movements}
 
     def clear(self) -> None:
+        """Empty all angle and ROM smoothing buffers (e.g. between clips)."""
         for buf in self._buffers.values():
             buf.clear()
         for buf in self._rom_buffers.values():

@@ -7,6 +7,68 @@ from pathlib import Path
 
 
 class Models:
+    """Central registry of every pretrained model physiotrack can download and run.
+
+    ``Models`` is a namespace of nested classes and ``Enum`` groups arranged by a
+    four-level hierarchy::
+
+        Models.<Task>.<Backend>.<Enum>.<member>
+
+    - **Task** — what the model does: ``Detection``, ``Pose``, ``Pose3D``,
+      ``Depth``, ``Segmentation``.
+    - **Backend** — the architecture/family, e.g. ``YOLO``, ``RTDETR``, ``Sapiens``,
+      ``ViTPose``, ``MotionBERT``, ``DDH``, ``DepthAnythingV2``, ``SegFace``.
+    - **Enum** — a group of interchangeable checkpoints (often by dataset or
+      variant), e.g. ``Detection.YOLO.PERSON`` or ``Pose.ViTPose.WholeBody``.
+    - **member** — a single checkpoint. Each member's ``.value`` is the **weight
+      filename** on disk (or a relative path); ``.name`` is the short handle.
+
+    A few groups nest one level deeper or sit directly under the task: ``Pose3D``
+    backends (``MotionBERT``, ``DDH``, ``FaceOrientation``) are ``Enum``\\ s directly
+    under ``Pose3D``; ``Pose3D.Canonicalizer`` holds ``Models`` (3DPCNet weights) and
+    ``View`` (a plain string enum of canonical viewpoints); ``Depth.DepthAnythingV2``
+    is an ``Enum`` directly under ``Depth``.
+
+    Selecting a member does not download anything by itself. Pass a member to
+    [`download_model`][physiotrack.Models.download_model] to fetch its weights, which
+    are cached locally and auto-fetched (mostly from the project's HuggingFace repos)
+    on first use. Members whose ``.value`` is an empty string (e.g.
+    ``Canonicalizer.Models.GEOMETRIC``) are markers for weight-free / algorithmic
+    paths and are not downloaded.
+
+    The ``validate_*`` static methods check that a given member belongs to the
+    expected task/subclass, raising a descriptive ``ValueError`` otherwise; the
+    high-level predictors use them to guard their ``model=`` argument.
+
+    Example:
+        ```python
+        import physiotrack as pt
+        from physiotrack import Models
+
+        # Pick a checkpoint from the registry ...
+        model = Models.Pose.ViTPose.WholeBody.s_wholebody
+        print(model.value)                        # 'vitpose-s-wholebody.pth'
+
+        # ... download its weights (cached after the first call) ...
+        weights_path = Models.download_model(model)
+
+        # ... and hand it to a predictor.
+        pose = pt.Pose(model=model)
+        ```
+
+    Note:
+        The first ``download_model`` call for a checkpoint hits the network and may
+        transfer a large file; subsequent calls reuse the cached copy. YOLO
+        ``PERSON`` detection/segmentation variants and all ``Pose.YOLO`` checkpoints
+        are fetched automatically by ultralytics instead, so ``download_model``
+        returns ``None`` for them.
+
+    See Also:
+        [`Detection`][physiotrack.Detection], [`Pose`][physiotrack.Pose],
+        [`Segmentation`][physiotrack.Segmentation], [`Depth`][physiotrack.Depth]:
+        predictors that consume these registry members.
+    """
+
     class Detection:
         class YOLO:
             class PERSON(Enum):
@@ -333,8 +395,42 @@ class Models:
 
     @staticmethod
     def download_model(model_enum, download_path=f"{os.path.join(os.path.dirname(__file__))}/modules/model_data"):
-        """
-        Download a model based on its enum instance.
+        """Download a registry model's weights and return the local file path.
+
+        Resolves which task/backend the member belongs to, then fetches the weight
+        file from the appropriate HuggingFace repository, showing a progress bar. If
+        the file already exists at the destination it is reused (no re-download).
+
+        Args:
+            model_enum (enum.Enum): A registry member, e.g.
+                ``Models.Pose.ViTPose.WholeBody.s_wholebody`` or
+                ``Models.Depth.DepthAnythingV2.vitl``.
+            download_path (str, optional): Directory to download into. Defaults to
+                the package-local ``modules/model_data`` directory. For members whose
+                value contains a subdirectory (e.g. MotionBERT), that subdirectory is
+                created under this path.
+
+        Returns:
+            str | None: Absolute path to the downloaded (or cached) weight file, or
+                ``None`` for backends handled elsewhere — specifically any
+                ``Pose.YOLO`` model and any ``PERSON`` YOLO/RTDETR variant, which
+                ultralytics downloads on demand.
+
+        Raises:
+            ValueError: If ``model_enum`` is not an ``Enum`` instance, cannot be
+                located in the registry, or belongs to an unknown backend.
+            requests.exceptions.RequestException: If the HTTP download fails (a
+                partial file is removed before re-raising).
+
+        Example:
+            ```python
+            from physiotrack import Models
+            path = Models.download_model(Models.Pose.Sapiens.WholeBody.B03_TS_COCOHB)
+            ```
+
+        Note:
+            The first call transfers the full checkpoint over the network; later
+            calls for the same file return the cached path immediately.
         """
         if not isinstance(model_enum, Enum):
             raise ValueError(f"Expected an Enum instance, got {type(model_enum)}")
@@ -372,7 +468,30 @@ class Models:
 
     @staticmethod
     def validate_det_model(model, expected_subclass: str):
-        """Verifies that `model` is a member of the Enum named `expected_subclass`"""
+        """Verify a detection model belongs to the named detection subclass.
+
+        Checks ``model`` against the enum named ``expected_subclass`` under either
+        ``Models.Detection.YOLO`` or ``Models.Detection.RTDETR`` (matched
+        case-insensitively). Returns ``None`` on success.
+
+        Args:
+            model (enum.Enum): The candidate detection registry member, e.g.
+                ``Models.Detection.YOLO.PERSON.m_person``.
+            expected_subclass (str): Name of the required enum group, e.g.
+                ``"PERSON"``, ``"FACE"``, ``"VR"``, ``"VRSTUDENT"``,
+                ``"VRFACE"`` (case-insensitive).
+
+        Raises:
+            ValueError: If ``model`` is not an ``Enum``, if no subclass named
+                ``expected_subclass`` exists in YOLO or RTDETR, or if ``model`` is
+                not a member of that subclass (the message lists valid members).
+
+        Example:
+            ```python
+            from physiotrack import Models
+            Models.validate_det_model(Models.Detection.YOLO.PERSON.m_person, "PERSON")
+            ```
+        """
         if not isinstance(model, Enum):
             raise ValueError(f"Expected an Enum member for `model`, got {type(model).__name__}")
         target = expected_subclass.strip().upper()
@@ -397,7 +516,32 @@ class Models:
 
     @staticmethod
     def validate_seg_model(model, expected_subclass: str = None):
-        """Verifies that `model` is a member of the Segmentation Enum"""
+        """Verify a segmentation model is valid, optionally for a specific subclass.
+
+        With ``expected_subclass`` given, checks ``model`` against the enum of that
+        name under ``Models.Segmentation.YOLO`` or ``Models.Segmentation.Sapiens``.
+        Without it, accepts ``model`` if it is a member of any enum under any
+        ``Models.Segmentation`` backend. Returns ``None`` on success.
+
+        Args:
+            model (enum.Enum): The candidate segmentation registry member, e.g.
+                ``Models.Segmentation.YOLO.PERSON.m_person``.
+            expected_subclass (str, optional): Name of the required enum group, e.g.
+                ``"PERSON"``, ``"VRHEAD"``, ``"BodyPart"`` (matched
+                case-insensitively). Defaults to ``None`` (any segmentation model
+                accepted).
+
+        Raises:
+            ValueError: If ``model`` is not an ``Enum``, if ``expected_subclass`` is
+                given but not found in YOLO or Sapiens, or if ``model`` is not a
+                valid segmentation member.
+
+        Example:
+            ```python
+            from physiotrack import Models
+            Models.validate_seg_model(Models.Segmentation.Sapiens.BodyPart.B03_TS_SEG)
+            ```
+        """
         if not isinstance(model, Enum):
             raise ValueError(f"Expected an Enum member for `model`, got {type(model).__name__}")
 
@@ -452,7 +596,26 @@ class Models:
 
     @staticmethod
     def validate_pose_model(model):
-        """Validates whether the given model is one of the defined pose enum members"""
+        """Verify a model is a valid 2D pose registry member.
+
+        Accepts ``model`` if it is a member of any enum under any
+        ``Models.Pose`` backend (``YOLO``, ``Sapiens``, ``ViTPose``). Returns
+        ``None`` on success.
+
+        Args:
+            model (enum.Enum): The candidate pose registry member, e.g.
+                ``Models.Pose.ViTPose.WholeBody.s_wholebody``.
+
+        Raises:
+            ValueError: If ``model`` is not an ``Enum`` or is not a member of any
+                ``Models.Pose.<Backend>.<EnumClass>``.
+
+        Example:
+            ```python
+            from physiotrack import Models
+            Models.validate_pose_model(Models.Pose.YOLO.COCO.M11)
+            ```
+        """
         if not isinstance(model, Enum):
             raise ValueError(f"Expected an Enum instance, got {type(model)}")
             
@@ -481,12 +644,32 @@ class Models:
 
     @staticmethod
     def validate_pose3d_model(model, expected_subclass=None):
-        """Validates whether the given model is one of the defined pose3d enum members
-        
+        """Verify a model is a valid 3D-pose registry member.
+
+        Accepts ``model`` if it is a member of any enum under ``Models.Pose3D``
+        (including the nested ``Canonicalizer`` groups). When ``expected_subclass``
+        is given, also requires ``model``'s enum class name to match it exactly.
+        Returns ``None`` on success.
+
         Args:
-            model: The model enum to validate
-            expected_subclass: Optional string to verify the model is from specific backend
-                             (e.g., 'FaceOrientation', 'MotionBERT', 'DDH')
+            model (enum.Enum): The candidate 3D-pose registry member, e.g.
+                ``Models.Pose3D.MotionBERT.mb_ft_h36m``.
+            expected_subclass (str, optional): Backend/enum-class name the model must
+                come from, e.g. ``"MotionBERT"``, ``"DDH"``, ``"FaceOrientation"``.
+                Defaults to ``None`` (any Pose3D member accepted).
+
+        Raises:
+            ValueError: If ``model`` is not an ``Enum``, if its class name does not
+                match ``expected_subclass``, or if it is not a valid Pose3D member
+                (the message lists all valid members).
+
+        Example:
+            ```python
+            from physiotrack import Models
+            Models.validate_pose3d_model(
+                Models.Pose3D.MotionBERT.mb_ft_h36m, "MotionBERT"
+            )
+            ```
         """
         if not isinstance(model, Enum):
             raise ValueError(f"Expected an Enum instance, got {type(model)}")
@@ -542,7 +725,26 @@ class Models:
 
     @staticmethod
     def validate_depth_model(model):
-        """Validates whether the given model is one of the defined depth enum members"""
+        """Verify a model is a valid depth registry member.
+
+        Accepts ``model`` if it is a member of any enum under ``Models.Depth``
+        (currently ``DepthAnythingV2``). Returns ``None`` on success.
+
+        Args:
+            model (enum.Enum): The candidate depth registry member, e.g.
+                ``Models.Depth.DepthAnythingV2.vitl``.
+
+        Raises:
+            ValueError: If ``model`` is not an ``Enum`` or is not a valid
+                ``Models.Depth.<Backend>.<model_name>`` (the message lists valid
+                members).
+
+        Example:
+            ```python
+            from physiotrack import Models
+            Models.validate_depth_model(Models.Depth.DepthAnythingV2.vits)
+            ```
+        """
         if not isinstance(model, Enum):
             raise ValueError(f"Expected an Enum instance, got {type(model)}")
 
@@ -577,7 +779,31 @@ class Models:
 
     @staticmethod
     def get_depth_config(model):
-        """Get the model configuration for a DepthAnythingV2 model"""
+        """Return the architecture config for a DepthAnythingV2 encoder.
+
+        Looks up the encoder-specific settings (feature width and per-stage output
+        channels) needed to construct the DepthAnythingV2 network for ``model``.
+
+        Args:
+            model (Models.Depth.DepthAnythingV2): A DepthAnythingV2 member; its
+                ``.name`` (``"vits"``, ``"vitb"``, or ``"vitl"``) selects the config.
+
+        Returns:
+            dict: The config for the encoder, with keys ``"encoder"`` (str),
+                ``"features"`` (int), and ``"out_channels"`` (list[int]). For
+                example, ``vits`` returns ``features=64`` and
+                ``out_channels=[48, 96, 192, 384]``.
+
+        Raises:
+            ValueError: If ``model`` is not a
+                ``Models.Depth.DepthAnythingV2`` member or its encoder is unknown.
+
+        Example:
+            ```python
+            from physiotrack import Models
+            cfg = Models.get_depth_config(Models.Depth.DepthAnythingV2.vitl)
+            ```
+        """
         if not isinstance(model, Models.Depth.DepthAnythingV2):
             raise ValueError(f"Expected a Models.Depth.DepthAnythingV2 enum member, got {type(model)}")
 

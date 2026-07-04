@@ -68,15 +68,44 @@ def rom_color(movement_name):
 
 
 def compute_rom_angles(keypoints, movements=None, conf_threshold=0.3):
-    """Compute clinical range-of-motion angles (degrees) from 2D keypoints.
+    """Compute clinical range-of-motion (ROM) angles (degrees) from 2D keypoints.
+
+    ROM differs from an interior joint angle: it measures a distal limb segment
+    against a body reference axis and reports it as a clinically named movement
+    (hip flexion / extension / abduction / adduction), zeroed to a neutral pose.
+    Each movement is defined in ``ROM_DEFINITIONS`` by a vertex joint, a reference
+    point (giving the reference axis ``vertex -> ref``), a moving distal point
+    (``vertex -> moving``) and an affine map ``value = scale * raw + offset``, where
+    ``raw`` is the angle between the two vectors. Only the confident movements are
+    returned (all three involved keypoints must clear ``conf_threshold``).
 
     Args:
-        keypoints: list of ``{"id", "x", "y", "confidence"}`` dicts (COCO-17).
-        movements: ROM names from ``ROM_DEFINITIONS``; ``None`` uses all of them.
-        conf_threshold: minimum confidence for the three keypoints involved.
+        keypoints (list[dict]): One frame's keypoints as ``{"id", "x", "y",
+            "confidence"}`` dicts, COCO-17 (shoulders ``5``/``6``, hips ``11``/``12``,
+            knees ``13``/``14``).
+        movements (list[str], optional): Movement names from ``ROM_DEFINITIONS`` (e.g.
+            ``"leftHipFlexion"``, ``"rightHipAbduction"``). Defaults to ``None`` (all
+            movements in ``ROM_DEFINITIONS``).
+        conf_threshold (float, optional): Minimum confidence in ``[0, 1]`` required for
+            each of the three keypoints of a movement. Defaults to ``0.3``.
 
     Returns:
-        dict mapping movement name -> angle in degrees (only confident ones).
+        dict[str, float]: Movement name -> angle in degrees, for the confidently
+            measured movements only. Empty if ``keypoints`` is empty/falsy.
+
+    Example:
+        ```python
+        import physiotrack as pt
+        from physiotrack.signals import compute_rom_angles
+
+        result = pt.Pose.Person().predict(frame)
+        kps = result.to_dict()["detections"][0]["keypoints"]
+        rom = compute_rom_angles(kps, movements=["leftHipFlexion", "rightHipFlexion"])
+        ```
+
+    See Also:
+        [`joint_angles`][physiotrack.signals.joint_angles]: interior anatomical angles.
+        [`JointAnglePlotter`][physiotrack.signals.JointAnglePlotter]: renders ROM as an overlay.
     """
     if not keypoints:
         return {}
@@ -101,15 +130,38 @@ def compute_rom_angles(keypoints, movements=None, conf_threshold=0.3):
 def joint_angles(keypoints, joints=None, conf_threshold=0.3):
     """Interior anatomical joint angles (degrees) from one frame's keypoints.
 
-    Use this directly on pose-estimated keypoints -- no plotter required.
+    Measures the interior angle at each joint vertex from a COCO-17 keypoint triplet
+    defined in ``JOINT_ANGLE_TRIPLETS`` (angle A-B-C measured at the middle joint B),
+    via the cosine rule. Use this directly on pose-estimated keypoints -- no plotter
+    required. The eight supported joints are ``leftShoulder``, ``rightShoulder``,
+    ``leftElbow``, ``rightElbow``, ``leftHip``, ``rightHip``, ``leftKnee``, ``rightKnee``.
 
     Args:
-        keypoints: list of ``{"id", "x", "y", "confidence"}`` dicts (COCO-17).
-        joints: subset of ``JOINT_ANGLE_TRIPLETS`` keys; ``None`` does all eight.
-        conf_threshold: minimum confidence for the three keypoints of an angle.
+        keypoints (list[dict]): One frame's keypoints as ``{"id", "x", "y",
+            "confidence"}`` dicts (COCO-17).
+        joints (list[str], optional): Subset of ``JOINT_ANGLE_TRIPLETS`` keys. Defaults
+            to ``None`` (all eight joints).
+        conf_threshold (float, optional): Minimum confidence in ``[0, 1]`` required for
+            each of the three keypoints of an angle. Defaults to ``0.3``.
 
     Returns:
-        dict ``{joint_name: degrees}`` for the confidently measured joints.
+        dict[str, float]: ``{joint_name: degrees}`` for the confidently measured joints
+            only. Empty if ``keypoints`` is empty/falsy.
+
+    Example:
+        ```python
+        import physiotrack as pt
+        from physiotrack.signals import joint_angles
+
+        result = pt.Pose.Person().predict(frame)
+        kps = result.to_dict()["detections"][0]["keypoints"]
+        angles = joint_angles(kps, joints=["leftElbow", "rightElbow"])
+        ```
+
+    See Also:
+        [`compute_rom_angles`][physiotrack.signals.compute_rom_angles]: clinical ROM movements.
+        [`compute_all_joint_angles`][physiotrack.signals.compute_all_joint_angles]:
+            angles over a whole DataFrame sequence.
     """
     if not keypoints:
         return {}
@@ -279,19 +331,36 @@ def compute_joint_angle_3d(A, B, C):
 
 
 def compute_all_joint_angles(rel_df):
-    """
-    Computes joint angles for both 2D and 3D keypoints and adds them as new columns to the DataFrame.
-    Joint triplets used:
-        - leftShoulder: (left_elbow, left_shoulder, left_hip) -> (7, 5, 11)
-        - rightShoulder: (right_elbow, right_shoulder, right_hip) -> (8, 6, 12)
-        - leftElbow: (left_shoulder, left_elbow, left_wrist) -> (5, 7, 9)
-        - rightElbow: (right_shoulder, right_elbow, right_wrist) -> (6, 8, 10)
-        - leftHip: (left_shoulder, left_hip, left_knee) -> (5, 11, 13)
-        - rightHip: (right_shoulder, right_hip, right_knee) -> (6, 12, 14)
-        - leftKnee: (left_hip, left_knee, left_ankle) -> (11, 13, 15)
-        - rightKnee: (right_hip, right_knee, right_ankle) -> (12, 14, 16)
+    """Compute per-frame interior joint angles over a whole keypoint DataFrame.
+
+    Applies the cosine-rule interior-angle measurement (see
+    [`joint_angles`][physiotrack.signals.joint_angles]) row by row to a wide keypoint
+    DataFrame, for every joint in ``JOINT_ANGLE_TRIPLETS``. 2D and 3D angles are
+    computed independently, each only if the corresponding coordinate columns exist.
+    Angles are returned in **radians** (from ``compute_joint_angle_2d/3d``); rows with
+    missing/NaN coordinates yield ``NaN``.
+
+    The eight COCO-17 triplets (A, vertex B, C) are:
+
+    - ``leftShoulder`` (7, 5, 11), ``rightShoulder`` (8, 6, 12)
+    - ``leftElbow`` (5, 7, 9), ``rightElbow`` (6, 8, 10)
+    - ``leftHip`` (5, 11, 13), ``rightHip`` (6, 12, 14)
+    - ``leftKnee`` (11, 13, 15), ``rightKnee`` (12, 14, 16)
+
     Args:
-        rel_df (pd.DataFrame): DataFrame with relative keypoint coordinates.
+        rel_df (pandas.DataFrame): Wide keypoint DataFrame (e.g. from
+            [`extract_keypoints_sequence`][physiotrack.signals.extract_keypoints_sequence]
+            or [`get_relative_coordinates`][physiotrack.signals.get_relative_coordinates]),
+            with columns ``"{k}_x"``/``"{k}_y"`` (2D) and/or ``"3d_{k}_x"``/``"3d_{k}_y"``/
+            ``"3d_{k}_z"`` (3D).
+
+    Returns:
+        pandas.DataFrame: New DataFrame (same index) with one column per joint present:
+            ``"ang_2d_{joint}"`` and/or ``"ang_3d_{joint}"``, values in radians.
+
+    See Also:
+        [`compute_all_motion_features`][physiotrack.signals.compute_all_motion_features]:
+            velocity + acceleration + these angles concatenated onto ``rel_df``.
     """
     joint_triplets = JOINT_ANGLE_TRIPLETS
 
@@ -347,8 +416,36 @@ def compute_all_joint_angles(rel_df):
 
 
 def compute_all_motion_features(rel_df):
-    """
-    Computes all motion features (velocity, acceleration, and joint angles) for both 2D and 3D data.
+    """Compute velocity, acceleration and joint angles and concatenate onto the input.
+
+    One-call feature builder: runs ``compute_velocity`` (finite-difference first
+    derivative), ``compute_acceleration`` (second derivative) and
+    [`compute_all_joint_angles`][physiotrack.signals.compute_all_joint_angles], then
+    column-concatenates all three onto ``rel_df``. The velocity/acceleration helpers
+    require a ``"time"`` column (used to compute ``dt``).
+
+    Args:
+        rel_df (pandas.DataFrame): Wide keypoint DataFrame with a ``"time"`` column,
+            typically the pelvis-relative coordinates from
+            [`get_relative_coordinates`][physiotrack.signals.get_relative_coordinates].
+
+    Returns:
+        pandas.DataFrame: ``rel_df`` plus columns ``vel_2d_*``/``vel_3d_*``,
+            ``acc_2d_*``/``acc_3d_*`` and ``ang_2d_*``/``ang_3d_*``.
+
+    Raises:
+        ValueError: If ``rel_df`` has no ``"time"`` column (needed for the derivatives).
+
+    Example:
+        ```python
+        from physiotrack.signals import (
+            extract_keypoints_sequence, get_relative_coordinates, compute_all_motion_features,
+        )
+
+        kp_df = extract_keypoints_sequence(data, candidate_key_points=list(range(17)) + [135])
+        rel = get_relative_coordinates(kp_df, reference_point_id=135)
+        motion_df = compute_all_motion_features(rel)
+        ```
     """
     # velocity
     velocity_df = compute_velocity(rel_df)
@@ -361,11 +458,33 @@ def compute_all_motion_features(rel_df):
 
 
 def get_relative_coordinates(df, reference_point_id=135):
-    """
-    Get relative keypoint coordinates by subtracting the selected reference point.
+    """Recenter keypoint coordinates relative to a chosen reference keypoint.
+
+    Subtracts the reference keypoint's position from every other keypoint, per frame,
+    for both 2D (``_x``/``_y``) and 3D (``3d_*_x``/``_y``/``_z``) columns that are
+    present. This makes the motion translation-invariant (e.g. pelvis-centered), which
+    is the usual pre-step before computing velocity/acceleration/angles. The reference
+    point's own coordinate columns are dropped; non-coordinate columns (and ``frame``/
+    ``time``) are copied through unchanged.
+
     Args:
-        df: DataFrame with keypoint data
-        reference_point_id: ID of the reference keypoint (default: 135 for pelvis)
+        df (pandas.DataFrame): Wide keypoint DataFrame from
+            [`extract_keypoints_sequence`][physiotrack.signals.extract_keypoints_sequence].
+        reference_point_id (int, optional): Keypoint id to use as the origin. Defaults
+            to ``135`` (the synthesized pelvis from
+            [`add_pelvic_centroid`][physiotrack.signals.add_pelvic_centroid]). Its 2D
+            and/or 3D columns must exist in ``df``.
+
+    Returns:
+        pandas.DataFrame: New DataFrame of recentered coordinates plus passed-through
+            non-coordinate columns (e.g. ``time``, ``frame``, ``detection_id``).
+
+    Raises:
+        ValueError: If neither 2D nor 3D columns for ``reference_point_id`` are found.
+
+    See Also:
+        [`compute_all_motion_features`][physiotrack.signals.compute_all_motion_features]:
+            the typical next step.
     """
     # Define reference point column names for 2D and 3D
     ref_x_2d = f"{reference_point_id}_x"
@@ -437,14 +556,40 @@ def get_relative_coordinates(df, reference_point_id=135):
 
 
 def get_keypoint_features(motion_df, keypoint_id_2d, keypoint_id_3d=None):
-    """
-    Get features for a specific keypoint, returning separate 2D and 3D DataFrames
+    """Slice out one keypoint's feature columns as separate 2D and 3D DataFrames.
+
+    Selects, from a full motion-feature DataFrame, the coordinate / velocity /
+    acceleration columns for a single keypoint plus all joint-angle columns
+    (``ang_2d_*`` in the 2D frame, ``ang_3d_*`` in the 3D frame), always prefixed by
+    the base columns ``["time", "frame", "detection_id"]``. Only columns that actually
+    exist are kept.
+
     Args:
-        motion_df: DataFrame with all motion features
-        keypoint_id_2d: 2D keypoint ID
-        keypoint_id_3d: 3D keypoint ID (optional, defaults to same as 2D)
+        motion_df (pandas.DataFrame): Output of
+            [`compute_all_motion_features`][physiotrack.signals.compute_all_motion_features].
+        keypoint_id_2d (int): 2D keypoint id to extract (COCO-WholeBody).
+        keypoint_id_3d (int, optional): 3D keypoint id (Human3.6M). Defaults to ``None``,
+            meaning use the same id as ``keypoint_id_2d``.
+
     Returns:
-        tuple: (features_2d_df, features_3d_df)
+        tuple[pandas.DataFrame, pandas.DataFrame]: ``(features_2d, features_3d)``. Each
+            is empty if none of its columns are present.
+
+    Example:
+        ```python
+        from physiotrack.pose import COCO_WHOLEBODY_NAMES, HUMAN26M_NAMES
+        from physiotrack.signals import get_keypoint_features
+
+        f2d, f3d = get_keypoint_features(
+            motion_df,
+            int(COCO_WHOLEBODY_NAMES["left_wrist"]),
+            int(HUMAN26M_NAMES["left_wrist"]),
+        )
+        ```
+
+    See Also:
+        [`select_feature_data`][physiotrack.signals.select_feature_data]: pick which
+            feature columns (coordinates / velocity / ...) to work with.
     """
     if keypoint_id_3d is None:
         keypoint_id_3d = keypoint_id_2d
@@ -481,12 +626,35 @@ def get_keypoint_features(motion_df, keypoint_id_2d, keypoint_id_3d=None):
 
 
 def select_feature_data(keypoint_id_2d, keypoint_id_3d, feature_type='coordinates'):
-    """
-    Select feature data based on feature type
+    """Build the 2D/3D column names for a given feature type of one keypoint.
+
+    A naming helper: returns the exact motion-feature column names to read for the
+    requested ``feature_type``, for both the 2D and 3D keypoint. Handy for pulling the
+    right series out of the DataFrame returned by
+    [`get_keypoint_features`][physiotrack.signals.get_keypoint_features].
+
+    Args:
+        keypoint_id_2d (int): 2D keypoint id (COCO-WholeBody).
+        keypoint_id_3d (int): 3D keypoint id (Human3.6M).
+        feature_type (str, optional): One of ``"coordinates"``, ``"velocity"``,
+            ``"acceleration"`` or ``"angles"``. Defaults to ``"coordinates"``. For
+            ``"angles"`` the returned names are the fixed elbow-angle columns
+            (``ang_2d_leftElbow``/``ang_2d_rightElbow`` and the 3D equivalents), not
+            keypoint-specific.
+
     Returns:
-        dict with selected feature column names for 2D and 3D
+        dict[str, list[str]]: ``{"2d_features": [...], "3d_features": [...]}`` column
+            names. Returns ``None`` if ``feature_type`` is not recognized.
+
+    Example:
+        ```python
+        from physiotrack.signals import select_feature_data
+
+        sel = select_feature_data(9, 9, feature_type="velocity")
+        vx = keypoint_df_2d[sel["2d_features"][0]]
+        ```
     """
-    
+
     if feature_type == 'coordinates':
         return {
             '2d_features': [f'{keypoint_id_2d}_x', f'{keypoint_id_2d}_y'],

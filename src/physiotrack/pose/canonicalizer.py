@@ -10,9 +10,42 @@ CanonicalView = Models.Pose3D.Canonicalizer.View
 CanonicalModels = Models.Pose3D.Canonicalizer.Models
 
 class PoseCanonicalizer:
-    """
-    Transform 3D poses to canonical orientations using different methods.
-    Supports geometric transformation and 3DPCNet-based canonicalization.
+    """Transform 3D poses to viewpoint-invariant canonical orientations.
+
+    A collection of static methods that reorient Human3.6M-style 17-joint 3D poses
+    into a canonical view (e.g. facing the camera) so that downstream analysis is
+    invariant to the subject's global rotation. Two families of methods are provided:
+
+    - **Geometric**: a closed-form transform that fits a torso plane (shoulders +
+      hips), aligns its normal with the camera axis and the shoulders with the
+      X-axis, then optionally rotates to a back/left/right view. Deterministic and
+      dependency-free. See
+      [`to_canonical_geometric`][physiotrack.PoseCanonicalizer.to_canonical_geometric].
+    - **3DPCNet**: a learned network that regresses the canonicalizing rotation.
+      Weights are downloaded on first use. See
+      [`canonicalize_3dpcnet`][physiotrack.PoseCanonicalizer.canonicalize_3dpcnet].
+
+    Most users should call the module-level
+    [`canonicalize_pose`][physiotrack.canonicalize_pose] helper, which dispatches to
+    the right method based on the ``model`` argument, rather than these methods
+    directly. Poses use the H36M joint ordering with the pelvis at index ``0``.
+
+    Attributes:
+        JOINT_INDICES (dict[str, int]): H36M joint indices used to build the torso
+            plane: ``left_shoulder`` (11), ``right_shoulder`` (14), ``left_hip`` (4),
+            ``right_hip`` (1).
+
+    Example:
+        ```python
+        import numpy as np
+        import physiotrack as pt
+
+        poses = np.random.randn(100, 17, 3)  # (N frames, 17 joints, xyz)
+        front = pt.PoseCanonicalizer.to_canonical_geometric(poses, view="front")
+        ```
+
+    See Also:
+        [`canonicalize_pose`][physiotrack.canonicalize_pose]: recommended entry point.
     """
     
     # H36M joint indices
@@ -25,12 +58,22 @@ class PoseCanonicalizer:
     
     @staticmethod
     def extract_torso_plane(poses_3d: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Extract torso plane from 4 key points: shoulders and hips
+        """Fit a torso plane from the shoulder and hip joints.
+
+        Uses the four torso keypoints (left/right shoulders and hips) to define a
+        plane: its center is their centroid and its normal is the cross product of
+        the shoulder vector and the hip-to-shoulder torso vector. The normal is
+        unit-normalized. This plane is the basis for the geometric canonicalization.
+
         Args:
-            poses_3d: Shape (N, 17, 3) - N frames, 17 joints, 3 coords
+            poses_3d (np.ndarray): Poses of shape ``(N, 17, 3)`` — ``N`` frames, 17
+                H36M joints, ``(x, y, z)`` coordinates.
+
         Returns:
-            Tuple of (plane_center, normal_vector, plane_points)
+            tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple ``(plane_center,
+                normal_vector, torso_points)`` where ``plane_center`` is ``(N, 3)``,
+                ``normal_vector`` is the unit torso-plane normal ``(N, 3)``, and
+                ``torso_points`` are the stacked four torso joints ``(N, 4, 3)``.
         """
         left_shoulder = poses_3d[:, PoseCanonicalizer.JOINT_INDICES['left_shoulder'], :]
         right_shoulder = poses_3d[:, PoseCanonicalizer.JOINT_INDICES['right_shoulder'], :]
@@ -56,13 +99,20 @@ class PoseCanonicalizer:
     
     @staticmethod
     def compute_rotation_matrix(from_vec: np.ndarray, to_vec: np.ndarray) -> np.ndarray:
-        """
-        Compute rotation matrix to align from_vec with to_vec
+        """Compute per-sample rotation matrices that align one vector onto another.
+
+        Uses Rodrigues' rotation formula to build, for each sample, the rotation that
+        maps ``from_vec`` onto ``to_vec``. Both inputs are normalized internally;
+        near-parallel pairs fall back to the identity rotation.
+
         Args:
-            from_vec: Source vector (N, 3)
-            to_vec: Target vector (N, 3) or (3,)
+            from_vec (np.ndarray): Source vectors, shape ``(N, 3)``.
+            to_vec (np.ndarray): Target vector(s), shape ``(N, 3)`` or a single
+                ``(3,)`` vector broadcast to all ``N`` samples.
+
         Returns:
-            Rotation matrices (N, 3, 3)
+            np.ndarray: Rotation matrices of shape ``(N, 3, 3)`` such that rotating
+                ``from_vec`` by them yields ``to_vec``.
         """
         # Ensure inputs are normalized
         from_vec = from_vec / (np.linalg.norm(from_vec, axis=-1, keepdims=True) + 1e-8)
@@ -101,14 +151,25 @@ class PoseCanonicalizer:
     
     @staticmethod
     def transform_to_front_view(poses_3d: np.ndarray, return_rotation: bool = False):
-        """
-        Transform poses so torso plane is parallel to XY plane (front view)
-        AND shoulders are parallel to X-axis (using minimal rotation)
+        """Rotate poses to the canonical front view.
+
+        Two-step rotation: (1) align the torso-plane normal with the Z-axis so the
+        torso plane becomes parallel to the XY plane (the subject faces the camera),
+        then (2) rotate about Z by the minimal angle that makes the shoulders
+        parallel to the X-axis. Poses are rotated about the torso-plane center and
+        translated back, so the global position is preserved.
+
         Args:
-            poses_3d: Shape (N, 17, 3)
-            return_rotation: If True, also return the rotation matrix
+            poses_3d (np.ndarray): Poses of shape ``(N, 17, 3)``.
+            return_rotation (bool, optional): If ``True``, also return the combined
+                rotation matrices. Defaults to ``False``.
+
         Returns:
-            Transformed poses (N, 17, 3) and optionally rotation matrices (N, 3, 3)
+            np.ndarray | tuple[np.ndarray, np.ndarray]: The front-view poses
+                ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
+                ``(poses, R_total)`` where ``R_total`` is ``(N, 3, 3)`` and equals
+                ``R2 @ R1`` (the facing rotation followed by the shoulder-leveling
+                rotation).
         """
         plane_center, normal_vector, _ = PoseCanonicalizer.extract_torso_plane(poses_3d)
         # Step 1: Align torso plane normal with Z-axis
@@ -164,10 +225,21 @@ class PoseCanonicalizer:
     
     @staticmethod
     def transform_to_back_view(poses_3d: np.ndarray, return_rotation: bool = False):
-        """
-        Transform poses for back view (front view + 180° rotation around Y)
+        """Rotate poses to the canonical back view.
 
-        Back view: Front rotation + 180° Y rotation = R_total
+        Computes the front view and then applies an additional 180° rotation about
+        the Y-axis, so the subject is seen from behind.
+
+        Args:
+            poses_3d (np.ndarray): Poses of shape ``(N, 17, 3)``.
+            return_rotation (bool, optional): If ``True``, also return the combined
+                rotation matrices. Defaults to ``False``.
+
+        Returns:
+            np.ndarray | tuple[np.ndarray, np.ndarray]: The back-view poses
+                ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
+                ``(poses, R_total)`` with ``R_total`` of shape ``(N, 3, 3)`` equal to
+                ``R_flip @ R_front``.
         """
         if return_rotation:
             front_poses, R_front = PoseCanonicalizer.transform_to_front_view(poses_3d, return_rotation=True)
@@ -195,9 +267,21 @@ class PoseCanonicalizer:
     
     @staticmethod
     def transform_to_left_side_view(poses_3d: np.ndarray, return_rotation: bool = False):
-        """
-        Transform poses for left side view (front view + 90° left rotation around Y)
-        Left side view: Front rotation + 90° CCW Y rotation = R_total
+        """Rotate poses to the canonical left-side view.
+
+        Computes the front view and then applies an additional 90° counter-clockwise
+        rotation about the Y-axis, giving a left-profile view.
+
+        Args:
+            poses_3d (np.ndarray): Poses of shape ``(N, 17, 3)``.
+            return_rotation (bool, optional): If ``True``, also return the combined
+                rotation matrices. Defaults to ``False``.
+
+        Returns:
+            np.ndarray | tuple[np.ndarray, np.ndarray]: The left-side-view poses
+                ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
+                ``(poses, R_total)`` with ``R_total`` of shape ``(N, 3, 3)`` equal to
+                ``R_left @ R_front``.
         """
         if return_rotation:
             front_poses, R_front = PoseCanonicalizer.transform_to_front_view(poses_3d, return_rotation=True)
@@ -224,9 +308,21 @@ class PoseCanonicalizer:
     
     @staticmethod
     def transform_to_right_side_view(poses_3d: np.ndarray, return_rotation: bool = False):
-        """
-        Transform poses for right side view (front view + 90° right rotation around Y)
-        Right side view: Front rotation + 90° CW Y rotation = R_total
+        """Rotate poses to the canonical right-side view.
+
+        Computes the front view and then applies an additional 90° clockwise
+        rotation about the Y-axis, giving a right-profile view.
+
+        Args:
+            poses_3d (np.ndarray): Poses of shape ``(N, 17, 3)``.
+            return_rotation (bool, optional): If ``True``, also return the combined
+                rotation matrices. Defaults to ``False``.
+
+        Returns:
+            np.ndarray | tuple[np.ndarray, np.ndarray]: The right-side-view poses
+                ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
+                ``(poses, R_total)`` with ``R_total`` of shape ``(N, 3, 3)`` equal to
+                ``R_right @ R_front``.
         """
         if return_rotation:
             front_poses, R_front = PoseCanonicalizer.transform_to_front_view(poses_3d, return_rotation=True)
@@ -261,22 +357,50 @@ class PoseCanonicalizer:
                             apply_transform: bool = True,
                             verbose: bool = False,
                             return_rotation: bool = False) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """
-        3DPCNet-based canonicalization method.
-        
+        """Canonicalize poses with a learned 3DPCNet model.
+
+        Resolves and (on first use) downloads the requested 3DPCNet checkpoint, then
+        runs network inference to regress the canonicalizing rotation and canonical
+        pose. Only the front view is supported; other views trigger a warning and
+        fall back to front. Prefer the module-level
+        [`canonicalize_pose`][physiotrack.canonicalize_pose] wrapper.
+
         Args:
-            poses_3d: Input poses with shape (N, 17, 3)
-            model: Model enum from Models.Pose3D.Canonicalizer.Models (e.g., _3DPCNetS2, _3DPCNetS3)
-            view: Desired canonical view (currently only FRONT is supported)
-            checkpoint_path: Optional path to model checkpoint (overrides model enum)
-            config_path: Optional path to model config (overrides automatic config)
-            device: Device to run inference on
-            apply_transform: If True, apply coordinate transformation (for standard format input).
-                           If False, assume input is already in 3DPCNet format.
-            verbose: If True, print progress messages
-            
+            poses_3d (np.ndarray): Input poses of shape ``(N, 17, 3)``.
+            model (Models.Pose3D.Canonicalizer.Models, optional): Which pretrained
+                checkpoint to use — one of ``_3DPCNetS2``, ``_3DPCNetS3``,
+                ``_3DPCNetTC48_byCam``, ``_3DPCNetTC48_byAction``. ``GEOMETRIC`` and
+                ``None`` skip download and rely on ``checkpoint_path``. Defaults to
+                ``None``.
+            view (Models.Pose3D.Canonicalizer.View | str, optional): Target view.
+                Only ``"front"`` is supported; others warn and use front. Accepts the
+                enum or its string value. Defaults to ``"front"``.
+            checkpoint_path (str, optional): Explicit checkpoint path that overrides
+                the ``model`` enum lookup/download. Defaults to ``None``.
+            config_path (str, optional): Explicit model-config YAML path. Defaults to
+                ``None`` (uses the bundled ``inference_config.yaml``).
+            device (str, optional): Inference device, ``"cuda"`` or ``"cpu"``.
+                Defaults to ``"cuda"`` (falls back to CPU if CUDA is unavailable).
+            apply_transform (bool, optional): If ``True``, apply the standard-to-3DPCNet
+                coordinate transform to the input; if ``False``, assume the input is
+                already in 3DPCNet format. Defaults to ``True``.
+            verbose (bool, optional): If ``True``, print progress messages. Defaults
+                to ``False``.
+            return_rotation (bool, optional): If ``True``, also return the predicted
+                rotation matrices. Defaults to ``False``.
+
         Returns:
-            Canonicalized poses (N, 17, 3)
+            np.ndarray | tuple[np.ndarray, np.ndarray]: Canonicalized poses
+                ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
+                ``(poses, rotation_matrices)`` with rotations of shape ``(N, 3, 3)``.
+
+        Note:
+            The first call for a given model downloads its weights via
+            [`Models.download_model`][physiotrack.Models].
+
+        See Also:
+            [`to_canonical_geometric`][physiotrack.PoseCanonicalizer.to_canonical_geometric]:
+                the closed-form alternative.
         """
         
         if isinstance(view, CanonicalView):
@@ -325,14 +449,32 @@ class PoseCanonicalizer:
     def to_canonical_geometric(poses_3d: np.ndarray, view: Union[CanonicalView, str],
                                     return_rotation: bool = False,
                                     verbose: bool = False):
-        """
-        Transform poses to specified canonical orientation using geometric method.
+        """Canonicalize poses to a given view using the closed-form geometric method.
+
+        Dispatches to the front/back/left/right transform based on ``view``. The
+        result is deterministic and requires no model weights.
+
         Args:
-            poses_3d: Input poses with shape (N, 17, 3)
-            view: Desired canonical view
-            return_rotation: If True, also return rotation matrices
+            poses_3d (np.ndarray): Input poses of shape ``(N, 17, 3)``.
+            view (Models.Pose3D.Canonicalizer.View | str): Target view — one of
+                ``"front"``, ``"back"``, ``"left_side"``, ``"right_side"`` (or the
+                corresponding ``View`` enum). Strings are lower-cased.
+            return_rotation (bool, optional): If ``True``, also return the rotation
+                matrices. Defaults to ``False``.
+            verbose (bool, optional): If ``True``, print a progress message. Defaults
+                to ``False``.
+
         Returns:
-            Transformed poses (N, 17, 3) and optionally rotation matrices (N, 3, 3)
+            np.ndarray | tuple[np.ndarray, np.ndarray]: Canonicalized poses
+                ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
+                ``(poses, R_total)`` with rotations of shape ``(N, 3, 3)``.
+
+        Raises:
+            ValueError: If ``view`` is not one of the four supported views.
+
+        See Also:
+            [`canonicalize_3dpcnet`][physiotrack.PoseCanonicalizer.canonicalize_3dpcnet]:
+                the learned alternative.
         """
         if isinstance(view, str):
             view = CanonicalView(view.lower())
@@ -356,17 +498,31 @@ class PoseCanonicalizer:
     def process_json_file(json_path: str, output_path: Optional[str] = None, 
                          view: Union[CanonicalView, str] = "front",
                          model: Union[CanonicalModels, None] = CanonicalModels.GEOMETRIC) -> Dict[str, Any]:
-        """
-        Process 3D poses from a JSON file containing detection data.
-        
+        """Canonicalize 3D poses stored in a detection-results JSON file.
+
+        Reads a list of per-frame detection records, extracts the ``keypoints_3d``,
+        canonicalizes them via [`canonicalize_pose`][physiotrack.canonicalize_pose],
+        writes the canonicalized keypoints back into each record (plus
+        ``canonical_view_applied`` and ``canonical_model`` fields), and optionally
+        saves the updated JSON.
+
         Args:
-            json_path: Path to input JSON file with 3D keypoints
-            output_path: Optional path to save processed JSON
-            view: Target canonical view
-            model: Canonicalization model to use (GEOMETRIC, _3DPCNetS2, _3DPCNetS3)
-            
+            json_path (str): Path to the input JSON file with 3D keypoints.
+            output_path (str, optional): Where to save the processed JSON. Defaults
+                to ``None`` (no file written; data returned only).
+            view (Models.Pose3D.Canonicalizer.View | str, optional): Target canonical
+                view. Defaults to ``"front"``.
+            model (Models.Pose3D.Canonicalizer.Models, optional): Canonicalization
+                model — ``GEOMETRIC``, ``_3DPCNetS2``, ``_3DPCNetS3``, etc. Defaults
+                to ``Models.Pose3D.Canonicalizer.Models.GEOMETRIC``.
+
         Returns:
-            Updated detection data with canonicalized 3D poses
+            dict[str, Any]: The (possibly updated) detection data with canonicalized
+                3D poses.
+
+        See Also:
+            [`process_npy_file`][physiotrack.PoseCanonicalizer.process_npy_file]:
+                the ``.npy`` array equivalent.
         """
         with open(json_path, 'r') as f:
             data = json.load(f)
@@ -393,17 +549,39 @@ class PoseCanonicalizer:
     def process_npy_file(npy_path: str, output_path: Optional[str] = None,
                         view: Union[CanonicalView, str] = "front",
                         model: Union[CanonicalModels, None] = CanonicalModels.GEOMETRIC) -> np.ndarray:
-        """
-        Process 3D poses from a numpy file.
-        
+        """Canonicalize 3D poses stored in a NumPy ``.npy`` file.
+
+        Loads a ``(N, 17, 3)`` pose array, canonicalizes it via
+        [`canonicalize_pose`][physiotrack.canonicalize_pose], and optionally saves
+        the result to disk.
+
         Args:
-            npy_path: Path to input numpy file with 3D poses
-            output_path: Optional path to save processed numpy array
-            view: Target canonical view
-            model: Canonicalization model to use
-            
+            npy_path (str): Path to the input ``.npy`` file with 3D poses.
+            output_path (str, optional): Where to save the canonicalized array.
+                Defaults to ``None`` (no file written; array returned only).
+            view (Models.Pose3D.Canonicalizer.View | str, optional): Target canonical
+                view. Defaults to ``"front"``.
+            model (Models.Pose3D.Canonicalizer.Models, optional): Canonicalization
+                model. Defaults to ``Models.Pose3D.Canonicalizer.Models.GEOMETRIC``.
+
         Returns:
-            Canonicalized poses array
+            np.ndarray: The canonicalized poses, shape ``(N, 17, 3)``.
+
+        Example:
+            ```python
+            import physiotrack as pt
+
+            canonical = pt.PoseCanonicalizer.process_npy_file(
+                "output/X3D.npy",
+                output_path="output/X3D_canonical.npy",
+                view=pt.Models.Pose3D.Canonicalizer.View.FRONT,
+                model=pt.Models.Pose3D.Canonicalizer.Models.GEOMETRIC,
+            )
+            ```
+
+        See Also:
+            [`process_json_file`][physiotrack.PoseCanonicalizer.process_json_file]:
+                the JSON equivalent.
         """
         poses_3d = np.load(npy_path)
         canonical_poses = canonicalize_pose(poses_3d, model, view)
@@ -423,7 +601,7 @@ class PoseCanonicalizer:
             data: Detection data dictionary
             
         Returns:
-            3D poses array or None if not found
+            np.ndarray | None: 3D poses array or None if not found
         """
         # Check if data contains 3D keypoints
         if not isinstance(data, list) or len(data) == 0:
@@ -457,7 +635,7 @@ class PoseCanonicalizer:
             model: Applied canonicalization model
             
         Returns:
-            Updated detection data
+            dict[str, Any]: Updated detection data
         """
         if isinstance(view, str):
             view = CanonicalView(view.lower())
@@ -479,20 +657,64 @@ def canonicalize_pose(poses_3d: np.ndarray,
                      return_rotation: bool = False,
                      apply_transform: bool = True,
                      verbose: bool = True):
-    """
-    Main function to canonicalize poses using specified model.
-    
+    """Canonicalize 3D poses to a viewpoint-invariant orientation.
+
+    Primary entry point for pose canonicalization. Dispatches to the closed-form
+    geometric method when ``model`` is ``GEOMETRIC`` (or ``None``), or to a learned
+    3DPCNet model for the ``_3DPCNet*`` enum values. Poses use the H36M 17-joint
+    layout with the pelvis at index ``0``.
+
     Args:
-        poses_3d: Input poses with shape (N, 17, 3)
-        model: Canonicalization model from Models.Pose3D.Canonicalizer.Models
-        view: Desired canonical view (front, back, left_side, right_side)
-        return_rotation: If True, also return rotation matrices (only for geometric method)
-        apply_transform: For 3DPCNet models - if True, apply coordinate transformation (for standard format input).
-                        If False, assume input is already in 3DPCNet format.
-        verbose: If True, print progress messages (for 3DPCNet models)
-        
+        poses_3d (np.ndarray): Input poses of shape ``(N, 17, 3)``.
+        model (Models.Pose3D.Canonicalizer.Models, optional): Canonicalization model.
+            ``GEOMETRIC`` (or ``None``) uses the geometric transform;
+            ``_3DPCNetS2``, ``_3DPCNetS3``, ``_3DPCNetTC48_byCam``,
+            ``_3DPCNetTC48_byAction`` use the learned network. Defaults to
+            ``Models.Pose3D.Canonicalizer.Models.GEOMETRIC``.
+        view (Models.Pose3D.Canonicalizer.View | str, optional): Target view — one of
+            ``"front"``, ``"back"``, ``"left_side"``, ``"right_side"``. 3DPCNet models
+            only support ``"front"``. Defaults to ``"front"``.
+        return_rotation (bool, optional): If ``True``, also return the rotation
+            matrices ``(N, 3, 3)``. Supported by both methods. Defaults to ``False``.
+        apply_transform (bool, optional): 3DPCNet only — if ``True`` apply the
+            standard-to-3DPCNet coordinate transform to the input; if ``False`` the
+            input is assumed already in 3DPCNet format. Defaults to ``True``.
+        verbose (bool, optional): If ``True``, print progress messages. Defaults to
+            ``True``.
+
     Returns:
-        Canonicalized poses (N, 17, 3) and optionally rotation matrices (N, 3, 3)
+        np.ndarray | tuple[np.ndarray, np.ndarray]: Canonicalized poses
+            ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
+            ``(poses, rotation_matrices)`` with rotations of shape ``(N, 3, 3)``.
+
+    Raises:
+        ValueError: If ``model`` is not a supported canonicalization model, or (via
+            the geometric path) if ``view`` is not a supported view.
+
+    Example:
+        ```python
+        import numpy as np
+        import physiotrack as pt
+
+        poses = np.random.randn(100, 17, 3)
+
+        # Geometric front-view canonicalization
+        canonical = pt.canonicalize_pose(
+            poses,
+            model=pt.Models.Pose3D.Canonicalizer.Models.GEOMETRIC,
+            view=pt.Models.Pose3D.Canonicalizer.View.FRONT,
+        )
+
+        # Learned 3DPCNet (auto-downloads weights on first use)
+        dpcnet = pt.canonicalize_pose(
+            poses, model=pt.Models.Pose3D.Canonicalizer.Models._3DPCNetS2, view="front",
+        )
+        ```
+
+    See Also:
+        [`PoseCanonicalizer`][physiotrack.PoseCanonicalizer]: the underlying methods.
+        [`evaluate_canonicalization`][physiotrack.evaluate_canonicalization]: scoring
+            canonicalization quality.
     """
     if model is None or model == CanonicalModels.GEOMETRIC:
         return PoseCanonicalizer.to_canonical_geometric(poses_3d, view, return_rotation)

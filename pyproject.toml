@@ -12,8 +12,18 @@ authors = [
   { name = "Tharindu Ekanayake", email = "physiotrack@gmail.com" }
 ]
 
+[project.optional-dependencies]
+docs = [
+  "mkdocs>=1.6,<2",
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.24",
+  "mkdocs-autorefs>=1.0",
+  "pymdown-extensions>=10",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/physiotrack/physiotrack"
+"Documentation" = "https://tharindu326.github.io/physiotrack/"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

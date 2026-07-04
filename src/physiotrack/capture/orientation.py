@@ -21,16 +21,49 @@ _ROTATE = {
 
 
 def apply_rotation(frame, deg: int):
-    """Rotate a frame by ``deg`` (0/90/180/270); other values pass through."""
+    """Rotate a frame clockwise by a fixed angle.
+
+    Args:
+        frame (np.ndarray): The BGR image/frame to rotate, shape ``(H, W, 3)``.
+        deg (int): Clockwise rotation angle; one of ``90`` / ``180`` / ``270``.
+            Any other value (including ``0``) returns the frame unchanged.
+
+    Returns:
+        np.ndarray: The rotated frame. For ``90``/``270`` the height and width are
+            swapped; otherwise the shape is preserved.
+
+    Example:
+        ```python
+        from physiotrack.capture.orientation import apply_rotation, resolve_rotation
+        deg = resolve_rotation(90)
+        rotated = apply_rotation(frame, deg)
+        ```
+    """
     return cv2.rotate(frame, _ROTATE[deg]) if deg in _ROTATE else frame
 
 
 def resolve_rotation(rotate) -> int:
-    """Normalise an explicit ``rotate`` setting to one of ``0/90/180/270``.
+    """Normalise an explicit rotation setting to one of ``0``/``90``/``180``/``270``.
 
-    ``rotate`` may be ``None``/``"none"``/``0`` (no rotation) or an explicit
-    ``90/180/270``. There is no auto/metadata mode: either a value is provided or
-    no rotation is applied. Unknown values fall back to ``0``.
+    There is no auto/metadata mode: either an explicit value is provided or no
+    rotation is applied. Called once at setup so that [`apply_rotation`][physiotrack.capture.orientation.apply_rotation]
+    can be applied per frame.
+
+    Args:
+        rotate: The requested rotation. ``None`` / ``"none"`` / ``0`` / ``"0"``
+            mean no rotation; ``90`` / ``180`` / ``270`` (int or numeric string)
+            select that clockwise angle. Values are taken modulo 360, and anything
+            that is not one of the supported angles falls back to ``0``.
+
+    Returns:
+        int: A normalised angle, one of ``0``, ``90``, ``180`` or ``270``.
+
+    Example:
+        ```python
+        from physiotrack.capture.orientation import resolve_rotation
+        resolve_rotation("180")  # -> 180
+        resolve_rotation(45)     # -> 0 (unsupported, falls back)
+        ```
     """
     if rotate in (None, "none", 0, "0"):
         return 0

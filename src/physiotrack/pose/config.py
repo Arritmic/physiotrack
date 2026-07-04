@@ -1,3 +1,60 @@
+"""Keypoint index-to-name maps for the pose skeletons Physiotrack supports.
+
+This module defines the canonical ``id -> name`` (and reverse ``name -> id``)
+dictionaries for every keypoint layout used across the library. When a
+[`Pose`][physiotrack.Pose] backend returns raw keypoints, the id of each point
+is looked up in one of these maps to attach a human-readable ``name`` to the
+resulting [`Keypoint`][physiotrack.Keypoint]. That is exactly what powers
+[`Keypoints.by_name`][physiotrack.Keypoints.by_name] and
+[`Keypoints.by_id`][physiotrack.Keypoints.by_id]: ``by_id`` indexes the integer
+key of these dicts, while ``by_name`` indexes the string value.
+
+The active map is selected by the model's ``architecture`` string: a whole-body
+model (``architecture == "WHOLEBODY"``) uses [`COCO_WHOLEBODY`](#), while a
+body-only COCO model uses [`COCO`](#). Ids not present in the active map are
+surfaced by ``Keypoints`` as ``"unknown_<id>"``.
+
+Maps:
+    COCO_WHOLEBODY: The 133-point COCO-WholeBody layout plus two derived
+        centroids, spanning ids ``0``-``134``. The index ranges are:
+
+        - Body: ids ``0``-``16`` (nose, eyes, ears, shoulders, elbows, wrists,
+          hips, knees, ankles) — the standard COCO-17 body skeleton.
+        - Feet: ids ``17``-``22`` (left/right big toe, small toe, heel).
+        - Face: ids ``23``-``90`` — a 68-point face layout (jaw ``23``-``39``,
+          eyebrows ``40``-``49``, nose ``50``-``58``, eyes ``59``-``70``, mouth
+          ``71``-``90``).
+        - Hands: ids ``91``-``132`` — 21 points per hand (left ``91``-``111``,
+          right ``112``-``132``).
+        - Derived centroids: ``133`` (``head_centroid``) and ``134``
+          (``body_centroid``).
+
+    COCO: The body-only COCO-17 layout, i.e. the first 17 entries of
+        ``COCO_WHOLEBODY`` (ids ``0``-``16``). Used by body-only pose models.
+
+    COCO_WHOLEBODY_NAMES / COCO_NAMES: Reverse ``name -> id`` maps of the two
+        dicts above (values become keys), useful for name-based lookups.
+
+    HALPE_KEYPOINT_DICT: The 26-point Halpe body layout (ids ``0``-``25``),
+        including three derived points — ``head_top`` (17), ``neck`` (18) and
+        ``pelvis_point`` (19) — used internally during COCO->Halpe conversion for
+        3D lifting (see [`Pose3D`][physiotrack.pose.pose3D.Pose3D]).
+
+    HALPE_TO_COCO_KEYPOINT_MAP: Maps Halpe ids to their COCO-WholeBody source id
+        (``None`` for the three derived Halpe points that must be computed rather
+        than copied).
+
+    HUMAN26M / HUMAN26M_NAMES: The 17-joint Human3.6M layout (ids ``0``-``16``,
+        ``root``-centered) and its reverse map. This is the joint order produced
+        by 3D lifting models such as MotionBERT and DDHPose.
+
+Note:
+    These dictionaries are keyed as strings for the COCO maps (``"0"``,
+    ``"1"``, ...) and as integers for the Halpe/Human3.6M maps, matching how each
+    is consumed downstream. Do not renumber them: the ids are contractual with
+    the model outputs and the drawing/skeleton code.
+"""
+
 from itertools import islice
 
 COCO_WHOLEBODY = {

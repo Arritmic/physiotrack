@@ -16,12 +16,52 @@ from physiotrack.core.overlay import OverlayCanvas, alpha_composite, SS
 
 
 class KeypointMotionPlotter:
+    """Real-time overlay of one keypoint's motion, measured relative to the pelvis.
+
+    Tracks a single COCO keypoint per frame, expresses its position relative to the
+    pelvis (hip midpoint) so the trace is translation-invariant, keeps a sliding window
+    of the recent X/Y trajectory, optionally band-pass filters it, and renders it as a
+    small Matplotlib panel that can be composited onto a video frame. Currently follows
+    the first person with valid keypoints.
+
+    Attributes:
+        keypoint_id (int): COCO keypoint id being tracked.
+        keypoint_name (str): Display name shown as the panel title.
+        window_size (int): Number of frames retained in the sliding window.
+        fps (float): Frame rate, used for the time axis and filter design.
+        filter_signal (bool): Whether the band-pass filter is active.
+        x_buffer (collections.deque): Recent pelvis-relative X positions.
+        y_buffer (collections.deque): Recent pelvis-relative Y positions.
+        time_buffer (collections.deque): Timestamps aligned with the buffers.
+
+    Example:
+        ```python
+        import cv2
+        import physiotrack as pt
+        from physiotrack.signals import KeypointMotionPlotter
+
+        pose = pt.Pose.Person()
+        plotter = KeypointMotionPlotter(keypoint_id=9, keypoint_name="left_wrist", fps=30.0)
+
+        cap = cv2.VideoCapture("in.mp4")
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            pose_results = pose.predict(frame).to_dict()["detections"]
+            t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            plotter.update(pose_results, frame_time=t)
+            frame = plotter.attach_to_frame(frame, position="top_right")
+            cv2.imshow("motion", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+        ```
+
+    Note:
+        The ``Video`` orchestrator wires this up automatically via
+        ``plot_keypoint=<id>`` / ``plot_keypoint_name=<name>``.
     """
-    Real-time plotter for tracking keypoint motion relative to pelvis.
-    
-    Maintains a sliding window of keypoint positions and renders them as a plot overlay.
-    """
-    
+
     def __init__(self,
                  keypoint_id: int = 9,
                  keypoint_name: str = "left_wrist",
@@ -31,18 +71,24 @@ class KeypointMotionPlotter:
                  filter_signal: bool = True,
                  filter_bandpass: Tuple[float, float] = (0.5, 5.0),
                  fps: float = 30.0):
-        """
-        Initialize keypoint motion plotter.
-        
+        """Initialize the keypoint motion plotter and (optionally) its band-pass filter.
+
         Args:
-            keypoint_id: COCO keypoint ID to track (9=left_wrist, 10=right_wrist, etc.)
-            keypoint_name: Name of the keypoint for display
-            window_size: Number of frames to display in the plot window
-            canvas_width: Width of the plot canvas in pixels
-            canvas_height: Height of the plot canvas in pixels
-            filter_signal: Whether to apply band-pass filtering
-            filter_bandpass: Bandpass filter frequencies [low, high] in Hz
-            fps: Video frame rate for time axis
+            keypoint_id (int, optional): COCO keypoint id to track (``9`` = left wrist,
+                ``10`` = right wrist, ...). Defaults to ``9``.
+            keypoint_name (str, optional): Display name shown as the panel title.
+                Defaults to ``"left_wrist"``.
+            window_size (int, optional): Number of frames held in the sliding window.
+                Defaults to ``300``.
+            canvas_width (int, optional): Plot canvas width in pixels. Defaults to ``450``.
+            canvas_height (int, optional): Plot canvas height in pixels. Defaults to ``180``.
+            filter_signal (bool, optional): Apply a Butterworth band-pass filter to the
+                trace. Defaults to ``True``. Silently disabled if ``fps <= 0`` or the
+                filter fails to initialize.
+            filter_bandpass (tuple[float, float], optional): Band-pass ``(low, high)``
+                cutoff frequencies in Hz. Defaults to ``(0.5, 5.0)``.
+            fps (float, optional): Video frame rate, used for the time axis and filter
+                design. Defaults to ``30.0``.
         """
         self.keypoint_id = keypoint_id
         self.keypoint_name = keypoint_name
@@ -93,7 +139,7 @@ class KeypointMotionPlotter:
             keypoints: List of keypoints [{'id': int, 'x': float, 'y': float, 'confidence': float}, ...]
         
         Returns:
-            Pelvis position (x, y) or None if hips not visible
+            tuple | None: Pelvis position ``(x, y)``, or ``None`` if the hips are not visible.
         """
         if not keypoints:
             return None
@@ -120,7 +166,7 @@ class KeypointMotionPlotter:
         Get position and confidence of a specific keypoint.
         
         Returns:
-            (x, y, confidence) or None if not found
+            tuple | None: ``(x, y, confidence)`` for the keypoint, or ``None`` if not found.
         """
         if not keypoints:
             return None
@@ -133,12 +179,18 @@ class KeypointMotionPlotter:
         return None
     
     def update(self, pose_results: List[dict], frame_time: float):
-        """
-        Update motion data with new pose information.
-        
+        """Ingest one frame's pose results and append the tracked point to the buffers.
+
+        Finds the pelvis (hip midpoint) and the tracked keypoint for the first valid
+        person, computes the keypoint position relative to the pelvis, and appends it to
+        the sliding buffers. Frames without a confident pelvis or tracked keypoint are
+        skipped.
+
         Args:
-            pose_results: List of pose estimation results with keypoints
-            frame_time: Current frame timestamp in seconds
+            pose_results (list[dict]): Per-person pose results, each with a
+                ``"keypoints"`` list of ``{"id", "x", "y", "confidence"}`` dicts (e.g.
+                ``result.to_dict()["detections"]``).
+            frame_time (float): Current frame timestamp in seconds.
         """
         # For now, track the first person with valid keypoints
         # TODO: Extend to multi-person tracking
@@ -174,11 +226,17 @@ class KeypointMotionPlotter:
             break
     
     def render(self) -> Optional[np.ndarray]:
-        """
-        Render the motion plot as an image.
-        
+        """Render the current motion window as a BGR plot image.
+
+        Plots the pelvis-relative X and Y traces (band-pass filtered when enabled and
+        long enough), with an auto-scaled y-axis and a rolling time window on x. The
+        Matplotlib figure is created once and reused for speed, rendered supersampled
+        and area-downscaled to the exact canvas size for crisp output.
+
         Returns:
-            Plot canvas as BGR numpy array or None if not enough data
+            numpy.ndarray: The plot as an ``(canvas_height, canvas_width, 3)`` BGR array.
+                Before ~10 samples are collected, a "Collecting motion data..." canvas is
+                returned instead.
         """
         if len(self.x_buffer) < 10:
             # Not enough data to plot
@@ -277,16 +335,25 @@ class KeypointMotionPlotter:
     
     def attach_to_frame(self, frame: np.ndarray, position: str = 'top_right',
                         margin: int = 10) -> np.ndarray:
-        """
-        Attach motion plot to a video frame.
-        
+        """Composite the rendered motion plot onto a corner of a video frame.
+
+        Renders the plot, draws a faint dark backing box behind it and overlays it at the
+        requested corner. Returns the frame unchanged if the plot cannot fit at the given
+        position/margin.
+
         Args:
-            frame: Video frame to attach plot to
-            position: Position on frame ('top', 'top_right', 'top_left', 'bottom', 'bottom_right', 'bottom_left')
-            margin: Margin from frame edge in pixels
-        
+            frame (numpy.ndarray): Target BGR frame ``(H, W, 3)``.
+            position (str, optional): Placement, one of ``"top"``, ``"top_left"``,
+                ``"top_right"``, ``"bottom"``, ``"bottom_left"``, ``"bottom_right"``.
+                Defaults to ``"top_right"``.
+            margin (int, optional): Margin from the frame edge in pixels. Defaults to ``10``.
+
         Returns:
-            Frame with motion plot attached
+            numpy.ndarray: A copy of ``frame`` with the plot composited (or the original
+                ``frame`` if it does not fit).
+
+        Raises:
+            ValueError: If ``position`` is not one of the accepted values.
         """
         plot_canvas = self.render()
         if plot_canvas is None:
@@ -336,7 +403,11 @@ class KeypointMotionPlotter:
         return result_frame
     
     def clear(self):
-        """Clear all buffered data and cached figure."""
+        """Clear all buffered data and close the cached Matplotlib figure.
+
+        Empties the X/Y/time buffers and releases the reused figure/axes so a fresh plot
+        is built on the next render. Call between independent clips.
+        """
         self.x_buffer.clear()
         self.y_buffer.clear()
         self.time_buffer.clear()

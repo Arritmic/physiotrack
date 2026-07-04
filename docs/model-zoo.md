@@ -1,0 +1,243 @@
+# Model Zoo
+
+Physiotrack ships a single, discoverable registry of every pretrained checkpoint
+it can download and run — [`Models`][physiotrack.Models]. This page lists every
+registered model, grouped by task, with the exact access path, weight filename,
+and where the weights come from.
+
+## The registry addressing scheme
+
+Every checkpoint is addressed by a four-level path:
+
+```text
+Models.<Task>.<Backend>.<Enum>.<member>
+```
+
+- **Task** — what the model does: `Detection`, `Pose`, `Pose3D`, `Depth`, `Segmentation`.
+- **Backend** — the architecture/family: `YOLO`, `RTDETR`, `Sapiens`, `ViTPose`,
+  `MotionBERT`, `DDH`, `FaceOrientation`, `Canonicalizer`, `DepthAnythingV2`, `SegFace`.
+- **Enum** — a group of interchangeable checkpoints, usually by dataset or size
+  (e.g. `Detection.YOLO.PERSON`, `Pose.ViTPose.WholeBody`).
+- **member** — one checkpoint. Its `.value` is the **weight filename** on disk;
+  its `.name` is the short handle.
+
+!!! info "`.value` is the weight filename"
+
+    ```python
+    from physiotrack import Models
+
+    m = Models.Pose.ViTPose.WholeBody.s_wholebody
+    print(m.name)    # 's_wholebody'
+    print(m.value)   # 'vitpose-s-wholebody.pth'
+    ```
+
+A few groups differ from the strict four-level shape: the `Pose3D` backends
+(`MotionBERT`, `DDH`, `FaceOrientation`) are `Enum`s **directly** under `Pose3D`;
+`Pose3D.Canonicalizer` holds a nested `Models` enum (3DPCNet weights) plus a
+`View` string enum; and `Depth.DepthAnythingV2` is an `Enum` directly under `Depth`.
+
+### Downloading weights
+
+Selecting a member downloads nothing. Pass it to
+[`download_model`][physiotrack.Models.download_model] to fetch and cache the
+weights (the high-level predictors do this for you on first use):
+
+```python
+from physiotrack import Models
+
+path = Models.download_model(Models.Pose.Sapiens.WholeBody.B03_TS_COCOHB)
+```
+
+Where a checkpoint comes from depends on the backend:
+
+| Source | Which models | Notes |
+|---|---|---|
+| **Ultralytics** (auto, on demand) | All `Pose.YOLO`; every `PERSON` YOLO/RT-DETR variant (`Detection.YOLO.PERSON`, `Detection.RTDETR.PERSON`, `Segmentation.YOLO.PERSON`) | `download_model` returns `None` — ultralytics fetches stock weights itself |
+| **`tharindu326/physiotrack`** (Hugging Face) | Detection FACE / VRFACE / VR / VRSTUDENT, RT-DETR VRSTUDENT, Segmentation VRHEAD, DDH, FaceOrientation, Canonicalizer (3DPCNet), DepthAnythingV2, SegFace | Project-hosted checkpoints |
+| **Upstream Hugging Face repos** | `Sapiens` pose → `noahcao/sapiens-pose-coco`; `Sapiens` seg → `facebook/sapiens-seg-{size}-torchscript`; `ViTPose` → `JunkyByte/easy_ViTPose`; `MotionBERT` → `walterzhu/MotionBERT` | Fetched from the original authors' repos |
+
+!!! note "Weight-free members"
+
+    `Canonicalizer.Models.GEOMETRIC` has an empty `.value` — it selects the
+    algorithmic (weight-free) canonicalization path and is never downloaded.
+
+## How to use a model
+
+Hand a registry member to a predictor. The two most common patterns:
+
+```python
+import physiotrack as pt
+
+# Detection — a specific person-detector variant
+det = pt.Detection.Custom(pt.Models.Detection.YOLO.PERSON.l_person)
+result = det.predict(frame)
+
+# Pose — the huge whole-body ViTPose checkpoint
+pose = pt.Pose.Custom(pt.Models.Pose.ViTPose.WholeBody.h_wholebody)
+result = pose.predict(frame)
+```
+
+!!! tip "Presets vs. `Custom`"
+
+    Every task exposes named presets (e.g. [`Detection.Person`][physiotrack.Detection],
+    [`Pose.Person`][physiotrack.Pose]) that pin a sensible default model, plus a
+    `Custom` preset that takes any validated registry member for that task. Passing
+    a member from the wrong task raises a descriptive `ValueError` via the registry's
+    `validate_*` guards.
+
+---
+
+## Detection
+
+15 checkpoints across YOLO and RT-DETR. See the [Detection guide](guides/detection.md).
+
+| Access path | Backend | Weight file | Notes |
+|---|---|---|---|
+| `Models.Detection.YOLO.PERSON.n_person` | YOLO | `yolo11n.pt` | YOLO11-n person (stock, ultralytics) |
+| `Models.Detection.YOLO.PERSON.m_person` | YOLO | `yolo11m.pt` | YOLO11-m person (stock, ultralytics) |
+| `Models.Detection.YOLO.PERSON.l_person` | YOLO | `yolo11l.pt` | YOLO11-l person (stock, ultralytics) |
+| `Models.Detection.YOLO.FACE.n_face` | YOLO | `yolov11n-face.pt` | YOLO11-n face |
+| `Models.Detection.YOLO.FACE.m_face` | YOLO | `yolov11m-face.pt` | YOLO11-m face |
+| `Models.Detection.YOLO.FACE.l_face` | YOLO | `yolov11l-face.pt` | YOLO11-l face |
+| `Models.Detection.YOLO.VRFACE.l_vrface` | YOLO | `yolov12l-face.pt` | YOLO12-l VR face |
+| `Models.Detection.YOLO.VR.m_vr` | YOLO | `yolo11m_vr.pt` | YOLO11-m VR-headset objects |
+| `Models.Detection.YOLO.VR.l_vr` | YOLO | `yolo11l_vr.pt` | YOLO11-l VR-headset objects |
+| `Models.Detection.YOLO.VRSTUDENT.m_vrstudent` | YOLO | `yolo11m_VRstudent.pt` | YOLO11-m VR-student |
+| `Models.Detection.YOLO.VRSTUDENT.l_vrstudent` | YOLO | `yolo11l_VRstudent.pt` | YOLO11-l VR-student |
+| `Models.Detection.RTDETR.PERSON.l_person` | RT-DETR | `rtdetr-l.pt` | RT-DETR-l person (stock, ultralytics) |
+| `Models.Detection.RTDETR.PERSON.x_person` | RT-DETR | `rtdetr-x.pt` | RT-DETR-x person (stock, ultralytics) |
+| `Models.Detection.RTDETR.VRSTUDENT.l_person` | RT-DETR | `yolo11l_RLDETR_VRstudent.pt` | RT-DETR-l VR-student |
+| `Models.Detection.RTDETR.VRSTUDENT.x_person` | RT-DETR | `yolo11x_RLDETR_VRstudent.pt` | RT-DETR-x VR-student |
+
+!!! warning "RT-DETR VR-student member names"
+
+    Under `RTDETR.VRSTUDENT`, the members are named `l_person` / `x_person` even
+    though the weights are VR-student RT-DETR models. Use the member name as
+    written above; the weight filename disambiguates them.
+
+---
+
+## Pose (2D)
+
+13 checkpoints across YOLO-Pose, Sapiens, and ViTPose. See the [Pose guide](guides/pose.md).
+
+| Access path | Backend | Weight file | Notes |
+|---|---|---|---|
+| `Models.Pose.YOLO.COCO.M11` | YOLO-Pose | `yolo11m-pose.pt` | YOLO11-m, COCO 17-kp (stock, ultralytics) |
+| `Models.Pose.YOLO.COCO.L11` | YOLO-Pose | `yolo11l-pose.pt` | YOLO11-l, COCO 17-kp (stock, ultralytics) |
+| `Models.Pose.Sapiens.WholeBody.B03_TS_COCOHB` | Sapiens | `sapiens_0.3b_coco_wholebody_best_coco_wholebody_AP_620_torchscript.pt2` | Sapiens 0.3B, COCO-WholeBody, AP 62.0 |
+| `Models.Pose.Sapiens.WholeBody.B06_TS_COCOHB` | Sapiens | `sapiens_0.6b_coco_wholebody_best_coco_wholebody_AP_695_torchscript.pt2` | Sapiens 0.6B, COCO-WholeBody, AP 69.5 |
+| `Models.Pose.Sapiens.WholeBody.B1_TS_COCOHB` | Sapiens | `sapiens_1b_coco_wholebody_best_coco_wholebody_AP_727_torchscript.pt2` | Sapiens 1B, COCO-WholeBody, AP 72.7 |
+| `Models.Pose.ViTPose.WholeBody.s_wholebody` | ViTPose | `vitpose-s-wholebody.pth` | ViT-S, whole-body (133+ kp) |
+| `Models.Pose.ViTPose.WholeBody.b_wholebody` | ViTPose | `vitpose-b-wholebody.pth` | ViT-B, whole-body (133+ kp) |
+| `Models.Pose.ViTPose.WholeBody.l_wholebody` | ViTPose | `vitpose-l-wholebody.pth` | ViT-L, whole-body (133+ kp) |
+| `Models.Pose.ViTPose.WholeBody.h_wholebody` | ViTPose | `vitpose-h-wholebody.pth` | ViT-H, whole-body (133+ kp) |
+| `Models.Pose.ViTPose.COCO.s_coco` | ViTPose | `vitpose-s-coco.pth` | ViT-S, COCO 17-kp |
+| `Models.Pose.ViTPose.COCO.b_coco` | ViTPose | `vitpose-b-coco.pth` | ViT-B, COCO 17-kp |
+| `Models.Pose.ViTPose.COCO.l_coco` | ViTPose | `vitpose-l-coco.pth` | ViT-L, COCO 17-kp |
+| `Models.Pose.ViTPose.COCO.h_coco` | ViTPose | `vitpose-h-coco.pth` | ViT-H, COCO 17-kp |
+
+!!! note "Top-down backends need person boxes"
+
+    ViTPose and Sapiens are top-down: [`Pose`][physiotrack.Pose] runs a person
+    detector first (or accepts boxes you pass). YOLO-Pose is single-stage. AP
+    figures above are the upstream Sapiens COCO-WholeBody scores encoded in the
+    filenames.
+
+---
+
+## Pose3D
+
+3D lifting, head/face orientation, and pose canonicalization models. See the
+[Pose3D guide](guides/pose3d.md).
+
+| Access path | Backend | Weight file | Notes |
+|---|---|---|---|
+| `Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite` | MotionBERT | `FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin` | Lite, fine-tuned on Human3.6M (global) |
+| `Models.Pose3D.MotionBERT.mb_ft_h36m` | MotionBERT | `FT_MB_release_MB_ft_h36m/best_epoch.bin` | Release, fine-tuned on Human3.6M |
+| `Models.Pose3D.MotionBERT.mb_train_h36m` | MotionBERT | `MB_train_h36m/best_epoch.bin` | Trained from scratch on Human3.6M |
+| `Models.Pose3D.DDH.best` | DDH | `best_epoch_DDHPose.bin` | DDHPose 3D lifter |
+| `Models.Pose3D.FaceOrientation.default` | FaceOrientation | `6DRepNet360_Full-Rotation_300W_LP+Panoptic.pth` | 6DRepNet360 full-rotation, 300W-LP + Panoptic |
+| `Models.Pose3D.FaceOrientation.VR` | FaceOrientation | `CMVS-FO-VR_epoch80.pth` | VR-tuned face orientation, epoch 80 |
+
+### Canonicalizer (3DPCNet)
+
+`Pose3D.Canonicalizer.Models` holds the pose-canonicalization checkpoints. See
+[`PoseCanonicalizer`][physiotrack.PoseCanonicalizer] and the
+[pose post-processing API](api/pose-postprocessing.md).
+
+| Access path | Backend | Weight file | Notes |
+|---|---|---|---|
+| `Models.Pose3D.Canonicalizer.Models.GEOMETRIC` | Canonicalizer | _(empty)_ | Weight-free algorithmic canonicalization (no download) |
+| `Models.Pose3D.Canonicalizer.Models._3DPCNetS2` | Canonicalizer | `best_model_3DPCNetS2.pth` | 3DPCNet, MMFi split S2 |
+| `Models.Pose3D.Canonicalizer.Models._3DPCNetS3` | Canonicalizer | `best_model_3DPCNetS3.pth` | 3DPCNet, MMFi split S3 |
+| `Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byCam` | Canonicalizer | `best_model_3DPCNetTC48_byCam.pth` | 3DPCNet, TotalCapture 48-cam, camera-disjoint split |
+| `Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byAction` | Canonicalizer | `best_model_3DPCNetTC48_byAction.pth` | 3DPCNet, TotalCapture 48-cam, action-disjoint split |
+
+`Pose3D.Canonicalizer.View` is a plain string enum of canonical viewpoints (not
+weights): `FRONT` (`"front"`), `BACK` (`"back"`), `LEFT_SIDE` (`"left_side"`),
+`RIGHT_SIDE` (`"right_side"`).
+
+---
+
+## Depth
+
+Monocular depth via Depth Anything V2. See the [Depth guide](guides/depth.md).
+
+| Access path | Backend | Weight file | Notes |
+|---|---|---|---|
+| `Models.Depth.DepthAnythingV2.vits` | DepthAnythingV2 | `depth_anything_v2_vits.pth` | ViT-S (small) encoder |
+| `Models.Depth.DepthAnythingV2.vitb` | DepthAnythingV2 | `depth_anything_v2_vitb.pth` | ViT-B (base) encoder |
+| `Models.Depth.DepthAnythingV2.vitl` | DepthAnythingV2 | `depth_anything_v2_vitl.pth` | ViT-L (large) encoder |
+
+### Encoder configurations
+
+`Models.Depth.MODEL_CONFIGS` (via
+[`get_depth_config`][physiotrack.Models.get_depth_config]) supplies the
+architecture parameters used to build each encoder:
+
+| Encoder | `features` | `out_channels` |
+|---|---|---|
+| `vits` | 64 | `[48, 96, 192, 384]` |
+| `vitb` | 128 | `[96, 192, 384, 768]` |
+| `vitl` | 256 | `[256, 512, 1024, 1024]` |
+
+---
+
+## Segmentation
+
+8 checkpoints across Sapiens body-part, YOLO, and SegFace. See the
+[Segmentation guide](guides/segmentation.md).
+
+| Access path | Backend | Weight file | Notes |
+|---|---|---|---|
+| `Models.Segmentation.Sapiens.BodyPart.B03_TS_SEG` | Sapiens | `sapiens_0.3b_goliath_best_goliath_mIoU_7673_epoch_194_torchscript.pt2` | Sapiens 0.3B Goliath, mIoU 76.73 (epoch 194) |
+| `Models.Segmentation.Sapiens.BodyPart.B06_TS_SEG` | Sapiens | `sapiens_0.6b_goliath_best_goliath_mIoU_7777_epoch_178_torchscript.pt2` | Sapiens 0.6B Goliath, mIoU 77.77 (epoch 178) |
+| `Models.Segmentation.Sapiens.BodyPart.B1_TS_SEG` | Sapiens | `sapiens_1b_goliath_best_goliath_mIoU_7994_epoch_151_torchscript.pt2` | Sapiens 1B Goliath, mIoU 79.94 (epoch 151) |
+| `Models.Segmentation.YOLO.VRHEAD.M11` | YOLO | `yolo11m_VR_head.pt` | YOLO11-m VR head segmentation |
+| `Models.Segmentation.YOLO.VRHEAD.M8_251029` | YOLO | `yolo8m_VR_head_251029.pt` | YOLO8-m VR head segmentation (2025-10-29) |
+| `Models.Segmentation.YOLO.PERSON.m_person` | YOLO | `yolo11m-seg.pt` | YOLO11-m person seg (stock, ultralytics) |
+| `Models.Segmentation.YOLO.PERSON.l_person` | YOLO | `yolo11l-seg.pt` | YOLO11-l person seg (stock, ultralytics) |
+| `Models.Segmentation.SegFace.Face.swinb_celeba_512` | SegFace | `segface_swinb_celeba_512.pt` | SegFace Swin-B @ 512, CelebAMask-HQ (19 classes) |
+
+---
+
+## Model formats
+
+| Extension | Format | Used by |
+|---|---|---|
+| `.pt` | Ultralytics native (weights + built-in config) | YOLO / RT-DETR detection, pose, segmentation; SegFace |
+| `.pth` | PyTorch state dict (loaded with a matching config) | ViTPose, DepthAnythingV2, FaceOrientation, 3DPCNet |
+| `.bin` | PyTorch checkpoint | MotionBERT, DDH |
+| `.pt2` | TorchScript (optimized inference) | Sapiens pose and segmentation |
+
+---
+
+## See also
+
+- [`Models` API reference](api/models.md) — full docstrings for the registry and
+  its `download_model` / `validate_*` / `get_depth_config` helpers.
+- Task guides: [Detection](guides/detection.md) ·
+  [Pose](guides/pose.md) · [Pose3D](guides/pose3d.md) ·
+  [Depth](guides/depth.md) · [Segmentation](guides/segmentation.md) ·
+  [Face](guides/face.md)

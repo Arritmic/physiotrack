@@ -19,10 +19,66 @@ from physiotrack.utils import get_screen_size, resize_frame_for_display
 
 
 class Video:
+    """High-level orchestrator that runs the full inference pipeline over a video.
+
+    ``Video`` ties together the individual predictors -- detection, pose
+    estimation, tracking, segmentation, face detection / orientation and depth --
+    and drives them frame-by-frame (optionally in batches) across a clip, camera
+    device or RTSP stream. It composites every enabled model's output onto each
+    frame, builds the requested side panels (keypoint-motion plot, joint-angle /
+    ROM grids, ROM skeleton canvas, top-down radar view, depth view, ego-video
+    view), writes an annotated output video, and returns / saves the per-frame
+    results as structured data.
+
+    You attach models by passing already-constructed predictor instances to the
+    constructor (``detector``, ``pose``, ``tracker`` ...); any left as ``None`` are
+    simply skipped. Nothing runs until you call [`run`][physiotrack.Video.run].
+    Every stage is optional, so the same class covers a bare pose-only pass as well
+    as the complete multi-model pipeline.
+
+    The pipeline order per batch is: detection -> pose -> tracking -> segmentation
+    -> face orientation -> depth -> overlay/compositing. When both a custom
+    ``detector`` and a ``pose`` estimator are supplied, the pose estimator must be
+    a ``Pose.Custom`` instance (so it consumes external boxes); otherwise a
+    ``ValueError`` is raised at run time.
+
+    Attributes:
+        video_path (str | Path | int): The original ``source`` argument.
+        source_identifier (str): Human-readable id derived from the source (file
+            stem, RTSP host, or ``"CAM_device_<n>"``); used to name outputs/logs.
+        total_frames (int | None): Frame count for seekable files, else ``None``
+            (streams / cameras).
+        video_fps (int): Native frames-per-second of the source (falls back to
+            ``30`` when it cannot be read).
+        width (int): Effective output frame width in pixels (already accounts for
+            ``orient`` 90/270 dimension swap).
+        height (int): Effective output frame height in pixels.
+        batch_size (int): Number of frames processed per batch (>= 1).
+        detectors (list): Detector instances (empty if none supplied).
+        segmentators (list): Segmentation instances (empty if none supplied).
+        pose_estimator: The attached [`Pose`][physiotrack.Pose] predictor or ``None``.
+        tracker: The attached [`Tracker`][physiotrack.Tracker] or ``None``.
+        output_path (Path): Directory where outputs are written.
+        rom_movements (list[str]): Resolved list of enabled ROM movement names.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        # Pose-only pass over a clip (see examples/pose_video.py)
+        pose = pt.Pose.VRStudent(verbose=False, device=0)
+        video = pt.Video(source="clip.mp4", pose=pose, output_dir="output", verbose=True)
+        results = video.run("output/clip_poses.mp4", "output/clip_result.json")
+        print(f"Processed {len(results)} frames")
+        ```
+
+    See Also:
+        [`Detection`][physiotrack.Detection]: person / object detectors to pass as ``detector``.
+        [`Pose`][physiotrack.Pose]: pose estimators to pass as ``pose``.
+        [`Tracker`][physiotrack.Tracker]: multi-object tracker to pass as ``tracker``.
+        [`Result`][physiotrack.Result]: per-frame result object produced by the predictors.
     """
-    A video processor class for handling different processing types on video files with batch processing support.
-    """
-    
+
     def __init__(self,
                  source: Union[str, Path, int],
                  *,
@@ -53,6 +109,132 @@ class Video:
                  show_fps: bool = False,
                  show: bool = False,
                  batch_size: int = 1):
+        """Configure the pipeline: attach models, panels and I/O options.
+
+        Opens the ``source`` immediately (to read fps / resolution / frame count)
+        and builds any side-panel views that were requested, but does not process
+        any frames -- call [`run`][physiotrack.Video.run] to start. All model
+        arguments accept an already-constructed predictor instance (or ``None`` to
+        skip that stage). ``detector`` and ``segmenter`` additionally accept a
+        ``list`` of instances to run several of the same kind.
+
+        Args:
+            source (str | Path | int): Video source. A file path, an ``rtsp://``
+                URL, or an integer camera-device index (e.g. ``0``). RTSP streams
+                and camera devices have no known frame count.
+            detector (optional): Detection predictor, or a ``list`` of them, whose
+                boxes feed pose/segmentation/tracking. Defaults to ``None`` (no
+                detection). See [`Detection`][physiotrack.Detection]. When a
+                detector is combined with a pose estimator, the pose estimator must
+                be a ``Pose.Custom``.
+            pose (optional): Pose estimator producing keypoints per frame. Defaults
+                to ``None``. See [`Pose`][physiotrack.Pose].
+            segmenter (optional): Segmentation predictor, or a ``list`` of them,
+                whose masks are colorized and alpha-blended onto the frame.
+                Defaults to ``None``.
+            tracker (optional): Multi-object tracker assigning stable IDs to
+                detections; runs frame-by-frame (no batching). Defaults to
+                ``None``. See [`Tracker`][physiotrack.Tracker].
+            face (optional): Face detector; required for ``face_orientation``.
+                Defaults to ``None``.
+            face_orientation (optional): Head-pose (yaw/pitch/roll) estimator;
+                effective only when ``face`` is also provided. Defaults to ``None``.
+            depth (optional): Monocular depth estimator; enables the depth side
+                view. Defaults to ``None``.
+            ego_video (str | Path, optional): Path to an ego-centric video to
+                overlay as a synchronized side view. Defaults to ``None``.
+            output_dir (str | Path, optional): Directory for outputs; created if
+                missing. Defaults to ``None`` (uses the current working directory).
+            fps (int, optional): Target processing frame rate. Frames are subsampled
+                so roughly this many frames per source-second are processed and the
+                output video is written at this rate. Defaults to ``None`` (process
+                every frame at the source fps).
+            resize (tuple[int, int], optional): ``(width, height)`` to resize every
+                frame to before inference and output. Defaults to ``None`` (keep
+                native resolution).
+            rotate (bool): If ``True``, rotate every frame 90 degrees clockwise
+                (via ``cv2.ROTATE_90_CLOCKWISE``) during preprocessing, swapping the
+                output dimensions. Applied after ``orient``. Defaults to ``False``.
+            orient (int | str, optional): Explicit orientation fix applied to every
+                frame, one of ``0`` / ``90`` / ``180`` / ``270`` degrees (also
+                accepts ``None`` / ``"none"`` for no rotation); unknown values fall
+                back to ``0``. Use this for phone clips whose display rotation lives
+                in container metadata rather than the pixels. ``90``/``270`` swap the
+                effective ``width``/``height``. Defaults to ``0`` (no rotation).
+            floor_map (list[tuple[int, int]], optional): Four ``(x, y)`` image
+                corner points delimiting the floor region; enables the top-down
+                radar view (requires both ``tracker`` and ``pose`` at run time).
+                Defaults to ``None`` (radar view disabled).
+            floor_map_background (str | np.ndarray, optional): Background for the
+                radar canvas. ``None`` / ``"default"`` uses a plain canvas;
+                ``"auto"`` / ``"extract"`` warps the floor region out of the first
+                frame via homography; a path string or image array supplies a
+                pre-made floor plan. Defaults to ``None``.
+            floor_map_rotation (int): Rotation in degrees (``0`` / ``90`` / ``180``
+                / ``270``) applied to orient the radar view. Defaults to ``90``.
+            depth_colormap (str): Matplotlib colormap name for the depth view, e.g.
+                ``"inferno"``, ``"viridis"``, ``"magma"``, ``"plasma"`` or ``"jet"``.
+                Only used when ``depth`` is provided. Defaults to ``"inferno"``.
+            plot_keypoint (int, optional): COCO keypoint id to plot as a live motion
+                signal in a top-right panel (e.g. ``9`` = left wrist, ``10`` = right
+                wrist). Requires a pose estimator at run time. Defaults to ``None``
+                (no motion plot).
+            plot_keypoint_name (str, optional): Display label for the motion plot.
+                Defaults to ``None`` (falls back to ``"keypoint_<id>"``).
+            plot_angles (bool): If ``True``, overlay a live joint-angle panel
+                (interior joint angles) on the left. Ignored with a warning if no
+                pose estimator is provided. Defaults to ``False``.
+            angle_joints (list[str], optional): Subset of joint names to show in the
+                angle panel, e.g. ``["leftElbow", "rightElbow", "leftKnee",
+                "rightKnee"]``. Only used when ``plot_angles`` is ``True``. Defaults
+                to ``None`` (shows all available joints).
+            rom (bool | list[str], optional): Clinical range-of-motion overlays.
+                ``True`` enables the default ROM movement set; a ``list`` selects
+                specific movement names (filtered against the known ROM definitions);
+                ``None`` / ``False`` disables ROM. Requires a pose estimator.
+                Defaults to ``None``.
+            rom_render (bool): If ``True`` (and ``rom`` is enabled with a pose
+                estimator), draw the white full-room skeleton canvas with
+                color-coded ROM arcs. Defaults to ``True``.
+            verbose (bool): If ``True``, print setup/progress info and show a tqdm
+                progress bar. Defaults to ``False``.
+            show_fps (bool): If ``True``, print real-time and end-of-run
+                component-wise FPS statistics. Defaults to ``False``.
+            show (bool): If ``True``, display the annotated frames in a live OpenCV
+                window during processing (press ``q`` to quit). Defaults to ``False``.
+            batch_size (int): Number of frames processed together per pipeline step;
+                values below ``1`` are clamped to ``1``. Tracking always runs
+                frame-by-frame regardless. Defaults to ``1``.
+
+        Raises:
+            ValueError: If ``source`` cannot be opened by OpenCV.
+
+        Example:
+            ```python
+            import physiotrack as pt
+
+            # Pose + explicit detector + tracker (see examples/tracker_aided_pose_video.py)
+            pose = pt.Pose.Custom(model=pt.Models.Pose.ViTPose.WholeBody.b_wholebody, device=0)
+            detector = pt.Detection.VRStudent(device=0)
+            cfg = pt.TrackerConfig(); cfg.tracker_type = "ocsort"; cfg.classes = [0]
+            tracker = pt.Tracker(config=cfg)
+
+            video = pt.Video(
+                source="clip.mp4",
+                pose=pose,
+                detector=detector,
+                tracker=tracker,
+                output_dir="output",
+                batch_size=4,
+                verbose=True,
+            )
+            video.run("output/clip_poses.mp4", "output/clip_result.json")
+            ```
+
+        Note:
+            Constructing the object opens the video capture and (when
+            ``plot_keypoint`` is set) briefly opens a second capture to read the fps.
+        """
 
         self.video_path = source
         # Support both single instance and list of instances for detector and segmenter
@@ -234,8 +416,26 @@ class Video:
 
     @staticmethod
     def select_frames(camera_fps: int, required_fps: Optional[int]) -> List[int]:
-        """
-        Select frame indices based on required FPS.
+        """Choose which 1-based frame positions (within each source-second) to process.
+
+        Given the source frame rate and a desired processing rate, returns the
+        indices (in the range ``1..camera_fps``) that should be kept so that
+        roughly ``required_fps`` frames are processed per second of video. Used by
+        [`run`][physiotrack.Video.run] to subsample frames.
+
+        Args:
+            camera_fps (int): Native frames-per-second of the source.
+            required_fps (int, optional): Desired processing rate. If ``None`` or
+                equal to ``camera_fps``, every frame in the second is selected.
+
+        Returns:
+            list[int]: The 1-based frame positions to process within each second.
+
+        Example:
+            ```python
+            import physiotrack as pt
+            pt.Video.select_frames(30, 5)  # -> 5 evenly spaced indices in 1..30
+            ```
         """
         if required_fps == camera_fps or required_fps is None:
             return [int(i) for i in np.arange(1, camera_fps+1, dtype=float)]
@@ -246,8 +446,20 @@ class Video:
         return [int(i) for i in y]
 
     def preprocess_frame(self, frame):
-        """
-        Preprocess frame: apply the explicit orientation fix, then resize/rotation.
+        """Apply orientation, resize and 90-degree rotation to a raw decoded frame.
+
+        Applies, in order: the explicit ``orient`` rotation, the ``resize`` target
+        size, and the ``rotate`` 90-degree clockwise rotation -- each only if that
+        option was enabled in the constructor. Called on every frame read from the
+        source before inference.
+
+        Args:
+            frame (np.ndarray): A decoded BGR frame of shape ``(H, W, 3)``.
+
+        Returns:
+            np.ndarray: The preprocessed BGR frame. Its dimensions may differ from
+                the input when ``orient`` is 90/270, ``resize`` is set, or
+                ``rotate`` is ``True``.
         """
         if self._rotation:
             frame = apply_rotation(frame, self._rotation)
@@ -258,11 +470,22 @@ class Video:
         return frame
     
     def process_batch_detections(self, frames_batch: List[np.ndarray]) -> List[Tuple[np.ndarray, np.ndarray]]:
-        """
-        Process a batch of frames through detectors.
-        
+        """Run all configured detectors over a batch of frames.
+
+        Uses the detector's batched API (``detect_batch``) when available, else
+        falls back to per-frame ``detect`` calls, drawing each detector's boxes in
+        its own palette color. With no detectors configured, returns the frames
+        unchanged with empty detection lists.
+
+        Args:
+            frames_batch (list[np.ndarray]): BGR frames of shape ``(H, W, 3)``.
+
         Returns:
-            List of tuples (combined_frame, all_detections) for each frame in batch
+            list[tuple[np.ndarray, list[np.ndarray]]]: One ``(combined_frame,
+                all_detections)`` tuple per input frame. ``combined_frame`` is the
+                frame with detection boxes drawn; ``all_detections`` is a list with
+                one ``(N, 6)`` array per detector, each row
+                ``(x1, y1, x2, y2, conf, cls)``.
         """
         batch_results = []
         
@@ -322,11 +545,24 @@ class Video:
         return batch_results
     
     def process_batch_pose(self, frames_batch: List[np.ndarray], boxes_batch: List[np.ndarray]) -> List[Tuple[np.ndarray, Any]]:
-        """
-        Process a batch of frames through pose estimator.
-        
+        """Run the pose estimator over a batch of frames and draw keypoints.
+
+        Passes the batch (and per-frame detection boxes, if any) to the pose
+        estimator's ``predict``, which returns one [`Result`][physiotrack.Result]
+        per frame. If no pose estimator is configured, frames pass through with
+        ``None`` results.
+
+        Args:
+            frames_batch (list[np.ndarray]): BGR frames of shape ``(H, W, 3)``,
+                typically already annotated with detection boxes.
+            boxes_batch (list[np.ndarray]): Per-frame person boxes to pose on, each
+                an ``(N, 4)`` int array, or ``None`` for a frame with no boxes.
+
         Returns:
-            List of tuples (result_frame, pose_results) for each frame in batch
+            list[tuple[np.ndarray, Any]]: One ``(result_frame, pose_results)`` tuple
+                per frame. ``result_frame`` has keypoints drawn on it;
+                ``pose_results`` is the ``detections`` list from the result's
+                ``to_dict()`` (per-person keypoints and metadata).
         """
         batch_results = []
         
@@ -348,11 +584,27 @@ class Video:
     def process_batch_segmentation(self, frames_batch: List[np.ndarray], 
                                   all_detections_batch: List[List[np.ndarray]],
                                   overlay_frames: Optional[List[np.ndarray]] = None) -> List[np.ndarray]:
-        """
-        Process a batch of frames through segmentators.
-        
+        """Run all segmentators over a batch and alpha-blend their masks onto frames.
+
+        Gathers each segmentator's segmentation map (using its batched API when
+        available), optionally restricts masks to detector boxes when the
+        segmentator has ``bbox_filter`` enabled, colorizes and merges the maps
+        across segmentators, then blends the result over the base frame (70/30).
+        With no segmentators configured, returns ``frames_batch`` unchanged.
+
+        Args:
+            frames_batch (list[np.ndarray]): Clean BGR frames used for segmentation
+                inference, shape ``(H, W, 3)``.
+            all_detections_batch (list[list[np.ndarray]]): Per-frame detection
+                arrays (one ``(N, 6)`` array per detector) used for optional
+                bbox-based mask filtering.
+            overlay_frames (list[np.ndarray], optional): Frames the colorized masks
+                are composited onto (e.g. frames already carrying pose/tracking
+                drawings). Defaults to ``None`` (composite onto ``frames_batch``).
+
         Returns:
-            List of result frames with segmentation overlay
+            list[np.ndarray]: One BGR frame per input with the merged, colorized
+                segmentation overlay blended in.
         """
         batch_results = []
 
@@ -453,11 +705,21 @@ class Video:
         return batch_results
     
     def process_batch_face_orientation(self, frames_batch: List[np.ndarray]) -> List[Tuple[np.ndarray, List[Dict]]]:
-        """
-        Process a batch of frames for face orientation estimation.
-        
+        """Detect faces and estimate head orientation over a batch, drawing pose axes.
+
+        Runs the face detector per frame, then batch head-pose estimation on frames
+        that contain faces, and draws yaw/pitch/roll axes at each face center.
+        Returns the frames unchanged (with empty results) unless both a ``face``
+        detector and a ``face_orientation`` estimator are configured.
+
+        Args:
+            frames_batch (list[np.ndarray]): BGR frames of shape ``(H, W, 3)``.
+
         Returns:
-            List of (result_frame, face_orientation_results) tuples
+            list[tuple[np.ndarray, list[dict]]]: One ``(result_frame,
+                face_orientation_results)`` tuple per frame. Each result dict holds
+                a ``"bbox"`` (``x1, y1, x2, y2``) and a ``"pose"`` mapping with
+                ``"yaw"``, ``"pitch"`` and ``"roll"`` angles.
         """
         if self.face_detector is None or self.face_orientation is None:
             return [(frame, []) for frame in frames_batch]
@@ -515,11 +777,18 @@ class Video:
         return batch_results
 
     def process_batch_depth(self, frames_batch: List[np.ndarray]) -> List[np.ndarray]:
-        """
-        Process a batch of frames for depth estimation.
+        """Estimate a depth map for each frame in a batch.
+
+        Delegates to the depth estimator's ``predict`` (which accepts a list and
+        returns one ``DepthResult`` per frame). Returns all ``None`` when no depth
+        estimator is configured.
+
+        Args:
+            frames_batch (list[np.ndarray]): BGR frames of shape ``(H, W, 3)``.
 
         Returns:
-            List of depth maps (HxW numpy arrays)
+            list[np.ndarray | None]: One ``(H, W)`` depth map per frame, or ``None``
+                entries when depth estimation is disabled.
         """
         if self.depth_estimator is None:
             return [None for _ in frames_batch]
@@ -532,8 +801,46 @@ class Video:
             output_video: Optional[Union[str, Path]] = None,
             output_json: Optional[Union[str, Path]] = None,
             progress_callback: Optional[callable] = None) -> List[Dict[str, Any]]:
-        """
-        Process the video with batch processing support.
+        """Process the whole video and return per-frame results.
+
+        Reads the source frame-by-frame (subsampling to ``fps`` if set), runs every
+        configured stage in batches -- detection, pose, tracking, segmentation, face
+        orientation, depth -- composites the enabled overlays and side panels, and
+        optionally writes an annotated H.264 (``avc1``) video and a JSON dump.
+        Blocks until the source is exhausted (or the user presses ``q`` when
+        ``show=True``).
+
+        Args:
+            output_video (str | Path, optional): Path to write the annotated MP4.
+                Defaults to ``None`` (no video written).
+            output_json (str | Path, optional): Path to write the per-frame results
+                as JSON. Defaults to ``None`` (no JSON written).
+            progress_callback (callable, optional): Called after each processed
+                frame as ``progress_callback(frame_id, total_frames, pose_results)``.
+                Defaults to ``None``.
+
+        Returns:
+            list[dict]: One dict per processed frame. Each always has ``frame_id``
+                (int) and ``timestamp`` (float seconds), plus, when the relevant
+                stage is enabled: ``detections`` (per-person pose results),
+                ``track_box`` (the tracked subject box), and ``face_orientation``
+                (list of head-pose dicts).
+
+        Raises:
+            ValueError: If a custom ``detector`` is configured alongside a pose
+                estimator that is not a ``Pose.Custom`` instance.
+
+        Example:
+            ```python
+            import physiotrack as pt
+            pose = pt.Pose.VRStudent(device=0)
+            video = pt.Video(source="clip.mp4", pose=pose, output_dir="output")
+            results = video.run("output/clip.mp4", "output/clip.json")
+            ```
+
+        Note:
+            The output video is encoded with the H.264 (``avc1``) codec; its frame
+            rate is ``fps`` when set, otherwise the source fps.
         """
         
         pbar = None
@@ -947,8 +1254,29 @@ class Video:
                   output_dir: Union[str, Path],
                   save_videos: bool = True,
                   save_json: bool = True):
-        """
-        Process multiple videos in batch.
+        """Process several videos with this pipeline's configuration.
+
+        Iterates the given paths, calling [`run`][physiotrack.Video.run] for each
+        and writing ``<name>_processed.mp4`` / ``<name>_result.json`` into
+        ``output_dir``.
+
+        Args:
+            input_paths (list[str | Path]): Video files to process.
+            output_dir (str | Path): Directory for all outputs; created if missing.
+            save_videos (bool): If ``True``, write an annotated MP4 per input.
+                Defaults to ``True``.
+            save_json (bool): If ``True``, write a JSON result file per input.
+                Defaults to ``True``.
+
+        Returns:
+            dict[str, list[dict]]: Maps each input's file stem to its per-frame
+                results (the return value of [`run`][physiotrack.Video.run]).
+
+        Warning:
+            The pipeline is configured for the single ``source`` passed to the
+            constructor. This method reuses that same ``Video`` instance (and its
+            already-opened capture) for every path, so it is best suited to reusing
+            the model configuration rather than re-seeking multiple distinct clips.
         """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)

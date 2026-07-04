@@ -1,0 +1,48 @@
+/* Physiotrack docs — light polish on top of Material for MkDocs */
+
+:root {
+  --md-primary-fg-color:        #00897b;
+  --md-primary-fg-color--light: #4ebaaa;
+  --md-primary-fg-color--dark:  #005b4f;
+  --md-accent-fg-color:         #00bfa5;
+}
+
+/* Signature blocks: a touch more breathing room */
+.doc-signature > pre {
+  border-left: 3px solid var(--md-accent-fg-color);
+}
+
+/* API symbol headings: subtle separation between members */
+.doc-heading {
+  scroll-margin-top: 4rem;
+}
+h2.doc-heading, h3.doc-heading {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  padding-top: 1rem;
+}
+
+/* Parameter / returns tables: full width, tidy */
+.doc-contents table {
+  width: 100%;
+  font-size: 0.78rem;
+}
+.doc-contents table td:first-child {
+  white-space: nowrap;
+}
+
+/* Symbol-type pills (function/class/attribute) */
+.doc-symbol-type {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Landing hero cards */
+.grid.cards > :is(ul, ol) > li,
+.grid > .card {
+  border-radius: 0.5rem;
+}
+
+/* Make code blocks a little denser */
+.md-typeset pre > code {
+  font-size: 0.75rem;
+}

@@ -115,15 +115,36 @@ def load_3dpcnet_model(checkpoint_path: Optional[str] = None,
 
 
 def apply_3dpcnet_transform(poses: np.ndarray) -> np.ndarray:
-    """
-    Apply coordinate transformation required for 3DPCNet model.
-    Transforms from standard 3D pose format to 3DPCNet expected format.
-    
+    """Convert poses from the standard 3D format into the 3DPCNet input format.
+
+    Performs the forward coordinate change expected by the 3DPCNet canonicalization
+    network: an axis remap followed by centering at the pelvis. The axis remap is
+    ``new_x = old_z``, ``new_y = -old_x``, ``new_z = -old_y``; the result is then
+    translated so that joint ``0`` (the pelvis) sits at the origin. This is the
+    inverse of [`reverse_3dpcnet_transform`][physiotrack.reverse_3dpcnet_transform]
+    (up to the lost absolute pelvis position).
+
     Args:
-        poses: Input poses in standard format (N, 17, 3) or (17, 3)
-        
+        poses (np.ndarray): Poses in the standard 3D pose format, shape
+            ``(N, 17, 3)`` for a batch or ``(17, 3)`` for a single pose. The last
+            axis holds ``(x, y, z)`` coordinates and joint ``0`` is the pelvis.
+
     Returns:
-        Transformed poses ready for 3DPCNet
+        np.ndarray: Axis-remapped, pelvis-centered poses of the same shape as
+            ``poses``, ready to feed to a 3DPCNet model.
+
+    Example:
+        ```python
+        import numpy as np
+        import physiotrack as pt
+
+        poses = np.random.randn(100, 17, 3)          # standard format
+        dpcnet_input = pt.apply_3dpcnet_transform(poses)  # 3DPCNet format
+        ```
+
+    See Also:
+        [`reverse_3dpcnet_transform`][physiotrack.reverse_3dpcnet_transform]: the
+            inverse coordinate change back to the standard format.
     """
     # Apply axis remapping: new_x = old_z, new_y = -old_x, new_z = -old_y
     transformed = np.zeros_like(poses)
@@ -138,14 +159,35 @@ def apply_3dpcnet_transform(poses: np.ndarray) -> np.ndarray:
 
 
 def reverse_3dpcnet_transform(poses: np.ndarray) -> np.ndarray:
-    """
-    Reverse the coordinate transformation to get back to standard format.
-    
+    """Convert poses from the 3DPCNet format back into the standard 3D format.
+
+    Undoes the axis remap applied by
+    [`apply_3dpcnet_transform`][physiotrack.apply_3dpcnet_transform] using
+    ``old_x = -new_y``, ``old_y = -new_z``, ``old_z = new_x``.
+
     Args:
-        poses: Canonicalized poses from 3DPCNet (N, 17, 3) or (17, 3)
-        
+        poses (np.ndarray): Poses in 3DPCNet format (typically the canonicalized
+            output of a 3DPCNet model), shape ``(N, 17, 3)`` for a batch or
+            ``(17, 3)`` for a single pose.
+
     Returns:
-        Poses in standard 3D format
+        np.ndarray: Poses in the standard 3D format, same shape as ``poses``.
+
+    Note:
+        The forward transform centers poses at the pelvis, so the original
+        absolute pelvis translation cannot be recovered; only the axis remap is
+        inverted here.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        standard = pt.reverse_3dpcnet_transform(dpcnet_poses)
+        ```
+
+    See Also:
+        [`apply_3dpcnet_transform`][physiotrack.apply_3dpcnet_transform]: the
+            forward coordinate change into the 3DPCNet format.
     """
     # Since poses are centered, we can't recover the original pelvis position
     # but we can reverse the axis remapping

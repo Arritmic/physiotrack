@@ -1,0 +1,190 @@
+site_name: Physiotrack
+site_description: >-
+  Physiotrack — a Python toolkit for contactless human understanding from RGB
+  video: detection, 2D/3D pose, segmentation, depth, face analysis, multi-object
+  tracking, and physiological/motion signals (rPPG, joint angles, ROM).
+site_author: Tharindu Ekanayake
+site_url: https://tharindu326.github.io/physiotrack/
+repo_url: https://github.com/tharindu326/physiotrack
+repo_name: tharindu326/physiotrack
+copyright: Copyright &copy; 2026 Physiotrack · CMVS, University of Oulu
+docs_dir: docs
+
+# Internal design/paper docs live under docs/ but are not part of the site.
+exclude_docs: |
+  API_REDESIGN.md
+  PAPER_EXPERIMENTS.md
+  PAPER_PLAN.md
+  __init__.py
+  paper/
+
+theme:
+  name: material
+  language: en
+  icon:
+    logo: material/human-handsup
+    repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+
+extra_css:
+  - assets/extra.css
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      title: On this page
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.arithmatex:
+      generic: true
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            docstring_options:
+              # Our Returns sections are written `type: description` (Google standard),
+              # so parse the leading token as a TYPE, not a value name.
+              returns_named_value: false
+              returns_multiple_items: true
+            docstring_section_style: table
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_root_toc_entry: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_if_no_docstring: false
+            inherited_members: true
+            members_order: source
+            group_by_category: true
+            heading_level: 2
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            merge_init_into_class: true
+            unwrap_annotated: true
+            filters:
+              - "!^_"
+              - "^__init__$"
+              - "^__call__$"
+            annotations_path: brief
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/tharindu326/physiotrack
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/physiotrack/
+  generator: false
+
+nav:
+  - Home: index.md
+  - Get Started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - Core Concepts: getting-started/concepts.md
+  - Guides:
+      - guides/index.md
+      - Detection: guides/detection.md
+      - Pose Estimation (2D): guides/pose.md
+      - 3D Pose & Canonicalization: guides/pose3d.md
+      - Segmentation: guides/segmentation.md
+      - Depth: guides/depth.md
+      - Face & Head Orientation: guides/face.md
+      - Tracking: guides/tracking.md
+      - Video Pipeline: guides/video.md
+      - Signals (rPPG · Motion · ROM): guides/signals.md
+  - Model Zoo: model-zoo.md
+  - API Reference:
+      - api/index.md
+      - Predictors:
+          - Detection: api/detection.md
+          - Pose (2D): api/pose.md
+          - Pose 3D: api/pose3d.md
+          - Segmentation: api/segmentation.md
+          - Depth: api/depth.md
+          - Face: api/face.md
+      - Result Objects: api/results.md
+      - Video Orchestrator: api/video.md
+      - Tracking: api/tracking.md
+      - Model Registry: api/models.md
+      - Pose Post-processing: api/pose-postprocessing.md
+      - Signals:
+          - api/signals/index.md
+          - rPPG / Heart Rate: api/signals/rppg.md
+          - Motion & Features: api/signals/motion.md
+          - Filters: api/signals/filters.md
+          - Normalization: api/signals/normalize.md
+          - Signal Metrics: api/signals/evaluate.md
+          - Plotting: api/signals/plotting.md

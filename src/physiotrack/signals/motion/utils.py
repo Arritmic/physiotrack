@@ -29,8 +29,43 @@ def read_biosignals(input_file):
 
 
 def extract_keypoint_sequence_2d(data, keypoint_id, original_fps):
-    """
-    Extract the sequence of a given 2D keypoint (by keypoint_id) across all frames
+    """Extract one 2D keypoint's trajectory across all frames as a tidy DataFrame.
+
+    Walks the per-frame detection records and pulls the ``(x, y, confidence)`` of a
+    single keypoint (matched by ``id``) into a long-form (one row per frame/person)
+    DataFrame, suitable for plotting or the signal-comparison metrics in
+    [`physiotrack.signals`][physiotrack.signals.HeartRateEstimator].
+
+    Args:
+        data (list[dict]): Per-frame pose records, one dict per frame with keys
+            ``"frame_id"``, ``"timestamp"`` and ``"detections"`` (a list of
+            ``{"id", "keypoints": [{"id", "x", "y", "confidence"}, ...]}`` dicts).
+            This is the ``detections`` list produced by the ``Video`` pipeline /
+            ``Result.to_dict()``.
+        keypoint_id (int): COCO-WholeBody keypoint id to extract (e.g. ``9`` for the
+            left wrist). The human-readable name is looked up in ``COCO_WHOLEBODY``.
+        original_fps (float): Source frame rate. Accepted for API symmetry with the
+            resampling helpers; not used in the extraction itself.
+
+    Returns:
+        pandas.DataFrame: One row per (frame, detection) with columns
+            ``["time", "frame", "detection_id", "keypoint_id", "x", "y", "confidence"]``.
+            Empty (with those columns) if the keypoint never appears.
+
+    Example:
+        ```python
+        import physiotrack as pt
+        from physiotrack.signals import extract_keypoint_sequence_2d
+
+        result = pt.Video(source="in.mp4", pose=pt.Pose.Person()).run(output_json="poses.json")
+        df = extract_keypoint_sequence_2d(result, keypoint_id=9, original_fps=30.0)
+        ```
+
+    See Also:
+        [`extract_keypoint_sequence_3d`][physiotrack.signals.extract_keypoint_sequence_3d]:
+            the 3D counterpart.
+        [`extract_keypoints_sequence`][physiotrack.signals.extract_keypoints_sequence]:
+            wide-format extraction of many keypoints at once.
     """
     sequence_data = []
     for frame_info in data:
@@ -54,8 +89,28 @@ def extract_keypoint_sequence_2d(data, keypoint_id, original_fps):
     return df
 
 def extract_keypoint_sequence_3d(data, keypoint_id, original_fps):
-    """
-    Extract the sequence of a given 3D keypoint (by keypoint_id) across all frames
+    """Extract one 3D keypoint's trajectory across all frames as a tidy DataFrame.
+
+    Same as [`extract_keypoint_sequence_2d`][physiotrack.signals.extract_keypoint_sequence_2d]
+    but reads the ``"keypoints3D"`` list of each detection and returns ``(x, y, z)``
+    (no confidence, which lifted 3D keypoints do not carry). The keypoint name is
+    resolved against the Human3.6M (``HUMAN26M``) layout used for 3D poses.
+
+    Args:
+        data (list[dict]): Per-frame pose records; each detection must carry a
+            ``"keypoints3D"`` list of ``{"id", "x", "y", "z"}`` dicts (as produced by
+            [`Pose3D`][physiotrack.pose.pose3D.Pose3D]).
+        keypoint_id (int): Human3.6M keypoint id to extract.
+        original_fps (float): Source frame rate. Accepted for API symmetry; unused here.
+
+    Returns:
+        pandas.DataFrame: One row per (frame, detection) with columns
+            ``["time", "frame", "detection_id", "keypoint_id", "x", "y", "z"]``.
+            Empty (with those columns) if the keypoint never appears.
+
+    See Also:
+        [`extract_keypoint_sequence_2d`][physiotrack.signals.extract_keypoint_sequence_2d]:
+            the 2D counterpart.
     """
     sequence_data = []
     for frame_info in data:
@@ -79,8 +134,46 @@ def extract_keypoint_sequence_3d(data, keypoint_id, original_fps):
     return df
 
 def extract_keypoints_sequence(data, candidate_key_points=list(range(17))):
-    """
-    Extract the sequence of keypoints (2D and 3D) across all frames
+    """Extract many keypoints (2D and 3D) into one wide, frame-indexed DataFrame.
+
+    Unlike the single-keypoint extractors, this produces a *wide* table with one row
+    per (frame, detection) and one column per keypoint coordinate. This is the entry
+    point for the feature pipeline: feed the result to
+    [`get_relative_coordinates`][physiotrack.signals.get_relative_coordinates] and
+    [`compute_all_motion_features`][physiotrack.signals.compute_all_motion_features].
+    Progress is shown with a ``tqdm`` bar.
+
+    Column naming:
+
+    - 2D keypoint ``k``: ``"{k}_x"``, ``"{k}_y"``, ``"{k}_confidence"``.
+    - 3D keypoint ``k``: ``"3d_{k}_x"``, ``"3d_{k}_y"``, ``"3d_{k}_z"``.
+
+    Columns for a given keypoint appear only if that keypoint (2D and/or 3D) is
+    present in the data.
+
+    Args:
+        data (list[dict]): Per-frame pose records with ``"frame_id"``, ``"timestamp"``
+            and ``"detections"``; each detection may carry ``"keypoints"`` (2D) and/or
+            ``"keypoints3D"`` (3D) lists.
+        candidate_key_points (list[int], optional): Keypoint ids to keep. Defaults to
+            ``list(range(17))`` (the COCO-17 body joints). Pass e.g.
+            ``list(range(17)) + [135]`` to also include a synthesized centroid.
+
+    Returns:
+        pandas.DataFrame: Wide table with base columns ``["time", "frame",
+            "detection_id"]`` plus per-keypoint coordinate columns as described above.
+
+    Example:
+        ```python
+        from physiotrack.signals import extract_keypoints_sequence, compute_all_motion_features
+
+        kp_df = extract_keypoints_sequence(detection_data, candidate_key_points=list(range(17)) + [135])
+        motion_df = compute_all_motion_features(kp_df)
+        ```
+
+    See Also:
+        [`add_pelvic_centroid`][physiotrack.signals.add_pelvic_centroid]: add a pelvis
+            reference point (id ``135``) before extraction.
     """
     sequence_data = []
     columns = ['time', 'frame', 'detection_id']
@@ -128,8 +221,38 @@ def extract_keypoints_sequence(data, candidate_key_points=list(range(17))):
     return df
 
 def add_head_centroid(data, pose_architecture):
-    """
-    Add head centroid keypoint to both 2D and 3D data
+    """Add a synthesized head-centroid keypoint (id ``133``) in place.
+
+    Averages the face keypoints to produce a single head reference point and appends
+    it to each detection's ``"keypoints"`` (2D) and, when present, ``"keypoints3D"``
+    (3D) lists. The face-keypoint id range depends on the pose layout:
+
+    - ``"WHOLEBODY"``: face keypoints are ids ``23..90``.
+    - ``"COCO"``: face keypoints are the head ids ``0..4`` (nose, eyes, ears).
+
+    The 2D centroid also averages the source confidences. Mutates ``data`` in place
+    and returns it.
+
+    Args:
+        data (list[dict]): Per-frame pose records (each with ``"detections"``); each
+            detection's keypoint lists are extended in place.
+        pose_architecture (str): Pose layout, ``"WHOLEBODY"`` or ``"COCO"``. Match your
+            pose model (``pose_estimator.architecture``).
+
+    Returns:
+        list[dict]: The same ``data`` object, with head centroids (id ``133``) appended.
+
+    Raises:
+        ValueError: If ``pose_architecture`` is neither ``"WHOLEBODY"`` nor ``"COCO"``.
+
+    Example:
+        ```python
+        data = add_head_centroid(detection_data, pose_estimator.architecture)
+        ```
+
+    See Also:
+        [`add_body_centroid`][physiotrack.signals.add_body_centroid],
+        [`add_pelvic_centroid`][physiotrack.signals.add_pelvic_centroid].
     """
     for frame_info in data:
         for detection in frame_info.get("detections", []):
@@ -204,8 +327,25 @@ def add_head_centroid(data, pose_architecture):
 
 
 def add_body_centroid(data, pose_architecture):
-    """
-    Add body centroid keypoint to both 2D and 3D data
+    """Add a synthesized whole-body-centroid keypoint (id ``134``) in place.
+
+    Averages the 17 COCO body keypoints (ids ``0..16``) into a single body-center
+    reference point and appends it to each detection's ``"keypoints"`` (2D) and, when
+    present, ``"keypoints3D"`` (3D) lists. The 2D centroid also averages the source
+    confidences. Mutates ``data`` in place and returns it.
+
+    Args:
+        data (list[dict]): Per-frame pose records (each with ``"detections"``); each
+            detection's keypoint lists are extended in place.
+        pose_architecture (str): Pose layout string. Accepted for API symmetry with the
+            other centroid helpers; the body centroid always uses COCO ids ``0..16``.
+
+    Returns:
+        list[dict]: The same ``data`` object, with body centroids (id ``134``) appended.
+
+    See Also:
+        [`add_head_centroid`][physiotrack.signals.add_head_centroid],
+        [`add_pelvic_centroid`][physiotrack.signals.add_pelvic_centroid].
     """
     for frame_info in data:
         for detection in frame_info.get("detections", []):
@@ -266,9 +406,35 @@ def add_body_centroid(data, pose_architecture):
 
 
 def add_pelvic_centroid(data, pose_architecture):
-    """
-    Add pelvic centroid keypoint to both 2D and 3D data.
-    Calculated as the midpoint between left and right hip keypoints.
+    """Add a synthesized pelvis keypoint (id ``135``) in place.
+
+    Computes the midpoint of the left and right hips (COCO ids ``11`` and ``12``) and
+    appends it to each detection's ``"keypoints"`` (2D) and, when present,
+    ``"keypoints3D"`` (3D) lists. The 2D pelvis also averages the two hip confidences.
+    This id (``135``) is the default reference point used by
+    [`get_relative_coordinates`][physiotrack.signals.get_relative_coordinates] to
+    pelvis-center the motion features. Mutates ``data`` in place and returns it.
+
+    Args:
+        data (list[dict]): Per-frame pose records (each with ``"detections"``); each
+            detection's keypoint lists are extended in place.
+        pose_architecture (str): Pose layout string. Accepted for API symmetry; the
+            pelvis is always the hip midpoint (COCO ids ``11``/``12``).
+
+    Returns:
+        list[dict]: The same ``data`` object, with pelvis keypoints (id ``135``) appended.
+
+    Example:
+        ```python
+        from physiotrack.signals import add_pelvic_centroid, extract_keypoints_sequence
+
+        data = add_pelvic_centroid(detection_data, pose_estimator.architecture)
+        kp_df = extract_keypoints_sequence(data, candidate_key_points=list(range(17)) + [135])
+        ```
+
+    See Also:
+        [`get_relative_coordinates`][physiotrack.signals.get_relative_coordinates]:
+            consumes id ``135`` as the default reference point.
     """
     for frame_info in data:
         for detection in frame_info.get("detections", []):
@@ -379,8 +545,32 @@ def resample_by_interpolation(signal, input_fs, output_fs):
 
 
 def resample_dataframe_by_interpolation(df, input_fs, output_fs, columns_to_resample=None):
-    """
-    Resample DataFrame columns using linear interpolation.
+    """Resample DataFrame columns from one sample rate to another by linear interpolation.
+
+    Resamples each selected column to length ``round(len(df) * output_fs / input_fs)``
+    using ``numpy.interp`` over evenly spaced positions (``endpoint=False`` to avoid
+    off-by-one artifacts on exact ratios). Useful to bring motion signals captured at
+    the source video fps onto a common analysis rate before comparing them.
+
+    Args:
+        df (pandas.DataFrame): Input frame. Only numeric columns can be resampled.
+        input_fs (float): Original sampling rate (Hz), e.g. the source video fps.
+        output_fs (float): Target sampling rate (Hz).
+        columns_to_resample (list[str], optional): Columns to resample. Defaults to
+            ``None``, meaning all numeric columns (``df.select_dtypes(np.number)``).
+            Columns not present in ``df`` are skipped.
+
+    Returns:
+        pandas.DataFrame: A new DataFrame of the resampled columns. If a ``"time"``
+            column exists in the input, the output gets a regenerated ``"time"`` column
+            spanning ``[0, len(df) / input_fs)`` with the new number of samples.
+
+    Example:
+        ```python
+        from physiotrack.signals import resample_dataframe_by_interpolation
+
+        df30 = resample_dataframe_by_interpolation(kp_df, input_fs=25.0, output_fs=30.0)
+        ```
     """
     scale = output_fs / input_fs
     n = round(len(df) * scale)

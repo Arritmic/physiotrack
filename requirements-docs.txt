@@ -1,0 +1,8 @@
+# Documentation toolchain for the Physiotrack docs site (MkDocs + Material + mkdocstrings).
+# Build locally:   pip install -r requirements-docs.txt && mkdocs serve
+# Deploy to Pages: mkdocs gh-deploy
+mkdocs>=1.6,<2
+mkdocs-material>=9.5
+mkdocstrings[python]>=0.24
+mkdocs-autorefs>=1.0
+pymdown-extensions>=10

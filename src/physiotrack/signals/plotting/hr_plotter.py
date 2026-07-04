@@ -22,13 +22,63 @@ _ACCENT = (90, 90, 235)   # red-ish BVP trace (BGR)
 
 
 class HeartRatePlotter(EstimatorPanel):
-    """Renders a :class:`HeartRateEstimator`'s output as an on-frame panel (BVP + bpm)."""
+    """Render a rPPG heart-rate estimate as an on-frame panel (BVP waveform + bpm).
+
+    A thin visualization over a
+    [`HeartRateEstimator`][physiotrack.signals.HeartRateEstimator]: feed frames (and an
+    optional skin/ROI mask) via :meth:`update`, then composite the panel with
+    :meth:`attach_to_frame`. Pass an existing estimator to share one rPPG computation
+    with an [`RPPGPlotter`][physiotrack.signals.RPPGPlotter]. Inherits the estimator
+    data API (``hr``, ``snr``, ``bvp``, ``method_name``, ``update``, ``push_rgb``,
+    ``clear``) and ``attach_to_frame`` from ``EstimatorPanel``.
+
+    Args:
+        method (str, optional): rPPG algorithm when building a new estimator, one of
+            ``"POS"``, ``"CHROM"``, ``"LGI"``, ``"OMIT"``. Defaults to ``"POS"``.
+            Ignored if ``estimator`` is given.
+        fps (float, optional): Frame rate for a new estimator. Defaults to ``30.0``.
+        estimator (HeartRateEstimator, optional): Existing estimator to wrap/share.
+            Defaults to ``None`` (a new one is built from ``method``/``fps``).
+        canvas_width (int, optional): Panel width in pixels. Defaults to ``460``.
+        canvas_height (int, optional): Panel height in pixels. Defaults to ``170``.
+        bg_alpha (float, optional): Panel background opacity in ``[0, 1]``. Defaults to ``0.55``.
+        **estimator_kwargs (Any): Forwarded to
+            [`HeartRateEstimator`][physiotrack.signals.HeartRateEstimator] when one is created.
+
+    Attributes:
+        hr (float | None): Current heart rate in bpm.
+        snr (float | None): Current signal-to-noise ratio in dB.
+        bvp (numpy.ndarray): Current band-passed blood-volume-pulse buffer.
+        method_name (str): Name of the active rPPG method.
+
+    Example:
+        ```python
+        import cv2
+        from physiotrack.signals import HeartRatePlotter
+
+        hrp = HeartRatePlotter(method="POS", fps=30.0)
+        for frame, skin_mask in stream:
+            hrp.update(frame, roi_mask=skin_mask)
+            frame = hrp.attach_to_frame(frame, position="bottom_right")
+            cv2.imshow("hr", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+        ```
+
+    See Also:
+        [`RPPGPlotter`][physiotrack.signals.RPPGPlotter]: draws the pulse trace it is
+            derived from; share one estimator across both.
+    """
 
     def render(self):
         """Render a transparent BGRA panel: BVP waveform + current HR (bpm).
 
         Fonts/offsets scale with the canvas (``s`` is relative to the 460 px
         reference width) so the panel reads the same at any resolution.
+
+        Returns:
+            numpy.ndarray: The panel as a BGRA (4-channel) image of size
+                ``(canvas_height, canvas_width, 4)``.
         """
         est = self.estimator
         ov, s, pad = self._new_canvas()

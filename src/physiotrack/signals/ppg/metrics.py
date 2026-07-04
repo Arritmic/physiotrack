@@ -36,9 +36,29 @@ def bvp_to_hr(bvp, fps, win_sec=10.0, step_sec=1.0,
     """Per-window heart rate (bpm) from a BVP signal.
 
     For each sliding window the HR is the frequency of the Welch-PSD peak inside
-    ``[lo_hz, hi_hz]``, converted to beats per minute. Returns ``(hr_bpm, times)``
-    where ``times`` are the window-centre timestamps in seconds. If the signal is
-    shorter than one window, a single window over the whole signal is used.
+    ``[lo_hz, hi_hz]``, converted to beats per minute. If the signal is shorter
+    than one window, a single window over the whole signal is used.
+
+    Args:
+        bvp (np.ndarray): 1-D blood-volume-pulse signal (e.g. from
+            [`POS`][physiotrack.signals.POS] and a band-pass filter).
+        fps (float): Sampling rate of ``bvp`` in Hz.
+        win_sec (float, optional): Sliding-window length in seconds. Defaults to
+            ``10.0``.
+        step_sec (float, optional): Hop between window starts in seconds (min 1
+            sample). Defaults to ``1.0``.
+        lo_hz (float, optional): Lower band edge in Hz. Defaults to ``0.75``
+            (45 bpm).
+        hi_hz (float, optional): Upper band edge in Hz. Defaults to ``4.0``
+            (240 bpm).
+        nfft (int, optional): FFT length for the Welch PSD (raised to at least the
+            window length). Defaults to ``2048``.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: ``(hr_bpm, times)`` where ``hr_bpm`` is the
+            per-window heart rate in beats per minute and ``times`` are the
+            window-centre timestamps in seconds. Both are empty arrays if the
+            signal has fewer than 2 samples.
     """
     bvp = np.asarray(bvp, dtype=float)
     n = len(bvp)
@@ -69,6 +89,21 @@ def bvp_snr(bvp, fps, ref_hr_bpm, lo_hz=0.5, hi_hz=_HI_HZ, half_bw_hz=0.1, nfft=
     Signal power is the PSD summed within ``+/- half_bw_hz`` of the reference HR
     fundamental and its first harmonic (2x HR); noise is the remaining power in
     ``[lo_hz, hi_hz]``. ``SNR = 10 log10(signal / noise)``.
+
+    Args:
+        bvp (np.ndarray): 1-D blood-volume-pulse signal.
+        fps (float): Sampling rate of ``bvp`` in Hz.
+        ref_hr_bpm (float): Reference heart rate in beats per minute defining the
+            signal bands. If ``None`` or NaN the function returns ``np.nan``.
+        lo_hz (float, optional): Lower band edge in Hz. Defaults to ``0.5``.
+        hi_hz (float, optional): Upper band edge in Hz. Defaults to ``4.0``.
+        half_bw_hz (float, optional): Half-width in Hz of the signal band around
+            the fundamental and first harmonic. Defaults to ``0.1``.
+        nfft (int, optional): FFT length for the Welch PSD. Defaults to ``2048``.
+
+    Returns:
+        float: Signal-to-noise ratio in decibels, or ``np.nan`` when the reference
+            HR is missing or the band contains no usable power.
     """
     if ref_hr_bpm is None or np.isnan(ref_hr_bpm):
         return np.nan
@@ -89,8 +124,26 @@ def bvp_snr(bvp, fps, ref_hr_bpm, lo_hz=0.5, hi_hz=_HI_HZ, half_bw_hz=0.1, nfft=
 def hr_errors(hr_est, hr_gt):
     """Agreement metrics between estimated and reference HR series (bpm).
 
-    Returns ``{MAE, RMSE, MAPE, Pearson}`` over the temporally aligned, finite
-    samples (MAE/RMSE in bpm, MAPE in %).
+    The two series are truncated to a common length and reduced to their finite,
+    non-zero-reference samples before scoring.
+
+    Args:
+        hr_est (np.ndarray): Estimated heart-rate series in beats per minute.
+        hr_gt (np.ndarray): Reference (ground-truth) heart-rate series in beats
+            per minute.
+
+    Returns:
+        dict: ``{"MAE", "RMSE", "MAPE", "Pearson"}`` where ``MAE`` and ``RMSE`` are
+            in bpm, ``MAPE`` is a percentage, and ``Pearson`` is the correlation
+            coefficient. All values are ``np.nan`` if fewer than 2 valid samples
+            remain.
+
+    Example:
+        ```python
+        from physiotrack.signals import hr_errors
+        scores = hr_errors(hr_est, hr_gt)
+        print(scores["MAE"], scores["Pearson"])
+        ```
     """
     e = np.asarray(hr_est, dtype=float)
     g = np.asarray(hr_gt, dtype=float)
