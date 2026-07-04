@@ -134,7 +134,7 @@ cap.release()
     ```
 
     Re-segmenting every few frames (the face region moves slowly) and reusing the mask in
-    between keeps the loop fast — see `examples/rppg_heartrate.py`.
+    between keeps the loop fast — see `examples/rppg_vitals.py`.
 
 ### Live overlays
 
@@ -187,8 +187,9 @@ estimator** across both plotters and the rPPG is computed once per frame.
 !!! note "All bands are configurable"
     The analysis band is `hr_band=(0.75, 4.0)` Hz (45–240 bpm) by default and drives both the
     band-pass and the HR search. `window_sec` sets the sliding-window length; `smooth_hr`
-    reports the median HR over recent windows. A full standalone example (four-panel overlay:
-    face parsing, skin ROI, pulse, HR) lives in `examples/rppg_heartrate.py`.
+    reports the median HR over recent windows. A full standalone example (overlaying face
+    parsing, skin ROI, the rPPG pulse, HR, HRV and respiration) lives in
+    `examples/rppg_vitals.py`.
 
 ---
 

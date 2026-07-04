@@ -16,7 +16,10 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
                        plot_keypoint=None, plot_keypoint_name=None, batch_size=1,
                        enable_face_detection=False, enable_face_orientation=False,
                        enable_depth=False, ego_video_path=None, show_output=False,
-                       plot_angles=False, angle_joints=None, rom=None, rom_render=True):
+                       plot_angles=False, angle_joints=None, rom=None, rom_render=True,
+                       enable_rppg=False, enable_hrv=False, enable_respiration=False,
+                       respiration_source="motion", rppg_method="POS",
+                       rppg_window_sec=None):
     """
     Run full inference pipeline on a video
 
@@ -40,6 +43,15 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
         plot_angles: Overlay a live joint-angle panel on the left side (default: False)
         angle_joints: Optional subset of joints to show, e.g.
             ["leftElbow", "rightElbow", "leftKnee", "rightKnee"]; None shows all 8.
+        enable_rppg: Overlay contactless rPPG panels (BVP pulse + heart rate) and add
+            ``vitals`` to the JSON. Auto-enables the face detector (needed for the skin
+            ROI). Default: False.
+        enable_hrv: Overlay a heart-rate-variability panel (RMSSD/SDNN/pNN50/SD1/SD2/
+            LF-HF); uses a longer rPPG window. Auto-enables the face detector. Default: False.
+        enable_respiration: Overlay a respiration-rate panel (breaths/min) derived from
+            shoulder/torso motion, reusing the pose keypoints (needs pose, not a face).
+            Default: False.
+        rppg_method: rPPG extraction method: "POS" (default), "CHROM", "LGI" or "OMIT".
     """
 
     # Setup paths
@@ -123,7 +135,9 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
         face_orientation = FaceOrientation(model=Models.Pose3D.FaceOrientation.VR,
                                            device=0, verbose=False)
     elif enable_face_detection:
-        # Face detection only (no orientation)
+        # rPPG / HRV / pulse-respiration get their skin ROI from SegFace segmentation
+        # inside Video (no face detector needed); motion respiration uses pose. So the
+        # face detector is only needed when face detection is explicitly requested.
         print("[5/6] Initializing Face Detector...")
         face_detector = VRFace(device=0, verbose=False)
 
@@ -146,6 +160,9 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
     print(f"  - Joint-Angle Panel: {'Enabled' if plot_angles else 'Disabled'}")
     print(f"  - Clinical ROM: {'Enabled' if rom else 'Disabled'}"
           + (" (skeleton panel off)" if rom and not rom_render else ""))
+    print(f"  - rPPG heart rate: {'Enabled (' + rppg_method + ')' if enable_rppg else 'Disabled'}")
+    print(f"  - HRV: {'Enabled' if enable_hrv else 'Disabled'}")
+    print(f"  - Respiration: {'Enabled' if enable_respiration else 'Disabled'}")
 
     # Process video using Video processor
     print("\n" + "="*60)
@@ -174,6 +191,12 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
         angle_joints=angle_joints,  # Optional subset of joints (None = all 8)
         rom=rom,  # Clinical ROM (flexion/extension/abduction/adduction)
         rom_render=rom_render,  # render the white-background ROM skeleton panel (right side)
+        rppg=enable_rppg,  # contactless rPPG heart-rate panels + vitals JSON
+        hrv=enable_hrv,  # heart-rate-variability panel (uses a longer rPPG window)
+        respiration=enable_respiration,  # respiration-rate panel (breaths/min)
+        respiration_source=respiration_source,  # "motion" (pose/shoulders) or "pulse" (rPPG)
+        rppg_method=rppg_method,  # POS / CHROM / LGI / OMIT
+        rppg_window_sec=rppg_window_sec,  # rPPG sliding-window seconds (None -> 60 if hrv else 15)
         output_dir=output_dir,
         verbose=True,
         show_fps=True,
@@ -216,6 +239,12 @@ if __name__ == "__main__":
 
                 # With depth estimation
                 python full_inference.py video.mp4 --depth
+
+                # Contactless vitals: rPPG heart rate (auto-enables the face detector)
+                python full_inference.py video.mp4 --rppg
+
+                # Heart rate + HRV + respiration together
+                python full_inference.py video.mp4 --rppg --hrv --respiration --rppg_method POS
 
                 # With live joint-angle panel (left side; all 8 joints)
                 python full_inference.py video.mp4 --angles
@@ -285,6 +314,24 @@ if __name__ == "__main__":
                              'Valid: {left,right}Hip{Flexion,Extension,Abduction,Adduction}.')
     parser.add_argument('--no_rom_render', action='store_true',
                         help='With --rom: compute ROM but hide the right-side ROM skeleton panel')
+    parser.add_argument('--rppg', action='store_true',
+                        help='Overlay contactless rPPG heart-rate panels (auto-enables the face detector)')
+    parser.add_argument('--hrv', action='store_true',
+                        help='Overlay a heart-rate-variability panel (RMSSD/SDNN/SD1/SD2/LF-HF; needs a face)')
+    parser.add_argument('--respiration', action='store_true',
+                        help='Overlay a respiration-rate panel (breaths/min); source '
+                             'set by --respiration_source')
+    parser.add_argument('--respiration_source', type=str, default='motion',
+                        choices=['motion', 'pulse'],
+                        help='Respiration signal: "motion" (shoulder/torso motion, reuses '
+                             'pose keypoints, no face) or "pulse" (rPPG amplitude, needs a '
+                             'face). Default: motion')
+    parser.add_argument('--rppg_method', type=str, default='POS',
+                        choices=['POS', 'CHROM', 'LGI', 'OMIT'],
+                        help='rPPG extraction method (default: POS)')
+    parser.add_argument('--rppg_window_sec', type=float, default=None,
+                        help='rPPG sliding-window length in seconds (default: 60 with '
+                             '--hrv, else 15). Use a smaller value (e.g. 10) for short clips.')
 
     args = parser.parse_args()
 
@@ -317,4 +364,9 @@ if __name__ == "__main__":
                       args.face, getattr(args, 'face_orientation', False),
                       args.depth, args.ego_video, args.show,
                       plot_angles=args.angles, angle_joints=angle_joints,
-                      rom=rom, rom_render=not args.no_rom_render)
+                      rom=rom, rom_render=not args.no_rom_render,
+                      enable_rppg=args.rppg, enable_hrv=args.hrv,
+                      enable_respiration=args.respiration,
+                      respiration_source=args.respiration_source,
+                      rppg_method=args.rppg_method,
+                      rppg_window_sec=args.rppg_window_sec)

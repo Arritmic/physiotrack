@@ -13,11 +13,13 @@ import numpy as np
 from scipy.signal import welch, detrend
 from scipy.stats import pearsonr
 
-__all__ = ["bvp_to_hr", "bvp_snr", "hr_errors"]
+from physiotrack.signals.ppg.constants import HR_BAND, RPPG_METHODS
 
-# Default rPPG analysis band (Hz): 0.75--4.0 Hz == 45--240 bpm. Matches the
-# physiotrack band-pass default; override via the lo_hz/hi_hz arguments.
-_LO_HZ, _HI_HZ = 0.75, 4.0
+__all__ = ["bvp_to_hr", "bvp_snr", "hr_errors", "benchmark_rppg_methods"]
+
+# Default rPPG analysis band (Hz): 0.75--4.0 Hz == 45--240 bpm, sourced from the
+# single band definition in ``constants.HR_BAND``. Override via the lo_hz/hi_hz args.
+_LO_HZ, _HI_HZ = HR_BAND
 
 
 def _welch_psd(x, fps, nfft=2048):
@@ -163,4 +165,56 @@ def hr_errors(hr_est, hr_gt):
         out["Pearson"] = float(pearsonr(e, g)[0])
     except Exception:
         out["Pearson"] = np.nan
+    return out
+
+
+def benchmark_rppg_methods(rgb_trace, fps, ref_hr_bpm=None, hr_band=HR_BAND):
+    """Compare all rPPG extraction methods on one RGB skin trace.
+
+    Runs each method in
+    [`RPPG_METHODS`][physiotrack.signals.ppg.constants.RPPG_METHODS] (POS, CHROM, LGI,
+    OMIT) over the same RGB trace, band-passes each blood-volume pulse to ``hr_band``,
+    and scores the resulting heart rate and de~Haan SNR. Use this to justify the
+    default method choice on your own data. POS is the physiotrack default as the most
+    motion- and illumination-robust of the four (Wang et al., 2017).
+
+    Args:
+        rgb_trace (np.ndarray): RGB skin colour trace of shape ``(3, N)`` (rows R, G, B).
+        fps (float): Sampling rate of the trace in Hz.
+        ref_hr_bpm (float, optional): Reference heart rate in bpm; when given, an
+            absolute error ``AE`` (bpm) is added per method. Defaults to ``None``.
+        hr_band (tuple[float, float], optional): HR band-pass / search band in Hz.
+            Defaults to [`HR_BAND`][physiotrack.signals.ppg.constants.HR_BAND].
+
+    Returns:
+        dict: ``{method_name: {"hr": bpm, "snr": dB, "AE": bpm_or_nan}}`` for each of
+            POS / CHROM / LGI / OMIT.
+
+    Example:
+        ```python
+        from physiotrack.signals import benchmark_rppg_methods
+        scores = benchmark_rppg_methods(rgb_trace, fps=30.0, ref_hr_bpm=72.0)
+        best = min(scores, key=lambda m: scores[m]["AE"])
+        print("best method:", best)
+        ```
+
+    See Also:
+        [`HeartRateEstimator`][physiotrack.signals.HeartRateEstimator]: the streaming
+            estimator that wraps a single chosen method.
+    """
+    from physiotrack.signals.filters import bandpass_filter
+    lo, hi = float(hr_band[0]), float(hr_band[1])
+    trace = np.asarray(rgb_trace, dtype=float)
+    out = {}
+    for name, cls in RPPG_METHODS.items():
+        bvp = np.asarray(cls(fps).apply(trace), dtype=float).ravel()
+        try:
+            bvp = bandpass_filter(bvp, lo, hi, fps)
+        except Exception:
+            pass
+        hr, _ = bvp_to_hr(bvp, fps, lo_hz=lo, hi_hz=hi)
+        hr_val = float(hr[-1]) if hr.size else np.nan
+        snr = bvp_snr(bvp, fps, hr_val, hi_hz=hi)
+        ae = abs(hr_val - ref_hr_bpm) if (ref_hr_bpm is not None and np.isfinite(hr_val)) else np.nan
+        out[name] = {"hr": hr_val, "snr": snr, "AE": ae}
     return out

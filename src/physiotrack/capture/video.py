@@ -105,6 +105,13 @@ class Video:
                  angle_joints: Optional[List[str]] = None,
                  rom=None,
                  rom_render: bool = True,
+                 rppg: bool = False,
+                 hrv: bool = False,
+                 respiration: bool = False,
+                 respiration_source: str = "pulse",
+                 rppg_method: str = "POS",
+                 rppg_roi=None,
+                 rppg_window_sec: Optional[float] = None,
                  verbose: bool = False,
                  show_fps: bool = False,
                  show: bool = False,
@@ -196,6 +203,48 @@ class Video:
             rom_render (bool): If ``True`` (and ``rom`` is enabled with a pose
                 estimator), draw the white full-room skeleton canvas with
                 color-coded ROM arcs. Defaults to ``True``.
+            rppg (bool): If ``True``, overlay the contactless rPPG panels (the
+                blood-volume-pulse trace and the heart rate in bpm) in the top-right
+                stack, and add ``vitals`` (``hr``, ``snr``) to the JSON output. The pulse
+                skin ROI is a SegFace segmentation by default (see ``rppg_roi``) -- no
+                separate face detector is required. Defaults to ``False``.
+            hrv (bool): If ``True``, overlay a heart-rate-variability panel (RMSSD,
+                SDNN, pNN50, SD1/SD2, LF/HF) and add ``vitals["hrv"]`` to the JSON.
+                Uses a longer (60 s) rPPG window for stable indices. Same skin ROI as
+                ``rppg`` (``rppg_roi``). Defaults to ``False``.
+            respiration (bool): If ``True``, overlay a respiration-rate panel
+                (breaths/min) and add ``vitals["respiration"]`` to the JSON. The signal
+                source is chosen by ``respiration_source``. Defaults to ``False``.
+            respiration_source (str): Where respiration is derived from when
+                ``respiration`` is enabled. ``"pulse"`` (default) uses the rPPG amplitude
+                modulation (RIAV/RSA), sharing the rPPG estimator and its ``rppg_roi``
+                skin segmentation (SegFace by default). ``"motion"`` uses shoulder/torso
+                motion via
+                [`respiration_from_motion`][physiotrack.signals.respiration_from_motion],
+                reusing the per-frame pose keypoints (no extra inference) and requiring a
+                ``pose`` estimator instead of a face. Ignored with a warning if the
+                required model is missing.
+            rppg_method (str): rPPG extraction method for the ``rppg`` / ``hrv`` panels,
+                one of ``"POS"``, ``"CHROM"``, ``"LGI"``, ``"OMIT"``. Defaults to
+                ``"POS"`` (the most motion-robust; see
+                [`benchmark_rppg_methods`][physiotrack.signals.benchmark_rppg_methods]).
+            rppg_roi (callable | object, optional): The skin-**segmentation** provider
+                that the rPPG / HR / HRV (and pulse respiration) panels sample -- always
+                a segmentation mask, never a raw face box. Defaults to ``None``, which
+                builds a SegFace
+                [`FaceSkinExtractor`][physiotrack.signals.FaceSkinExtractor] (it finds
+                faces itself, so no separate face detector is needed). Pass a custom
+                provider to override it -- a callable ``roi(frame_bgr) -> mask`` or an
+                object exposing ``skin_mask(frame_bgr) -> mask`` (e.g. a face-neck
+                segmentation model for VR/occluded-face cases) -- returning a boolean
+                ``(H, W)`` mask (or ``None`` to skip that frame). Provide a
+                ``FaceSkinExtractor(device=...)`` here to control its device.
+            rppg_window_sec (float, optional): Sliding-window length (seconds) of the
+                rPPG estimator. Longer windows give more stable HR/HRV but a later first
+                reading (the first value appears after ~60% of the window fills).
+                Defaults to ``None``, which auto-selects ``60`` s when ``hrv`` is enabled
+                (needed for stable HRV) and ``15`` s otherwise. Set a smaller value
+                (e.g. ``10``) for short clips so panels populate sooner.
             verbose (bool): If ``True``, print setup/progress info and show a tqdm
                 progress bar. Defaults to ``False``.
             show_fps (bool): If ``True``, print real-time and end-of-run
@@ -382,6 +431,66 @@ class Video:
             self.rom_skeleton_view = ROMSkeletonView(
                 max_width=int(rom_base_width * 1.2), max_height=720, show_title=True  # ~20% larger
             )
+
+        if respiration and respiration_source not in ("pulse", "motion"):
+            raise ValueError(
+                f"respiration_source must be 'pulse' or 'motion', got {respiration_source!r}")
+
+        # rPPG vitals (top-right stack): a single shared HeartRateEstimator drives the
+        # rPPG / HR / HRV panels -- and the respiration panel too when
+        # ``respiration_source == 'pulse'`` -- so the pulse is computed once per frame.
+        # The pulse skin ROI is ALWAYS a SEGMENTATION mask, never a raw face box: by
+        # default a SegFace face-skin segmentation (FaceSkinExtractor, which finds faces
+        # itself -- no face detector needed), or a custom ``rppg_roi`` mask provider
+        # (e.g. a face-neck segmentation model for VR/occluded-face cases).
+        self.rppg_roi = rppg_roi
+        self.rppg_estimator = None
+        self.rppg_panels = []
+        self._hrv_panel = None
+        self._resp_panel = None       # pulse-derived respiration panel (source='pulse')
+        self._skin_extractor = None   # default SegFace skin segmenter (built on demand)
+        pulse_resp = respiration and respiration_source == "pulse"
+        if rppg or hrv or pulse_resp:
+            from physiotrack.signals import (HeartRateEstimator, RPPGPlotter,
+                                              HeartRatePlotter, HRVPlotter,
+                                              RespirationPlotter, FaceSkinExtractor)
+            # Default skin ROI = SegFace segmentation; a custom provider overrides it.
+            if self.rppg_roi is None:
+                self._skin_extractor = FaceSkinExtractor(device=0)
+                self.rppg_roi = self._skin_extractor
+            window_sec = (float(rppg_window_sec) if rppg_window_sec is not None
+                          else (60.0 if hrv else 15.0))
+            self.rppg_estimator = HeartRateEstimator(
+                rppg_method, float(self.video_fps), window_sec=window_sec)
+            if rppg:
+                self.rppg_panels.append(RPPGPlotter(estimator=self.rppg_estimator))
+                self.rppg_panels.append(HeartRatePlotter(estimator=self.rppg_estimator))
+            if hrv:
+                self._hrv_panel = HRVPlotter(estimator=self.rppg_estimator)
+                self.rppg_panels.append(self._hrv_panel)
+            if pulse_resp:
+                self._resp_panel = RespirationPlotter(estimator=self.rppg_estimator)
+                self.rppg_panels.append(self._resp_panel)
+
+        # Motion-derived respiration (``respiration_source == 'motion'``): reuse the pose
+        # keypoints the pipeline already computes each frame -- no extra inference and no
+        # face needed. The shoulder-y signal is recomputed every ``_resp_recompute_every``
+        # frames over a rolling buffer of pose records (see ``respiration_from_motion``).
+        self._resp_motion_panel = None
+        self._resp_records = None
+        self._resp_recompute_every = 30
+        if respiration and respiration_source == "motion":
+            if self.pose_estimator is None:
+                if self.verbose:
+                    print("motion respiration ignored: no pose estimator provided "
+                          "(motion-based respiration needs pose keypoints).")
+            else:
+                from collections import deque
+                from physiotrack.signals import RespirationPlotter
+                self._resp_motion_panel = RespirationPlotter(
+                    fps=float(self.video_fps), source="motion")
+                # ~45 s of frames comfortably covers the low respiration frequency band.
+                self._resp_records = deque(maxlen=max(64, int(self.video_fps * 45)))
 
         if self.verbose:
             print(f"Video properties: {self.width}x{self.height}, {self.video_fps} FPS")
@@ -797,6 +906,43 @@ class Video:
         results = self.depth_estimator.predict(frames_batch)
         return [r.depth for r in results]
 
+    def _rppg_roi_mask(self, clean_frame: np.ndarray):
+        """Boolean skin ROI mask for rPPG from the configured ``rppg_roi`` segmenter.
+
+        ``rppg_roi`` is a segmentation provider -- either the default SegFace
+        [`FaceSkinExtractor`][physiotrack.signals.FaceSkinExtractor], or a custom mask
+        provider: a callable ``roi(frame) -> mask`` or an object exposing
+        ``skin_mask(frame) -> mask`` (e.g. a face-neck segmentation model). Any exception
+        yields ``None`` (that frame is skipped) so a flaky ROI never crashes the pipeline.
+        """
+        roi = self.rppg_roi
+        try:
+            if hasattr(roi, "skin_mask"):
+                mask = roi.skin_mask(clean_frame)
+            elif callable(roi):
+                mask = roi(clean_frame)
+            else:
+                return None
+        except Exception:
+            return None
+        return mask if mask is not None and np.asarray(mask).any() else None
+
+    def _update_rppg(self, clean_frame: np.ndarray) -> None:
+        """Feed one clean frame to the shared rPPG estimator and refresh derived panels.
+
+        Skin RGB is sampled from ``clean_frame`` (before any overlay is drawn) over the
+        ``rppg_roi`` **segmentation** mask -- the SegFace face-skin segmentation by
+        default, or a custom provider's mask. The estimator is updated exactly once; the
+        HRV and respiration panels only recompute their cached values (they do not
+        re-update the estimator window).
+        """
+        if self.rppg_estimator is None:
+            return
+        self.rppg_estimator.update(clean_frame, roi_mask=self._rppg_roi_mask(clean_frame))
+        for panel in self.rppg_panels:
+            if hasattr(panel, "refresh"):
+                panel.refresh()
+
     def run(self,
             output_video: Optional[Union[str, Path]] = None,
             output_json: Optional[Union[str, Path]] = None,
@@ -1012,6 +1158,36 @@ class Video:
                         self.motion_plotter.update(pose_results, metadata['timestamp'])
                         result_frame = self.motion_plotter.attach_to_frame(result_frame, position='top_right')
 
+                    # rPPG vitals stack (top-right, below the motion plot if present).
+                    # Skin is sampled from the CLEAN frame (frame_batch[idx]), never the
+                    # overlaid result_frame, so the pulse signal is not corrupted.
+                    stack_h = (self.motion_plotter.canvas_height + 10) if self.motion_plotter else 0
+                    if self.rppg_estimator is not None:
+                        self._update_rppg(frame_batch[idx])
+                        for panel in self.rppg_panels:
+                            result_frame = panel.attach_to_frame(
+                                result_frame, position='top_right',
+                                above_element_height=stack_h)
+                            stack_h += panel.canvas_height + 10
+
+                    # Motion-based respiration: reuse the pose keypoints already computed
+                    # this frame (no extra inference), buffer them, and recompute the
+                    # shoulder-motion respiration rate on the cadence.
+                    if self._resp_motion_panel is not None:
+                        self._resp_records.append(
+                            {'timestamp': metadata['timestamp'],
+                             'detections': pose_results or []})
+                        panel = self._resp_motion_panel
+                        panel._frames += 1
+                        if panel._frames % self._resp_recompute_every == 0:
+                            from physiotrack.signals import respiration_from_motion
+                            panel.resp_wave, panel.rate = respiration_from_motion(
+                                list(self._resp_records), float(self.video_fps))
+                        result_frame = panel.attach_to_frame(
+                            result_frame, position='top_right',
+                            above_element_height=stack_h)
+                        stack_h += panel.canvas_height + 10
+
                     # (Left-side kinematics stack -- joint-angle grid, ROM grid,
                     #  skeleton -- is composited together after the right-side views.)
 
@@ -1094,7 +1270,24 @@ class Video:
                     # Add face orientation results if available
                     if self.face_orientation is not None and len(face_orientation_results) > 0:
                         frame_data['face_orientation'] = face_orientation_results
-                    
+
+                    # Add rPPG-derived vitals if enabled (nan -> None for clean JSON).
+                    if self.rppg_estimator is not None or self._resp_motion_panel is not None:
+                        def _clean(v):
+                            return None if v is None or (isinstance(v, float) and not np.isfinite(v)) else v
+                        vitals = {}
+                        if self.rppg_estimator is not None:
+                            vitals['hr'] = _clean(self.rppg_estimator.hr)
+                            vitals['snr'] = _clean(self.rppg_estimator.snr)
+                            if self._hrv_panel is not None and self._hrv_panel.hrv:
+                                vitals['hrv'] = {k: _clean(v) for k, v in self._hrv_panel.hrv.items()}
+                        # Respiration comes from whichever source is configured.
+                        if self._resp_panel is not None:
+                            vitals['respiration'] = _clean(self._resp_panel.rate)
+                        elif self._resp_motion_panel is not None:
+                            vitals['respiration'] = _clean(self._resp_motion_panel.rate)
+                        frame_data['vitals'] = vitals
+
                     all_detection_data.append(frame_data)
                     
                     if out_writer:

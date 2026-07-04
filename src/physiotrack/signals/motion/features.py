@@ -675,3 +675,88 @@ def select_feature_data(keypoint_id_2d, keypoint_id_3d, feature_type='coordinate
             '2d_features': ['ang_2d_leftElbow', 'ang_2d_rightElbow'],
             '3d_features': ['ang_3d_leftElbow', 'ang_3d_rightElbow']
         }
+
+
+# Default keypoints whose vertical motion tracks breathing: the two shoulders
+# (COCO-17 ids 5 and 6), which rise and fall with the respiratory cycle.
+RESPIRATION_MOTION_KEYPOINTS = (5, 6)
+
+
+def respiration_from_motion(data, original_fps, keypoint_ids=RESPIRATION_MOTION_KEYPOINTS,
+                            detection_id=None, resp_band=None):
+    """Estimate respiration rate from chest/shoulder vertical motion.
+
+    A contactless, pose-based counterpart to the pulse-derived estimators in
+    [`physiotrack.signals.ppg.respiration`][physiotrack.signals.respiration_from_pulse]:
+    breathing raises and lowers the shoulders/upper torso, so the vertical (``y``)
+    trajectory of the shoulder keypoints oscillates at the breathing frequency. The
+    averaged ``y`` signal is resampled to a uniform grid and its dominant in-band
+    frequency is read off with the shared
+    [`respiration_rate_from_signal`][physiotrack.signals.respiration_rate_from_signal]
+    estimator. This is robust when the torso is visible but the face/BVP is poor, and
+    can be cross-validated against the rPPG routes.
+
+    Args:
+        data (list[dict]): Per-frame pose records with ``"frame_id"``, ``"timestamp"``
+            and ``"detections"`` (each ``{"id", "keypoints": [{"id","x","y",...}]}``),
+            as produced by the ``Video`` pipeline / ``Result.to_dict()``.
+        original_fps (float): Source frame rate in Hz; the ``y`` signal is resampled to
+            this rate before spectral analysis.
+        keypoint_ids (Sequence[int], optional): Keypoint ids whose ``y`` is averaged per
+            frame. Defaults to ``(5, 6)`` (left/right shoulder).
+        detection_id (int, optional): If given, only this tracked person's keypoints are
+            used; otherwise all detections are averaged per frame (single-subject use).
+            Defaults to ``None``.
+        resp_band (tuple[float, float], optional): Respiration band in Hz. Defaults to
+            [`RESP_BAND`][physiotrack.signals.ppg.constants.RESP_BAND] when ``None``.
+
+    Returns:
+        tuple[np.ndarray, float]: ``(resp_wave, rate_bpm)`` -- the band-passed vertical
+            motion waveform and the respiration rate in breaths/min (``np.nan`` if there
+            are too few frames or no in-band power).
+
+    Example:
+        ```python
+        import physiotrack as pt
+        from physiotrack.signals import respiration_from_motion
+
+        records = pt.Video(source="in.mp4", pose=pt.Pose.Person()).run(output_json="p.json")
+        resp_wave, rr = respiration_from_motion(records, original_fps=30.0)
+        print(f"{rr:.1f} breaths/min")
+        ```
+
+    See Also:
+        [`respiration_from_pulse`][physiotrack.signals.respiration_from_pulse]: the
+            rPPG amplitude-modulation route; average the two for a fused estimate.
+    """
+    from physiotrack.signals.ppg.constants import RESP_BAND
+    from physiotrack.signals.ppg.respiration import respiration_rate_from_signal
+    if resp_band is None:
+        resp_band = RESP_BAND
+
+    ids = set(keypoint_ids)
+    rows = []
+    for frame_info in data:
+        t = frame_info.get("timestamp")
+        if t is None:
+            t = frame_info.get("frame_id")
+        for det in frame_info.get("detections", []):
+            if detection_id is not None and det.get("id") != detection_id:
+                continue
+            ys = [kp.get("y") for kp in det.get("keypoints", [])
+                  if kp.get("id") in ids and kp.get("y") is not None]
+            if ys:
+                rows.append((float(t), float(np.mean(ys))))
+    if len(rows) < 8:
+        return np.array([]), np.nan
+    rows.sort(key=lambda r: r[0])
+    times = np.array([r[0] for r in rows], dtype=float)
+    ys = np.array([r[1] for r in rows], dtype=float)
+
+    fs = float(original_fps)
+    t_uniform = np.arange(times[0], times[-1], 1.0 / fs)
+    if t_uniform.size < 8:
+        return np.array([]), np.nan
+    y_uniform = np.interp(t_uniform, times, ys)
+    rate, wave = respiration_rate_from_signal(y_uniform, fs, resp_band)
+    return wave, rate

@@ -23,11 +23,13 @@ import numpy as np
 from collections import deque
 from typing import Optional, Tuple
 
-from physiotrack.signals.ppg import POS, CHROM, LGI, OMIT
 from physiotrack.signals.filters import bandpass_filter
 from physiotrack.signals.ppg.metrics import bvp_to_hr, bvp_snr
-
-_METHODS = {"POS": POS, "CHROM": CHROM, "LGI": LGI, "OMIT": OMIT}
+from physiotrack.signals.ppg.constants import RPPG_METHODS, HR_BAND, DEFAULT_RPPG_METHOD
+from physiotrack.signals.ppg.peaks import bvp_to_rri
+from physiotrack.signals.ppg.artifacts import correct_rr_artifacts
+from physiotrack.signals.ppg.hrv import compute_hrv
+from physiotrack.signals.ppg.respiration import respiration_from_pulse, respiration_from_rri
 
 
 class HeartRateEstimator:
@@ -39,6 +41,12 @@ class HeartRateEstimator:
     de~Haan SNR. Feed frames with :meth:`update` (using a ``roi_mask`` or face
     ``box``) or push RGB directly with :meth:`push_rgb`; read the latest values
     from :attr:`hr`, :attr:`snr`, :attr:`bvp`, or :meth:`values`.
+
+    The same sliding window also yields the downstream pulse analytics without any
+    extra buffering: RR-interval (inter-beat) series via :meth:`rri`, heart-rate
+    variability via :meth:`hrv`, and respiration rate via :meth:`respiration_rate`.
+    HRV needs a longer window than HR -- build the estimator with a larger
+    ``window_sec`` (e.g. 60 s) when you need stable HRV indices.
 
     Attributes:
         method_name (str): Active rPPG method, one of ``"POS"``, ``"CHROM"``,
@@ -76,11 +84,11 @@ class HeartRateEstimator:
     """
 
     def __init__(self,
-                 method: str = "POS",
+                 method: str = DEFAULT_RPPG_METHOD,
                  fps: float = 30.0,
                  *,
                  window_sec: float = 10.0,
-                 hr_band: Tuple[float, float] = (0.75, 4.0),
+                 hr_band: Tuple[float, float] = HR_BAND,
                  snr_half_bw_hz: float = 0.1,
                  use_skin_mask: bool = True,
                  min_fill: float = 0.6,
@@ -110,11 +118,11 @@ class HeartRateEstimator:
             ValueError: If ``method`` is not one of the supported names.
         """
         method = method.upper()
-        if method not in _METHODS:
-            raise ValueError(f"Unknown rPPG method {method!r}. Choose from {list(_METHODS)}.")
+        if method not in RPPG_METHODS:
+            raise ValueError(f"Unknown rPPG method {method!r}. Choose from {list(RPPG_METHODS)}.")
         self.method_name = method
         self.fps = float(fps) if fps and fps > 0 else 30.0
-        self.method = _METHODS[method](self.fps)
+        self.method = RPPG_METHODS[method](self.fps)
         self.window_sec = float(window_sec)
         self.hr_band = (float(hr_band[0]), float(hr_band[1]))
         self.snr_half_bw_hz = float(snr_half_bw_hz)
@@ -290,6 +298,88 @@ class HeartRateEstimator:
                 ``snr`` may be ``None`` until the window fills.
         """
         return {"hr": self.hr, "snr": self.snr, "method": self.method_name}
+
+    # ------------------------------------------------------------ RR / HRV / RR
+    def rri(self, correct: bool = False):
+        """RR-interval (inter-beat) series from the current BVP window.
+
+        Detects systolic peaks in the latest band-passed :attr:`bvp` and returns the
+        inter-beat intervals -- the substrate for HRV. No extra buffering: this reads
+        the same sliding window used for HR.
+
+        Args:
+            correct (bool, optional): Clean the series with the Lipponen-Tarvainen
+                artefact corrector before returning. Defaults to ``False``.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: ``(rri_ms, t_sec)`` inter-beat intervals in
+                milliseconds and their timestamps in seconds (empty until enough beats
+                are present). When ``correct`` is ``True`` the timestamps are the
+                cumulative RR times of the cleaned series.
+
+        See Also:
+            [`bvp_to_rri`][physiotrack.signals.bvp_to_rri],
+            [`correct_rr_artifacts`][physiotrack.signals.correct_rr_artifacts].
+        """
+        rri_ms, t_sec = bvp_to_rri(self.bvp, self.fps, self.hr_band)
+        if correct and rri_ms.size >= 4:
+            rri_ms, _ = correct_rr_artifacts(rri_ms)
+            t_sec = np.cumsum(rri_ms) / 1000.0
+        return rri_ms, t_sec
+
+    def hrv(self, domains=("time", "frequency", "nonlinear"), correct: bool = True):
+        """Heart-rate-variability indices over the current BVP window.
+
+        Computes RR intervals from the sliding window (optionally artefact-corrected)
+        and returns the requested HRV indices via
+        [`compute_hrv`][physiotrack.signals.compute_hrv].
+
+        Args:
+            domains (Sequence[str], optional): Any of ``"time"``, ``"frequency"``,
+                ``"nonlinear"``. Defaults to all three.
+            correct (bool, optional): Apply artefact correction to the RR series first.
+                Defaults to ``True``.
+
+        Returns:
+            dict: The HRV indices, or ``{}`` if fewer than ~3 beats are available.
+
+        Note:
+            HRV needs a longer window than HR: construct the estimator with a larger
+            ``window_sec`` (e.g. ``HeartRateEstimator("POS", fps, window_sec=60)``) for
+            stable time- and especially frequency-domain indices. The default 10 s
+            window is tuned for HR and yields only coarse HRV.
+        """
+        rri_ms, t_sec = self.rri(correct=correct)
+        if rri_ms.size < 3:
+            return {}
+        return compute_hrv(rri_ms, t_sec, domains=domains)
+
+    def respiration_rate(self, source: str = "pulse"):
+        """Respiration rate (breaths/min) from the current BVP window.
+
+        Args:
+            source (str, optional): ``"pulse"`` uses the pulse amplitude modulation
+                (RIAV) of :attr:`bvp`; ``"rsa"`` uses RR-interval variation (respiratory
+                sinus arrhythmia). Defaults to ``"pulse"``.
+
+        Returns:
+            float: Respiration rate in breaths per minute, or ``np.nan`` if unavailable.
+
+        Raises:
+            ValueError: If ``source`` is not ``"pulse"`` or ``"rsa"``.
+
+        See Also:
+            [`respiration_from_pulse`][physiotrack.signals.respiration_from_pulse],
+            [`respiration_from_rri`][physiotrack.signals.respiration_from_rri].
+        """
+        if source == "pulse":
+            _, rr = respiration_from_pulse(self.bvp, self.fps)
+            return rr
+        if source == "rsa":
+            rri_ms, t_sec = self.rri()
+            _, rr = respiration_from_rri(rri_ms, t_sec)
+            return rr
+        raise ValueError(f"Unknown source {source!r}; choose 'pulse' or 'rsa'.")
 
     def clear(self) -> None:
         """Reset the sliding window and clear the HR/SNR/BVP state."""

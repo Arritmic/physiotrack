@@ -96,7 +96,65 @@ All are keyword-only constructor arguments; see the full
 | Depth view | `depth_colormap` | Matplotlib colormap for the depth panel (`"inferno"`, `"viridis"`, `"jet"`, …). |
 | Motion plot | `plot_keypoint`, `plot_keypoint_name` | COCO keypoint id to plot as a live signal panel (needs `pose`). |
 | Kinematics | `plot_angles`, `angle_joints`, `rom`, `rom_render` | Live joint-angle panel and clinical range-of-motion overlays / skeleton canvas (need `pose`). |
+| Vitals | `rppg`, `hrv`, `respiration`, `respiration_source`, `rppg_method`, `rppg_roi`, `rppg_window_sec` | Contactless heart rate / HRV (rPPG) and respiration panels + `vitals` JSON. See below. |
 | Runtime | `batch_size`, `verbose`, `show_fps`, `show` | Frames per batch, logging, FPS stats, live OpenCV preview window. |
+
+### Vitals (rPPG heart rate · HRV · respiration)
+
+Physiological panels are opt-in and each has a clear signal source:
+
+| Panel | Enable | Signal source | Needs |
+| --- | --- | --- | --- |
+| Heart rate (rPPG) | `rppg=True` | Blood-volume pulse from a SegFace skin segmentation | nothing extra (SegFace is built in) |
+| HRV | `hrv=True` | Same pulse, longer (60 s) window | same as `rppg` |
+| Respiration | `respiration=True` | `respiration_source="pulse"` (rPPG amplitude) **or** `"motion"` (shoulder/torso motion, reuses pose keypoints) | skin ROI for `pulse`; `pose` for `motion` |
+
+- **`rppg_method`** — extraction algorithm: `"POS"` (default), `"CHROM"`, `"LGI"`, `"OMIT"`.
+- **`rppg_window_sec`** — rPPG sliding-window length (s). `None` (default) auto-selects
+  `60` with `hrv` (needed for stable HRV) else `15`. The first reading appears after
+  ~60% of the window fills, so use a smaller value (e.g. `10`) for **short clips** so the
+  panels populate sooner.
+- **`rppg_roi`** — the skin **segmentation** the pulse is sampled from (always a
+  segmentation mask, never a raw face box). Defaults to `None`, which builds a SegFace
+  [`FaceSkinExtractor`][physiotrack.signals.FaceSkinExtractor] (it finds faces itself, so
+  **no face detector is needed**). Override with a custom mask provider — a callable
+  `roi(frame) -> mask` or an object with `skin_mask(frame) -> mask` (e.g. your own
+  face-neck segmentation model). Pass a `FaceSkinExtractor(device=...)` to control its
+  device.
+
+!!! tip "VR headsets / occluded faces"
+    By default rPPG segments the **face skin** (SegFace). When the upper face is covered
+    (e.g. a VR HMD), swap in a **face-neck segmentation model** as `rppg_roi` so heart
+    rate and HRV are recovered from the visible neck / lower-face skin, and set
+    `respiration_source="motion"` so respiration comes from the shoulders. HR / HRV /
+    respiration are independent building blocks — mix the sources per what your footage
+    shows.
+
+```python
+import physiotrack as pt
+
+# Default: rPPG on the SegFace face-skin segmentation, respiration from motion.
+video = pt.Video(
+    source="session.mp4",
+    pose=pt.Pose.Person(),
+    rppg=True, hrv=True,                        # rppg_roi=None -> SegFace skin (built in)
+    respiration=True, respiration_source="motion",
+)
+video.run(output_video="out.mp4")
+
+# VR / occluded face: sample the neck / lower-face skin from your own segmentation.
+def face_neck_mask(frame):
+    return my_face_neck_segmentor(frame)        # -> boolean (H, W) skin mask
+
+video = pt.Video(
+    source="hmd_session.mp4",
+    pose=pt.Pose.Person(),
+    rppg=True, hrv=True,
+    rppg_roi=face_neck_mask,                     # neck/lower-face skin ROI
+    respiration=True, respiration_source="motion",
+)
+video.run(output_video="out.mp4")
+```
 
 !!! tip "Batching and tracking"
     `batch_size` sets how many frames each pipeline step processes together (values

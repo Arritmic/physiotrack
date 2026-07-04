@@ -291,3 +291,45 @@ def calculate_dtw_distance(signal1, signal2, distance_metric=euclidean):
     except Exception as e:
         print(f"Error calculating DTW distance: {e}")
         return np.nan
+
+
+def hrv_errors(hrv_est, hrv_ref, keys=None):
+    """Per-metric agreement between an estimated and a reference HRV index set.
+
+    Compares two HRV dicts (as returned by
+    [`compute_hrv`][physiotrack.signals.compute_hrv]) key-by-key, reporting the signed
+    difference and the percentage error relative to the reference. The rPPG-vs-contact
+    counterpart of [`hr_errors`][physiotrack.signals.hr_errors] for validating
+    contactless HRV against a ground-truth device.
+
+    Args:
+        hrv_est (dict): Estimated HRV indices (e.g. from rPPG-derived RR intervals).
+        hrv_ref (dict): Reference HRV indices (e.g. from a contact ECG/PPG device).
+        keys (Sequence[str], optional): Metrics to compare. Defaults to the intersection
+            of the two dicts' keys.
+
+    Returns:
+        dict: ``{metric: {"est": .., "ref": .., "diff": est-ref, "pct": percent_error}}``
+            for each compared metric; entries with a missing or non-finite value are
+            skipped.
+
+    Example:
+        ```python
+        from physiotrack.signals import compute_hrv, hrv_errors
+        err = hrv_errors(compute_hrv(rri_rppg), compute_hrv(rri_ecg))
+        print(err["RMSSD"]["pct"])
+        ```
+    """
+    if keys is None:
+        keys = [k for k in hrv_est if k in hrv_ref]
+    out = {}
+    for k in keys:
+        e, r = hrv_est.get(k), hrv_ref.get(k)
+        if not (isinstance(e, (int, float)) and isinstance(r, (int, float))):
+            continue
+        if not (np.isfinite(e) and np.isfinite(r)):
+            continue
+        diff = float(e) - float(r)
+        out[k] = {"est": float(e), "ref": float(r), "diff": diff,
+                  "pct": float(abs(diff) / abs(r) * 100.0) if r != 0 else np.nan}
+    return out
