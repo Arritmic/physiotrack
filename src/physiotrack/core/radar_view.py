@@ -10,6 +10,7 @@ from collections import deque
 from pathlib import Path
 from physiotrack.modules.Yolo.classes_and_palettes import COLORS
 from physiotrack.utils.spatial_transforms import compute_homography, transform_point, get_foot_position
+from physiotrack.core.overlay import OverlayCanvas, alpha_composite
 
 
 class RadarView:
@@ -281,16 +282,19 @@ class RadarView:
             return canvas
 
         # Use custom canvas if available, otherwise create default black canvas
-        if self.use_custom_canvas and self.custom_canvas is not None:
+        has_custom = self.use_custom_canvas and self.custom_canvas is not None
+        if has_custom:
             canvas = self.custom_canvas.copy()
         else:
             canvas = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
-            # Fill background
             canvas.fill(40)
-            # Draw floor boundary
-            cv2.rectangle(canvas, (0, 0), (canvas_width - 1, canvas_height - 1), (100, 100, 100), 2)
 
-        # Draw trajectories for each person
+        # Trajectories, markers and labels are drawn on a supersampled overlay so lines
+        # and text are crisp, then alpha-composited onto the (image) background.
+        ov = OverlayCanvas(canvas_width, canvas_height)
+        if not has_custom:
+            ov.rect((0, 0), (canvas_width - 1, canvas_height - 1), (100, 100, 100), width=2)
+
         for track_id, trajectory in self.trajectories.items():
             if len(trajectory) == 0:
                 continue
@@ -301,27 +305,20 @@ class RadarView:
             for i in range(1, len(trajectory)):
                 pt1 = trajectory[i - 1]
                 pt2 = trajectory[i]
-
-                # Ensure points are within bounds
                 if (0 <= pt1[0] < canvas_width and 0 <= pt1[1] < canvas_height and
                         0 <= pt2[0] < canvas_width and 0 <= pt2[1] < canvas_height):
-                    cv2.line(canvas, pt1, pt2, color, 2)
+                    ov.line(pt1, pt2, color, width=2)
 
             # Draw current position (larger circle)
             current_pos = trajectory[-1]
             if 0 <= current_pos[0] < canvas_width and 0 <= current_pos[1] < canvas_height:
-                cv2.circle(canvas, current_pos, 6, color, -1)
-                cv2.circle(canvas, current_pos, 8, (255, 255, 255), 1)
+                ov.circle(current_pos, 6, color, fill=True)
+                ov.circle(current_pos, 8, (255, 255, 255), fill=False, width=1)
+                ov.text((current_pos[0] + 10, current_pos[1] - 22), f"ID:{track_id}",
+                        size=15, color=color)
 
-                # Add track ID label
-                cv2.putText(canvas, f"ID:{track_id}",
-                            (current_pos[0] + 10, current_pos[1] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
-
-        # Add title
-        cv2.putText(canvas, "Floor Map", (10, 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
+        ov.text((10, 6), "Floor Map", size=22, color=(255, 255, 255), bold=True)
+        alpha_composite(canvas, ov.render(), 0, 0)
         return canvas
 
     def attach_to_frame(self, frame: np.ndarray, position: str = 'bottom_right',

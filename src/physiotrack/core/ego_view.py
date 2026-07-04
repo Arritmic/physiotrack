@@ -6,6 +6,8 @@ import numpy as np
 import cv2
 from typing import Optional, Tuple
 
+from physiotrack.core.overlay import OverlayCanvas, alpha_composite
+
 
 class EgoVideoView:
     """
@@ -104,18 +106,20 @@ class EgoVideoView:
             canvas = np.zeros((self.canvas_height, self.canvas_width, 3), dtype=np.uint8)
             canvas.fill(40)
             if self.show_title:
-                cv2.putText(canvas, "Ego View", (10, 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                cv2.putText(canvas, "No frame", (10, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (128, 128, 128), 1)
+                ov = OverlayCanvas(self.canvas_width, self.canvas_height)
+                ov.text((10, 6), "Ego View", size=18, color=(255, 255, 255), bold=True)
+                ov.text((10, 36), "No frame", size=18, color=(128, 128, 128))
+                alpha_composite(canvas, ov.render(), 0, 0)
             return canvas
 
         canvas = self.current_frame.copy()
 
         # Add title if enabled
         if self.show_title:
-            cv2.putText(canvas, "Ego View", (10, 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            ch, cw = canvas.shape[:2]
+            ov = OverlayCanvas(cw, ch)
+            ov.text((10, 6), "Ego View", size=20, color=(255, 255, 255), bold=True)
+            alpha_composite(canvas, ov.render(), 0, 0)
 
         return canvas
 

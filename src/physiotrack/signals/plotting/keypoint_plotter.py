@@ -12,6 +12,8 @@ from collections import deque
 from typing import Optional, Tuple, List, Dict
 from scipy.signal import butter, lfilter
 
+from physiotrack.core.overlay import OverlayCanvas, alpha_composite, SS
+
 
 class KeypointMotionPlotter:
     """
@@ -202,7 +204,12 @@ class KeypointMotionPlotter:
         
         # Create or reuse cached figure for performance
         if self._fig is None:
-            self._fig, self._ax = plt.subplots(figsize=(self.canvas_width / 80, self.canvas_height / 80), dpi=80)
+            # Render at SS x the target DPI (same figure size in inches, so the
+            # point-sized fonts/lines stay identical) then area-downscale to the
+            # panel size -- supersampled anti-aliasing, so the plot is crisp instead
+            # of the blurry low-DPI render.
+            self._fig, self._ax = plt.subplots(
+                figsize=(self.canvas_width / 80, self.canvas_height / 80), dpi=80 * SS)
             
             # Initial plot setup
             self._line_x, = self._ax.plot([], [], label='X', linewidth=1.2, color='#2E86AB', antialiased=True)
@@ -249,28 +256,23 @@ class KeypointMotionPlotter:
             # Convert RGB to BGR for OpenCV
             canvas = cv2.cvtColor(buf, cv2.COLOR_RGB2BGR)
         
-        # Resize to exact canvas dimensions
+        # Resize to exact canvas dimensions (area-average the SS-supersampled render)
         if canvas.shape[:2] != (self.canvas_height, self.canvas_width):
-            canvas = cv2.resize(canvas, (self.canvas_width, self.canvas_height))
+            canvas = cv2.resize(canvas, (self.canvas_width, self.canvas_height),
+                                interpolation=cv2.INTER_AREA)
         
         return canvas
     
     def _render_empty_canvas(self) -> np.ndarray:
         """Render an empty canvas with a waiting message."""
         canvas = np.ones((self.canvas_height, self.canvas_width, 3), dtype=np.uint8) * 245
-        
+
+        ov = OverlayCanvas(self.canvas_width, self.canvas_height)
         text = "Collecting motion data..."
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.6
-        thickness = 2
-        
-        # Get text size for centering
-        (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
-        x = (self.canvas_width - text_width) // 2
-        y = (self.canvas_height + text_height) // 2
-        
-        cv2.putText(canvas, text, (x, y), font, font_scale, (100, 100, 100), thickness)
-        
+        tw, th = ov.measure(text, 22, bold=True)
+        ov.text(((self.canvas_width - tw) / 2, (self.canvas_height - th) / 2), text,
+                size=22, color=(100, 100, 100), bold=True)
+        alpha_composite(canvas, ov.render(), 0, 0)
         return canvas
     
     def attach_to_frame(self, frame: np.ndarray, position: str = 'top_right',

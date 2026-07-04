@@ -20,9 +20,6 @@ estimator to show the pulse and the HR with a single rPPG computation::
                                     above_element_height=sig.canvas_height)
 """
 
-import cv2
-import numpy as np
-
 from physiotrack.signals.plotting._estimator_panel import EstimatorPanel
 
 _ACCENT = (120, 220, 120)   # green BVP trace (BGR)
@@ -35,13 +32,12 @@ class RPPGPlotter(EstimatorPanel):
         super().__init__(*args, **kwargs)
         self.display_window_sec = float(window_sec)   # seconds of pulse shown in the trace
 
-    def render(self) -> np.ndarray:
+    def render(self):
         """Render a transparent BGRA panel: the rPPG (BVP) pulse trace."""
-        canvas, s, pad = self._new_canvas()
+        ov, s, pad = self._new_canvas()
         h = self.canvas_height
-        cv2.putText(canvas, f"rPPG signal  {self.estimator.method_name}", (pad, int(26 * s)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6 * s, (235, 235, 235, 255),
-                    max(1, round(2 * s)), cv2.LINE_AA)
-        self._draw_bvp(canvas, _ACCENT, y0=int(40 * s), ph=h - int(50 * s),
+        ov.text((pad, int(8 * s)), f"rPPG signal  {self.estimator.method_name}",
+                size=22 * s, color=(235, 235, 235), bold=True)
+        self._draw_bvp(ov, _ACCENT, y0=int(40 * s), ph=h - int(50 * s),
                        pad=pad, s=s, window_sec=self.display_window_sec)
-        return canvas
+        return ov.render()

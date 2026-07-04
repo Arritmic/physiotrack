@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 from .config import TrackerConfig
 from ..results import TrackResult, Instance
+from ..core.overlay import draw_label
 
 
 class Tracker:
@@ -245,8 +246,8 @@ class Tracker:
                 if len(det) >= 4:
                     x1, y1, x2, y2 = map(int, det[:4])
                     cv2.rectangle(frame, (x1, y1), (x2, y2), self.config.colors['red'], 2)
-                    cv2.putText(frame, 'Det', (x1, y1 - 5), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.4, self.config.colors['red'], 1)
+                    draw_label(frame, (x1, y1 - 16), 'Det', size=14,
+                               color=self.config.colors['red'])
         
         # === 2. Draw all original MOT tracks (GREEN) ===
         if self.config.show_original_tracks and online_targets is not None:
@@ -258,8 +259,8 @@ class Tracker:
                     continue
                     
                 cv2.rectangle(frame, (x1, y1), (x2, y2), self.config.colors['green'], 2)
-                cv2.putText(frame, f'ID:{track_id}', (x1, y1 - 5), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.config.colors['green'], 2)
+                draw_label(frame, (x1, y1 - 20), f'ID:{track_id}', size=18,
+                           color=self.config.colors['green'], bold=True)
                 
                 if self.config.show_all_trails and track_id in self.track_history:
                     points = [(int((bbox[0] + bbox[2]) / 2), int(bbox[3])) 
@@ -275,8 +276,8 @@ class Tracker:
             if self.config.show_student_track and self.last_known_bbox is not None:
                 x1, y1, x2, y2 = map(int, self.last_known_bbox)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), self.config.colors['blue'], 3)
-                cv2.putText(frame, f'Student:{self.student_track_id}', (x1, y1 - 10), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, self.config.colors['blue'], 2)
+                draw_label(frame, (x1, y1 - 28), f'Student:{self.student_track_id}', size=24,
+                           color=self.config.colors['blue'], bold=True)
             
             if self.config.show_tracking_tail and len(self.student_trail_points) > 1:
                 points = np.array(list(self.student_trail_points), dtype=np.int32)

@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 from typing import List, Optional, Tuple
 
+from physiotrack.core.overlay import OverlayCanvas, alpha_composite
 from physiotrack.signals.motion.features import (
     ROM_DEFINITIONS, compute_joint_angle_2d, rom_color,
 )
@@ -58,6 +59,9 @@ class ROMSkeletonView:
         scale = min(self.max_width / W, self.max_height / H)
         cw, ch = max(1, int(W * scale)), max(1, int(H * scale))
         canvas = np.full((ch, cw, 3), 255, np.uint8)
+        # Skeleton + arcs are drawn on a supersampled overlay for crisp anti-aliased
+        # bones/arcs, then composited onto the white panel.
+        ov = OverlayCanvas(cw, ch)
 
         def to_px(x, y):
             return (int(x * scale), int(y * scale))
@@ -66,10 +70,10 @@ class ROMSkeletonView:
         # ROM arcs stand out).
         for a, b in _COCO_EDGES:
             if a in kp and b in kp:
-                cv2.line(canvas, to_px(kp[a]["x"], kp[a]["y"]),
-                         to_px(kp[b]["x"], kp[b]["y"]), (205, 205, 205), 1, cv2.LINE_AA)
+                ov.line(to_px(kp[a]["x"], kp[a]["y"]),
+                        to_px(kp[b]["x"], kp[b]["y"]), (205, 205, 205), width=1)
         for k in kp.values():
-            cv2.circle(canvas, to_px(k["x"], k["y"]), 2, (150, 150, 150), -1, cv2.LINE_AA)
+            ov.circle(to_px(k["x"], k["y"]), 2, (150, 150, 150), fill=True)
 
         # Color-coded ROM arcs (no value text — values live in the angle panel).
         for name in movements:
@@ -84,11 +88,12 @@ class ROMSkeletonView:
                 continue
             color = rom_color(name)
             c, mp, rp = to_px(v["x"], v["y"]), to_px(m["x"], m["y"]), to_px(r["x"], r["y"])
-            cv2.line(canvas, c, mp, color, 2, cv2.LINE_AA)   # moving segment
-            cv2.line(canvas, c, rp, color, 2, cv2.LINE_AA)   # reference axis
+            ov.line(c, mp, color, width=2)   # moving segment
+            ov.line(c, rp, color, width=2)   # reference axis
             radius = max(6, int(math.hypot(mp[0] - c[0], mp[1] - c[1]) * 0.30))
-            self._draw_arc(canvas, c, self._vec_angle(c, rp), self._vec_angle(c, mp), radius, color)
+            self._draw_arc(ov, c, self._vec_angle(c, rp), self._vec_angle(c, mp), radius, color)
 
+        alpha_composite(canvas, ov.render(), 0, 0)
         self.canvas = canvas
         self.canvas_size = (cw, ch)
 
@@ -97,25 +102,28 @@ class ROMSkeletonView:
         return math.degrees(math.atan2(point[1] - center[1], point[0] - center[0])) % 360
 
     @staticmethod
-    def _draw_arc(image, center, ang_ref, ang_vec, radius, color):
+    def _draw_arc(ov, center, ang_ref, ang_vec, radius, color):
         a1, a2 = ang_ref % 360, ang_vec % 360
         d = (a2 - a1 + 360) % 360
         start, end = (a1, a1 + d) if d <= 180 else (a2, a2 + (360 - d))
-        cv2.ellipse(image, center, (radius, radius), 0, start, end, color, 2, cv2.LINE_AA)
+        ov.arc(center, radius, start, end, color, width=2)
 
     # ------------------------------------------------------------------ render
     def render(self) -> np.ndarray:
         if self.canvas is None:
-            canvas = np.full((self.max_height // 3, self.max_width, 3), 245, np.uint8)
-            cv2.putText(canvas, "ROM skeleton", (10, 22),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (60, 60, 60), 2)
-            cv2.putText(canvas, "No person", (10, 48),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 130, 130), 1)
+            eh = self.max_height // 3
+            canvas = np.full((eh, self.max_width, 3), 245, np.uint8)
+            ov = OverlayCanvas(self.max_width, eh)
+            ov.text((10, 6), "ROM skeleton", size=20, color=(60, 60, 60), bold=True)
+            ov.text((10, 34), "No person", size=18, color=(130, 130, 130))
+            alpha_composite(canvas, ov.render(), 0, 0)
             return canvas
         canvas = self.canvas.copy()
         if self.show_title:
-            cv2.putText(canvas, "ROM skeleton", (8, 18),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 40, 40), 2)
+            ch, cw = canvas.shape[:2]
+            ov = OverlayCanvas(cw, ch)
+            ov.text((8, 4), "ROM skeleton", size=18, color=(40, 40, 40), bold=True)
+            alpha_composite(canvas, ov.render(), 0, 0)
         return canvas
 
     def attach_to_frame(self, frame: np.ndarray, position: str = 'top_left',

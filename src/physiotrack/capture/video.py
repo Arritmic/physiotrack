@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Union, List, Dict, Any, Tuple
 from tqdm import tqdm
 from physiotrack.modules.Yolo.classes_and_palettes import COLORS
+from physiotrack.core.overlay import draw_label
 from physiotrack.core.radar_view import RadarView
 from physiotrack.core.depth_view import DepthView
 from physiotrack.core.ego_view import EgoVideoView
@@ -311,8 +312,8 @@ class Video:
                     cv2.rectangle(combined_frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
                     # Add label with detector index
                     label = f"D{idx}-C{int(cls)}: {conf:.2f}"
-                    cv2.putText(combined_frame, label, (int(x1), int(y1)-5),
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                    draw_label(combined_frame, (int(x1), int(y1) - 20), label,
+                               size=18, color=color, bold=True)
                 
                 all_detections.append(detections)
             

@@ -16,3 +16,4 @@ cython_bbox
 openpyxl
 lap
 fastdtw
+pillow

@@ -24,6 +24,7 @@ import numpy as np
 from collections import deque
 from typing import Dict, List, Optional, Sequence
 
+from physiotrack.core.overlay import OverlayCanvas
 from physiotrack.signals.motion.features import (
     JOINT_ANGLE_TRIPLETS,
     ROM_DEFINITIONS,
@@ -163,44 +164,39 @@ class JointAnglePlotter:
         header_h = 22
         row_h = 54 if self.show_sparkline else 30
         h = header_h + row_h * len(rows) + 6
-        canvas = np.zeros((h, width, 4), np.uint8)
-        cv2.rectangle(canvas, (0, 0), (width - 1, h - 1),
-                      (24, 22, 28, int(self.bg_alpha * 255)), -1)
-        cv2.rectangle(canvas, (0, 0), (width - 1, h - 1), (105, 95, 90, 220), 1)
-        cv2.putText(canvas, title, (8, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
-                    (235, 235, 235, 255), 1, cv2.LINE_AA)
-        cv2.line(canvas, (col_w, header_h), (col_w, h - 4), (70, 72, 80, 200), 1)
+        ov = OverlayCanvas(width, h, bg=(24, 22, 28), bg_alpha=self.bg_alpha,
+                           border=(105, 95, 90), radius=6)
+        ov.text((8, 4), title, size=16, color=(235, 235, 235), bold=True)
+        ov.line((col_w, header_h), (col_w, h - 4), (70, 72, 80), width=1)
 
         for ri, t in enumerate(rows):
             y = header_h + ri * row_h
             for ci, side in enumerate(("L", "R")):
                 cell = cells.get((t, side))
                 if cell is not None:
-                    self._draw_cell(canvas, ci * col_w, y, col_w, f"{side} {t}", *cell)
-        return canvas
+                    self._draw_cell(ov, ci * col_w, y, col_w, f"{side} {t}", *cell)
+        return ov.render()
 
-    def _draw_cell(self, canvas, x, y, cw, label, buf, color):
+    def _draw_cell(self, ov, x, y, cw, label, buf, color):
         """One grid cell: label + value + gauge + (optional) sparkline."""
-        c4 = (color[0], color[1], color[2], 255)
-        font = cv2.FONT_HERSHEY_SIMPLEX
         value = self._latest(buf)
 
-        cv2.putText(canvas, label, (x + 6, y + 14), font, 0.4, c4, 1, cv2.LINE_AA)
+        ov.text((x + 6, y + 3), label, size=14, color=color)
         vtxt = f"{value:.0f}" if value is not None else "--"
-        (tw, _), _ = cv2.getTextSize(vtxt, font, 0.42, 1)
-        cv2.putText(canvas, vtxt, (x + cw - tw - 8, y + 14), font, 0.42, c4, 1, cv2.LINE_AA)
+        vw, _ = ov.measure(vtxt, 15, bold=True)
+        ov.text((x + cw - vw - 8, y + 2), vtxt, size=15, color=color, bold=True)
 
         bx1, bx2, by = x + 6, x + cw - 8, y + 21
-        cv2.rectangle(canvas, (bx1, by), (bx2, by + 6), (70, 72, 80, 220), -1)
+        ov.rect((bx1, by), (bx2, by + 6), (70, 72, 80), fill=True)
         if value is not None:
             fx = bx1 + int((bx2 - bx1) * float(np.clip(value / 180.0, 0.0, 1.0)))
-            cv2.rectangle(canvas, (bx1, by), (fx, by + 6), c4, -1)
+            ov.rect((bx1, by), (fx, by + 6), color, fill=True)
 
         if self.show_sparkline:
-            self._draw_sparkline(canvas, buf, c4, x1=bx1, x2=bx2, y_top=y + 32, height=16)
+            self._draw_sparkline(ov, buf, color, x1=bx1, x2=bx2, y_top=y + 32, height=16)
 
     @staticmethod
-    def _draw_sparkline(canvas, buf, color4, *, x1, x2, y_top, height):
+    def _draw_sparkline(ov, buf, color, *, x1, x2, y_top, height):
         vals = np.array(buf, dtype=float)
         finite = vals[~np.isnan(vals)]
         if finite.size < 2:
@@ -208,10 +204,10 @@ class JointAnglePlotter:
         lo, hi = float(np.min(finite)), float(np.max(finite))
         rng = (hi - lo) or 1.0
         xs = np.linspace(x1, x2, len(vals))
-        pts = [[int(x), int(y_top + height - (v - lo) / rng * height)]
+        pts = [(float(x), float(y_top + height - (v - lo) / rng * height))
                for x, v in zip(xs, vals) if not np.isnan(v)]
         if len(pts) >= 2:
-            cv2.polylines(canvas, [np.array(pts, dtype=np.int32)], False, color4, 1, cv2.LINE_AA)
+            ov.polyline(pts, color, width=1)
 
     # ----------------------------------------------------------------- compose
     def attach_canvas(self, frame: np.ndarray, canvas: Optional[np.ndarray],
