@@ -15,10 +15,10 @@ without recomputing rPPG twice::
     hrp = HeartRatePlotter(estimator=est)
 """
 
-import cv2
 import numpy as np
 from typing import Optional
 
+from physiotrack.core.overlay import OverlayCanvas, alpha_composite
 from physiotrack.signals.ppg.estimator import HeartRateEstimator
 
 
@@ -69,28 +69,28 @@ class EstimatorPanel:
 
     # -- shared drawing helpers (``s`` scales everything to the 460 px reference) --
     def _new_canvas(self):
-        """Transparent BGRA panel with the standard background + border. Returns (canvas, s, pad)."""
+        """A high-quality (supersampled, TrueType) overlay panel with the standard
+        background + border. Returns ``(OverlayCanvas, s, pad)``; subclasses draw on
+        the canvas and return ``canvas.render()``."""
         w, h = self.canvas_width, self.canvas_height
         s = w / 460.0
-        canvas = np.zeros((h, w, 4), np.uint8)
-        cv2.rectangle(canvas, (0, 0), (w - 1, h - 1), (24, 22, 28, int(self.bg_alpha * 255)), -1)
-        cv2.rectangle(canvas, (0, 0), (w - 1, h - 1), (105, 95, 90, 220), max(1, round(s)))
-        return canvas, s, max(6, int(10 * s))
+        ov = OverlayCanvas(w, h, bg=(24, 22, 28), bg_alpha=self.bg_alpha,
+                           border=(105, 95, 90), radius=max(2, int(8 * s)))
+        return ov, s, max(6, int(10 * s))
 
-    def _draw_bvp(self, canvas, color, *, y0, ph, pad, s, window_sec):
+    def _draw_bvp(self, ov, color, *, y0, ph, pad, s, window_sec):
         """Draw the band-passed BVP trace, or a 'collecting...' note if too short."""
         bvp = self.estimator.bvp
         if bvp.size >= 2:
             seg = bvp[-int(window_sec * self.estimator.fps):]
             seg = seg - seg.min()
             rng = seg.max() or 1.0
-            xs = np.linspace(pad, canvas.shape[1] - pad, len(seg))
-            pts = [[int(x), int(y0 + ph - (v / rng) * ph)] for x, v in zip(xs, seg)]
-            cv2.polylines(canvas, [np.array(pts, np.int32)], False, (*color, 255),
-                          max(1, round(1.5 * s)), cv2.LINE_AA)
+            xs = np.linspace(pad, self.canvas_width - pad, len(seg))
+            pts = [(float(x), float(y0 + ph - (v / rng) * ph)) for x, v in zip(xs, seg)]
+            ov.polyline(pts, color, width=1.5 * s)
         else:
-            cv2.putText(canvas, "collecting...", (pad, y0 + ph // 2), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5 * s, (150, 150, 150, 255), max(1, round(s)), cv2.LINE_AA)
+            ov.text((pad, y0 + ph // 2 - int(9 * s)), "collecting...",
+                    size=18 * s, color=(150, 150, 150))
 
     def render(self) -> np.ndarray:
         """Render the panel as a transparent BGRA image. Implemented by subclasses."""
@@ -110,9 +110,6 @@ class EstimatorPanel:
         x1 = margin if "left" in position else w - cw - margin
         y1 = int(np.clip(y1, 0, h - ch))
         x1 = int(np.clip(x1, 0, w - cw))
-        roi = frame[y1:y1 + ch, x1:x1 + cw].astype(np.float32)
-        alpha = canvas[:, :, 3:4].astype(np.float32) / 255.0
-        blended = alpha * canvas[:, :, :3].astype(np.float32) + (1.0 - alpha) * roi
         out = frame.copy()
-        out[y1:y1 + ch, x1:x1 + cw] = blended.astype(np.uint8)
+        alpha_composite(out, canvas, x1, y1)
         return out

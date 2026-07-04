@@ -7,6 +7,8 @@ import numpy as np
 import cv2
 from typing import Optional, Tuple
 
+from physiotrack.core.overlay import OverlayCanvas, alpha_composite
+
 
 class DepthView:
     """
@@ -101,18 +103,20 @@ class DepthView:
             # Return empty canvas if no depth data
             canvas = np.zeros((self.max_height, self.max_width, 3), dtype=np.uint8)
             canvas.fill(40)
-            cv2.putText(canvas, "Depth Map", (10, 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-            cv2.putText(canvas, "No data", (10, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (128, 128, 128), 1)
+            ov = OverlayCanvas(self.max_width, self.max_height)
+            ov.text((10, 6), "Depth Map", size=22, color=(255, 255, 255), bold=True)
+            ov.text((10, 36), "No data", size=18, color=(128, 128, 128))
+            alpha_composite(canvas, ov.render(), 0, 0)
             return canvas
 
         canvas = self.depth_canvas.copy()
 
         # Add title if enabled
         if self.show_title:
-            cv2.putText(canvas, "Depth Map", (10, 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            ch, cw = canvas.shape[:2]
+            ov = OverlayCanvas(cw, ch)
+            ov.text((10, 6), "Depth Map", size=20, color=(255, 255, 255), bold=True)
+            alpha_composite(canvas, ov.render(), 0, 0)
 
         return canvas
 

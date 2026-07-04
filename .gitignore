@@ -37,6 +37,8 @@ main.py
 *.dll
 *.bz2
 *.ttf
+# ...except the bundled overlay fonts, which ship as package data
+!src/physiotrack/assets/fonts/*.ttf
 *.lnk
 
 # generated docs / diagrams / scratch
