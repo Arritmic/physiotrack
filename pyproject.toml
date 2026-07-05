@@ -20,6 +20,20 @@ docs = [
   "mkdocs-autorefs>=1.0",
   "pymdown-extensions>=10",
 ]
+test = [
+  "pytest>=7",
+  "numpy",
+  "scipy",
+  "pandas",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::RuntimeWarning",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/physiotrack/physiotrack"

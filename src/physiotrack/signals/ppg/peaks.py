@@ -14,6 +14,8 @@ variability: standards of measurement, physiological interpretation and clinical
 use", *Circulation* 93(5), 1996).
 """
 
+from typing import Optional, Tuple
+
 import numpy as np
 from scipy.signal import find_peaks
 
@@ -22,7 +24,9 @@ from physiotrack.signals.ppg.constants import HR_BAND
 __all__ = ["detect_pulse_peaks", "bvp_to_rri"]
 
 
-def detect_pulse_peaks(bvp, fps, hr_band=HR_BAND, prominence=None):
+def detect_pulse_peaks(bvp: np.ndarray, fps: float,
+                       hr_band: Tuple[float, float] = HR_BAND,
+                       prominence: Optional[float] = None) -> np.ndarray:
     """Locate systolic peaks in a blood-volume-pulse waveform.
 
     Runs :func:`scipy.signal.find_peaks` with a minimum inter-peak distance derived
@@ -53,16 +57,25 @@ def detect_pulse_peaks(bvp, fps, hr_band=HR_BAND, prominence=None):
         [`bvp_to_rri`][physiotrack.signals.bvp_to_rri]: builds the RR-interval series
             from these peaks.
     """
+    if not np.isfinite(fps) or fps <= 0:
+        raise ValueError(f"fps must be a positive, finite number, got {fps!r}.")
     bvp = np.asarray(bvp, dtype=float).ravel()
     if bvp.size < 2:
         return np.array([], dtype=int)
+    if not np.all(np.isfinite(bvp)):
+        raise ValueError("bvp contains non-finite values (NaN/inf); supply a finite, "
+                         "gap-filled signal (find_peaks silently skips beats near NaNs).")
     hi_hz = float(hr_band[1])
-    distance = max(1, int(round(fps / hi_hz)))
+    # Floor (not round) so beats up to the top of the band are admitted: at the band
+    # edge round() would over-space and merge legitimate fast beats.
+    distance = max(1, int(fps / hi_hz))
     peaks, _ = find_peaks(bvp, distance=distance, prominence=prominence)
     return peaks.astype(int)
 
 
-def bvp_to_rri(bvp, fps, hr_band=HR_BAND, prominence=None):
+def bvp_to_rri(bvp: np.ndarray, fps: float,
+               hr_band: Tuple[float, float] = HR_BAND,
+               prominence: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray]:
     """Extract the RR-interval (inter-beat-interval) series from a BVP waveform.
 
     Detects systolic peaks with

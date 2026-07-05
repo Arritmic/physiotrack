@@ -1,15 +1,26 @@
-from scipy import signal
 import numpy as np
+
+from physiotrack.signals.filters import bandpass_filter
+
+#: Band (Hz) used to compute the chrominance-mixing coefficient alpha. de Haan &
+#: Jeanne band-pass X and Y before setting alpha = std(Xf)/std(Yf); this covers the
+#: plausible pulse range (30-240 bpm). It is kept local (not imported from
+#: ``constants``) to avoid a circular import with the method registry.
+_ALPHA_BAND = (0.5, 4.0)
 
 
 class CHROM:
     """Chrominance-based (CHROM) blood-volume-pulse extractor.
 
     Recovers a blood-volume-pulse (BVP) signal from an RGB skin colour trace via
-    two chrominance projections, ``X = 3R - 2G`` and ``Y = 1.5R + G - 1.5B``,
-    combined as ``BVP = X - (sigma_X / sigma_Y) * Y`` to suppress the specular
-    (motion) component. Described in Benezeth et al., "Remote heart rate
-    variability for emotional state monitoring".
+    two chrominance projections. Following de Haan & Jeanne, "Robust pulse rate
+    from chrominance-based rPPG" (*IEEE TBME* 60(10):2878-2886, 2013), each channel
+    is first temporally mean-normalised (``Rn = R / mean(R)``, etc.) so the fixed
+    projection coefficients operate on fractional reflectance changes; then
+    ``X = 3Rn - 2Gn`` and ``Y = 1.5Rn + Gn - 1.5Bn`` are combined as
+    ``BVP = X - (sigma_Xf / sigma_Yf) * Y`` where ``sigma_Xf``/``sigma_Yf`` are the
+    standard deviations of the *band-passed* X and Y, so the specular/motion term is
+    cancelled at pulse frequencies.
 
     Attributes:
         method_name (str): Method identifier, ``"CHROM"``.
@@ -44,24 +55,36 @@ class CHROM:
                 rows ordered R, G, B and ``N`` time samples.
 
         Returns:
-            np.ndarray: The 1-D blood-volume-pulse signal of length ``N``.
+            np.ndarray: The 1-D blood-volume-pulse signal of length ``N``. The
+                heart-rate band-pass filtering the rPPG pipeline applies downstream
+                turns ``X - alpha*Y`` into the reference ``Xf - alpha*Yf``.
         """
+        rgb = np.asarray(signal, dtype=float)
 
-        # calculation of new X and Y
-        Xcomp = 3 * signal[0] - 2 * signal[1]
-        Ycomp = (1.5 * signal[0]) + signal[1] - (1.5 * signal[2])
+        # Per-channel temporal-mean normalization (de Haan & Jeanne 2013, Eq. 5-6):
+        # convert each channel to fractional reflectance changes so the fixed
+        # projection coefficients cancel the intensity/specular term. Guard against
+        # a zero channel mean.
+        means = np.mean(rgb, axis=1, keepdims=True)
+        means[means == 0] = 1.0
+        rgb_n = rgb / means
 
-        # standard deviations
-        sX = np.std(Xcomp)
-        sY = np.std(Ycomp)
+        # Chrominance projections on the normalized channels.
+        Xcomp = 3.0 * rgb_n[0] - 2.0 * rgb_n[1]
+        Ycomp = 1.5 * rgb_n[0] + rgb_n[1] - 1.5 * rgb_n[2]
 
-        if sY != 0.0:
-            alpha = sX / sY
-        else:
-            alpha = 1.0
+        # alpha is set from the *band-passed* X/Y so the specular term is cancelled
+        # in the pulse band (Eq. 6). Fall back to broadband std if the trace is too
+        # short to filter.
+        try:
+            Xf = bandpass_filter(Xcomp, _ALPHA_BAND[0], _ALPHA_BAND[1], self.frameRate, order=3)
+            Yf = bandpass_filter(Ycomp, _ALPHA_BAND[0], _ALPHA_BAND[1], self.frameRate, order=3)
+        except Exception:
+            Xf, Yf = Xcomp, Ycomp
+        sX, sY = np.std(Xf), np.std(Yf)
+        alpha = sX / sY if sY != 0.0 else 1.0
 
-        # -- rPPG signal
+        # -- rPPG signal (left unfiltered; the pipeline band-passes it downstream).
         bvp = Xcomp - alpha * Ycomp
-
         return bvp
 

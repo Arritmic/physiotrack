@@ -104,7 +104,9 @@ class RealTimePlotter:
         self.min_y_value = 0
         self.fps = fps
         self.dpi = dpi
-        self.number_of_seconds_x_axis = int(number_samples_x_axis / fps)
+        # Keep the true (possibly fractional) window length in seconds; truncating to
+        # int mis-scaled the time axis for non-integer-second windows (e.g. 100/30 s).
+        self.number_of_seconds_x_axis = number_samples_x_axis / fps
         self.samples_number_x_axis = number_samples_x_axis  # Default is assuming 10 seconds and 30 fps
         if colors is not None:
             self.colors = colors
@@ -198,7 +200,7 @@ class RealTimePlotter:
 
         if self.plotting_method == "OCV":
             while len(self.values_arrays['values_signal_0']) > self.width:
-                self.val.pop(0)
+                self.values_arrays['values_signal_0'].pop(0)
         elif self.plotting_method == "MPL":
             while len(self.values_arrays['values_signal_0']) > len(self.x):
                 for i in range(self.number_of_signals):
@@ -223,8 +225,9 @@ class RealTimePlotter:
         if self.plotting_method == "OCV":
             self.plot_image = np.ones((self.height, self.width, 3)) * 255
             cv2.line(self.plot_image, (0, self.height // 2), (self.width, self.height // 2), (0, 255, 0), 1)
-            for i in range(len(self.val) - 1):
-                cv2.line(self.plot_image, (i, self.height // 2 - self.val[i]), (i + 1, self.height // 2 - self.val[i + 1]), self.color, 1)
+            vals = self.values_arrays['values_signal_0']
+            for i in range(len(vals) - 1):
+                cv2.line(self.plot_image, (i, self.height // 2 - int(vals[i])), (i + 1, self.height // 2 - int(vals[i + 1])), self.color, 1)
 
             cv2.imshow(label, self.plot_image)
             cv2.waitKey(2)
@@ -235,13 +238,13 @@ class RealTimePlotter:
             plt.ylim(self.axisLimits[2], self.axisLimits[3])
 
             for i in range(self.number_of_signals):
+                # Mask the not-yet-filled part of the window (pre-seeded with zeros)
+                # to NaN so it is not drawn as a flat artificial line at y = 0, then
+                # plot the masked series (previously the raw list was plotted, so the
+                # masking had no effect).
                 vector_values = np.copy(self.values_arrays[str('values_signal_{i}'.format(i=i))])
                 vector_values[vector_values == 0] = np.nan
-                # mean = np.nanmean(vector_values)
-                # if self.number_of_signals == 1:
-                #     print("===============================")
-                #     print(self.x, self.values_arrays[str('values_signal_{i}'.format(i=i))])
-                plt.plot(self.x, self.values_arrays[str('values_signal_{i}'.format(i=i))], color=self.colors[i], label=self.signalLabels[i], linewidth=1.1)
+                plt.plot(self.x, vector_values, color=self.colors[i], label=self.signalLabels[i], linewidth=1.1)
 
             # All this settings could be made in the initialization
             plt.yticks(fontsize=5)

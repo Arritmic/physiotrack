@@ -214,7 +214,11 @@ def benchmark_rppg_methods(rgb_trace, fps, ref_hr_bpm=None, hr_band=HR_BAND):
             pass
         hr, _ = bvp_to_hr(bvp, fps, lo_hz=lo, hi_hz=hi)
         hr_val = float(hr[-1]) if hr.size else np.nan
-        snr = bvp_snr(bvp, fps, hr_val, hi_hz=hi)
+        # SNR is measured about the *reference* HR when one is supplied (de Haan &
+        # Jeanne, 2013), so it fairly ranks methods; only fall back to the method's
+        # own peak when no ground truth is available.
+        snr_ref = ref_hr_bpm if (ref_hr_bpm is not None and np.isfinite(ref_hr_bpm)) else hr_val
+        snr = bvp_snr(bvp, fps, snr_ref, hi_hz=hi)
         ae = abs(hr_val - ref_hr_bpm) if (ref_hr_bpm is not None and np.isfinite(hr_val)) else np.nan
         out[name] = {"hr": hr_val, "snr": snr, "AE": ae}
     return out

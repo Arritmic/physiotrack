@@ -16,8 +16,10 @@ Estimation From the ECG and PPG: A Review", *IEEE Reviews in Biomedical Engineer
 Each route reduces to a respiratory modulation waveform whose dominant frequency inside
 the respiration band ([`RESP_BAND`][physiotrack.signals.ppg.constants.RESP_BAND],
 0.10-0.50 Hz == 6-30 breaths/min) is the breathing rate. Because there is no single
-canonical reference implementation, these functions are validated against synthetic
-signals with a known modulation frequency in the test suite.
+canonical reference implementation, these functions are validated in
+``tests/test_respiration.py`` against synthetic amplitude- and frequency-modulated
+signals whose modulation frequency is known, requiring the recovered rate to match the
+injected breathing rate.
 """
 
 import numpy as np

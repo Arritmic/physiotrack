@@ -260,6 +260,18 @@ Model weights are **not** bundled; they download automatically on first use thro
 [`Models` registry](#model-registry) (Ultralytics weights via `ultralytics`, everything else from
 Hugging Face).
 
+### Testing
+
+The signals subsystem (rPPG, HRV, respiration, filters, motion) ships with a `pytest`
+suite that validates the biomedical DSP against closed-form references and synthetic
+signals with known ground truth (and cross-checks against NeuroKit2 when it is
+installed):
+
+```bash
+pip install -e .[test]
+pytest            # runs tests/
+```
+
 ---
 
 ## Quick Start
