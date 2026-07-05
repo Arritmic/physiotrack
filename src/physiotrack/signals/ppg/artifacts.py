@@ -16,8 +16,11 @@ ectopic and long/short beats re-positioned to the local interval midpoint.
 
 The classification thresholds (``c1 = 0.13``, ``c2 = 0.17``, ``alpha = 5.2``,
 91-beat threshold window, 11-beat median window) are the paper's published values.
-This is a native numpy/pandas re-implementation and is numerically cross-checked
-against NeuroKit2's ``signal_fixpeaks(method="kubios")`` in the test suite.
+This is a native numpy/pandas re-implementation. It is validated in
+``tests/test_artifacts.py`` against synthetic RR series with injected extra, missed and
+ectopic beats (asserting each is detected and repaired, and that a clean series is left
+unchanged), and additionally cross-checked against NeuroKit2's
+``signal_fixpeaks(method="kubios")`` when NeuroKit2 is installed.
 """
 
 import numpy as np

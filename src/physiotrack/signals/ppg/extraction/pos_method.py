@@ -60,10 +60,14 @@ class POS:
         # Run the pos algorithm on the RGB color signal c with sliding window length wlen
         # Recommended value for wlen is 32 for a 20 fps camera (1.6 s)
 
-        wlen = int(1.6 * self.frameRate)
+        n_samples = signal.shape[1]
+        # Clamp the window to the available samples so a trace shorter than 1.6 s
+        # still yields a pulse (a single whole-signal window) instead of silently
+        # returning all zeros. Two samples are the minimum for a std/projection.
+        wlen = max(2, min(int(1.6 * self.frameRate), n_samples))
 
         # Initialize (1)
-        h = np.zeros(signal.shape[1])
+        h = np.zeros(n_samples)
         for n in range(signal.shape[1]):
             # Start index of sliding window (4)
             m = n - wlen + 1

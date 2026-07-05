@@ -85,12 +85,17 @@ def event_synchronization(signal1, signal2, max_delay=5):
     peaks1, _ = find_peaks(signal1, distance=40)  # Detect peaks
     peaks2, _ = find_peaks(signal2, distance=40)
 
+    denom = max(len(peaks1), len(peaks2))
+    if denom == 0:
+        # Neither signal has a detectable peak: no events to synchronise.
+        return 0.0
+
     count = 0
     for p1 in peaks1:
         if any(abs(p1 - p2) <= max_delay for p2 in peaks2):
             count += 1
 
-    esi = count / max(len(peaks1), len(peaks2))  # Normalize
+    esi = count / denom  # Normalize
     return esi
 
 
@@ -124,7 +129,11 @@ def phase_synchrony(signal1, signal2):
     phase1 = np.angle(hilbert(signal1))  # Extract phase
     phase2 = np.angle(hilbert(signal2))
 
-    phase_diff = np.abs(phase1 - phase2)  # Phase difference
+    # Wrap the phase difference to (-pi, pi] before taking the magnitude, so the
+    # circular distance is measured correctly (a raw phase1 - phase2 spans
+    # [-2pi, 2pi], which would let the index fall below 0 for in-phase signals
+    # whose instantaneous phases straddle the +/-pi wrap-around).
+    phase_diff = np.abs(np.angle(np.exp(1j * (phase1 - phase2))))
     return 1 - (np.mean(phase_diff) / np.pi)  # Normalize between 0 and 1
 
 

@@ -14,8 +14,11 @@ produced by [`bvp_to_rri`][physiotrack.signals.bvp_to_rri]. Definitions follow:
   analysis using approximate entropy and sample entropy", *Am. J. Physiol.* 278(6),
   2000; Pincus, *PNAS* 88, 1991.
 
-The implementations here are original (numpy/scipy) and are numerically cross-checked
-against NeuroKit2 in the test suite.
+The implementations here are original (numpy/scipy). They are validated in
+``tests/test_hrv.py`` against closed-form references on known RR series (RMSSD/SDNN/
+pNNx by direct formula, SD1/SD2 via the Poincare identities, sample/approximate entropy
+against a brute-force reference, and band powers on a synthetic tachogram with a known
+LF/HF tone), and additionally cross-checked against NeuroKit2 when it is installed.
 """
 
 import numpy as np

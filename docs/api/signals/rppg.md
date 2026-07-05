@@ -51,7 +51,8 @@ the Lipponen &amp; Tarvainen (2019) beat classifier before HRV analysis.
 ## Heart-rate variability (HRV)
 
 Time-, frequency- and non-linear-domain HRV indices (Task Force 1996; Brennan 2001;
-Richman &amp; Moorman 2000). Numerically cross-checked against NeuroKit2.
+Richman &amp; Moorman 2000), validated against closed-form references (and NeuroKit2 when
+it is installed) in the test suite.
 
 ::: physiotrack.signals.compute_hrv
 

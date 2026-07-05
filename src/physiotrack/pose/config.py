@@ -210,8 +210,9 @@ COCO_WHOLEBODY = {
                             "130": "right_hand_pinky_2",
                             "131": "right_hand_pinky_3",
                             "132": "right_hand_pinky_tip",
-                            "133": "head_centroid", 
-                            "134": "body_centroid"
+                            "133": "head_centroid",
+                            "134": "body_centroid",
+                            "135": "pelvic_centroid"
                         }
 
 
@@ -300,7 +301,11 @@ HUMAN26M = {
             13: 'left_wrist',
             14: 'right_shoulder',
             15: 'right_elbow',
-            16: 'right_wrist'
+            16: 'right_wrist',
+            # Derived centroids appended by the motion helpers (add_*_centroid).
+            133: 'head_centroid',
+            134: 'body_centroid',
+            135: 'pelvic_centroid'
         }
 
 

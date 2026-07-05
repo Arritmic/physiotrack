@@ -1,9 +1,7 @@
 import numpy as np
 import scipy.sparse
-from scipy.signal import medfilt, detrend
-from scipy.signal import butter, lfilter, filtfilt, freqz
 from scipy import signal
-from scipy.signal import find_peaks, stft, lfilter, butter, welch, hilbert, firwin
+from scipy.signal import butter, lfilter, filtfilt, detrend, firwin
 
 
 def bandpass_filter(x, minHz, maxHz, fs, order=6):
@@ -89,8 +87,11 @@ def zero_mean_std_norm(x):
             single-channel variant using a global mean/std.
     """
     # -- normalization along rows (1-3 channels)
+    x = np.asarray(x, dtype=float)
     mx = x.mean(axis=1).reshape(-1, 1)
     sx = x.std(axis=1).reshape(-1, 1)
+    # Guard constant channels (std == 0) to avoid divide-by-zero -> NaN propagation.
+    sx = np.where(sx == 0, 1.0, sx)
     y = (x - mx) / sx
     return y
 
@@ -106,8 +107,8 @@ def zero_mean_std_norm_1ch(x):
         x (np.ndarray): Input signal, typically 1D of shape ``(N,)``.
 
     Returns:
-        np.ndarray: Standardized signal (mean 0, std 1) with the same values
-            reshaped so the reduced statistics broadcast against ``x``.
+        np.ndarray: Standardized signal (mean 0, std 1) with the **same shape** as
+            ``x``.
 
     Example:
         ```python
@@ -120,9 +121,13 @@ def zero_mean_std_norm_1ch(x):
         [`zero_mean_std_norm`][physiotrack.signals.zero_mean_std_norm]:
             multi-channel (per-row) variant.
     """
-    # -- normalization along rows (1-3 channels)
-    mx = x.mean().reshape(-1, 1)
-    sx = x.std().reshape(-1, 1)
+    # Global mean/std as scalars so the output keeps the input's shape (a 1-D
+    # ``(N,)`` trace stays 1-D rather than being broadcast to ``(1, N)``).
+    x = np.asarray(x, dtype=float)
+    mx = x.mean()
+    sx = x.std()
+    if sx == 0:
+        sx = 1.0
     y = (x - mx) / sx
     return y
 
@@ -154,8 +159,9 @@ def bandpass_firwin(ntaps, lowcut, highcut, fs, window='hamming'):
         filtered = lfilter(taps, 1.0, signal)
         ```
     """
-    nyq = 0.5 * fs
-    taps = firwin(ntaps, [lowcut, highcut], nyq=nyq, pass_zero=False, window=window, scale=False)
+    # Cutoffs are given directly in Hz; pass ``fs`` so ``firwin`` normalises them
+    # internally. (The legacy ``nyq=`` keyword was removed in SciPy 1.12.)
+    taps = firwin(ntaps, [lowcut, highcut], fs=fs, pass_zero=False, window=window, scale=False)
     return taps
 
 
@@ -187,11 +193,10 @@ def band_pass_filter(signal, bandpass, fs, order=5):
         [`bandpass_filter`][physiotrack.signals.bandpass_filter]: same design
             with the band passed as ``minHz``/``maxHz`` arguments.
     """
-    # Bandpass filter
-    [c, d] = butter(order, bandpass, 'bandpass', fs=fs)
-    # [e, f] = signal.butter(5, 0.18, 'highpass', fs=fs)
-    pulse_signal = lfilter(c, d, signal)
-    return pulse_signal
+    # Single implementation lives in ``bandpass_filter``; this is the two-argument
+    # (band-as-pair) convenience wrapper so the two never diverge.
+    low, high = bandpass
+    return bandpass_filter(signal, low, high, fs, order=order)
 
 
 def signaltonoise_dB(a, axis=0, ddof=0):
