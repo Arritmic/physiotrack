@@ -161,11 +161,27 @@ class Models:
             vitb = "depth_anything_v2_vitb.pth"
             vitl = "depth_anything_v2_vitl.pth"
 
-        # Model configurations for each encoder type
+        class ZipDepth(Enum):
+            # Lightweight monocular depth. Both checkpoints share the same
+            # variant='base'/global_mode='balanced' encoder+decoder weights and
+            # differ only in the upsampling head.
+            base = "zipdepth_base.pth"          # GPU/server head (convex unfold)
+            npu = "zipdepth_base_npu.pth"       # NPU/CPU/mobile-friendly head
+
+        # DepthAnythingV2 architecture config per encoder type. ``input_size`` is
+        # the default square inference resolution for the encoder.
         MODEL_CONFIGS = {
-            'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
-            'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
-            'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
+            'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384], 'input_size': 518},
+            'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768], 'input_size': 518},
+            'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024], 'input_size': 518},
+        }
+
+        # ZipDepth build config per variant. ``upsample_unfold`` selects the head
+        # matching each checkpoint; ``input_size`` is the shorter-side resolution
+        # (aspect ratio preserved) the model was trained at.
+        ZIPDEPTH_CONFIGS = {
+            'base': {'variant': 'base', 'global_mode': 'balanced', 'upsample_unfold': True, 'input_size': 384},
+            'npu': {'variant': 'base', 'global_mode': 'balanced', 'upsample_unfold': False, 'input_size': 384},
         }
 
     class Segmentation:
@@ -349,6 +365,14 @@ class Models:
         return Models._download_file(download_url, file_name, download_path)
 
     @staticmethod
+    def _download_zipdepth_model(model_info, download_path):
+        """Download a ZipDepth checkpoint from the tharindu326/physiotrack HuggingFace repo."""
+        file_name = model_info['file_name']
+        base_url = f"https://huggingface.co/tharindu326/physiotrack/resolve/main"
+        download_url = f"{base_url}/{file_name}?download=true"
+        return Models._download_file(download_url, file_name, download_path)
+
+    @staticmethod
     def _download_segface_model(model_info, download_path):
         """Download a SegFace face-parsing checkpoint from the physiotrack HuggingFace repo."""
         file_name = model_info['file_name']
@@ -461,6 +485,8 @@ class Models:
             return Models._download_ddh_model(model_info, download_path)
         elif model_info['backend'] == 'DepthAnythingV2':
             return Models._download_depth_model(model_info, download_path)
+        elif model_info['backend'] == 'ZipDepth':
+            return Models._download_zipdepth_model(model_info, download_path)
         elif model_info['backend'] == 'SegFace':
             return Models._download_segface_model(model_info, download_path)
         else:
@@ -728,7 +754,7 @@ class Models:
         """Verify a model is a valid depth registry member.
 
         Accepts ``model`` if it is a member of any enum under ``Models.Depth``
-        (currently ``DepthAnythingV2``). Returns ``None`` on success.
+        (``DepthAnythingV2`` or ``ZipDepth``). Returns ``None`` on success.
 
         Args:
             model (enum.Enum): The candidate depth registry member, e.g.
@@ -779,39 +805,49 @@ class Models:
 
     @staticmethod
     def get_depth_config(model):
-        """Return the architecture config for a DepthAnythingV2 encoder.
+        """Return the build config for a depth model, dispatched by backend.
 
-        Looks up the encoder-specific settings (feature width and per-stage output
-        channels) needed to construct the DepthAnythingV2 network for ``model``.
+        Looks up the settings needed to construct the depth network for ``model``.
+        The returned dict is backend-specific but always carries an ``input_size``
+        key giving the model's default inference resolution:
+
+        - ``DepthAnythingV2`` members return the encoder config with keys
+          ``"encoder"``, ``"features"``, ``"out_channels"`` and ``"input_size"``.
+        - ``ZipDepth`` members return the build config with keys ``"variant"``,
+          ``"global_mode"``, ``"upsample_unfold"`` and ``"input_size"``.
 
         Args:
-            model (Models.Depth.DepthAnythingV2): A DepthAnythingV2 member; its
-                ``.name`` (``"vits"``, ``"vitb"``, or ``"vitl"``) selects the config.
+            model (Models.Depth.*): A depth registry member, e.g.
+                ``Models.Depth.DepthAnythingV2.vitl`` or ``Models.Depth.ZipDepth.base``.
 
         Returns:
-            dict: The config for the encoder, with keys ``"encoder"`` (str),
-                ``"features"`` (int), and ``"out_channels"`` (list[int]). For
-                example, ``vits`` returns ``features=64`` and
-                ``out_channels=[48, 96, 192, 384]``.
+            dict: The config for the model (see above).
 
         Raises:
-            ValueError: If ``model`` is not a
-                ``Models.Depth.DepthAnythingV2`` member or its encoder is unknown.
+            ValueError: If ``model`` is not a recognized ``Models.Depth`` member
+                or its variant is unknown.
 
         Example:
             ```python
             from physiotrack import Models
-            cfg = Models.get_depth_config(Models.Depth.DepthAnythingV2.vitl)
+            cfg = Models.get_depth_config(Models.Depth.ZipDepth.base)
             ```
         """
-        if not isinstance(model, Models.Depth.DepthAnythingV2):
-            raise ValueError(f"Expected a Models.Depth.DepthAnythingV2 enum member, got {type(model)}")
+        if isinstance(model, Models.Depth.DepthAnythingV2):
+            encoder_name = model.name  # 'vits', 'vitb', or 'vitl'
+            if encoder_name not in Models.Depth.MODEL_CONFIGS:
+                raise ValueError(f"Unknown DepthAnythingV2 encoder: {encoder_name}")
+            return Models.Depth.MODEL_CONFIGS[encoder_name]
 
-        encoder_name = model.name  # 'vits', 'vitb', or 'vitl'
-        if encoder_name not in Models.Depth.MODEL_CONFIGS:
-            raise ValueError(f"Unknown encoder: {encoder_name}")
+        if isinstance(model, Models.Depth.ZipDepth):
+            variant_name = model.name  # 'base' or 'npu'
+            if variant_name not in Models.Depth.ZIPDEPTH_CONFIGS:
+                raise ValueError(f"Unknown ZipDepth variant: {variant_name}")
+            return Models.Depth.ZIPDEPTH_CONFIGS[variant_name]
 
-        return Models.Depth.MODEL_CONFIGS[encoder_name]
+        raise ValueError(
+            f"Expected a Models.Depth.<Backend> enum member, got {type(model)}"
+        )
 
 
 if __name__ == "__main__":

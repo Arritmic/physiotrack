@@ -3,7 +3,7 @@ Depth Estimation Module
 Provides high-level wrapper for depth estimation models.
 """
 
-from . import DepthAnythingV2Inference, Models
+from . import DepthAnythingV2Inference, ZipDepthInference, Models
 from ..results import DepthResult
 import os
 import numpy as np
@@ -22,31 +22,34 @@ class DepthBase:
 
     Attributes:
         model (Models.Depth.*): The resolved model enum in use.
-        depth_framework (str): Backend name, e.g. ``"DepthAnythingV2"``.
+        depth_framework (str): Backend name, e.g. ``"DepthAnythingV2"`` or ``"ZipDepth"``.
         device (int | str): Inference device.
-        input_size (int): Square input resolution used for inference.
+        input_size (int): Input resolution used for inference.
         verbose (bool): Whether initialization info is printed.
     """
 
     default_model = None
 
-    def __init__(self, model=None, device='cpu', input_size: int = 518,
+    def __init__(self, model=None, device='cpu', input_size: Optional[int] = None,
                  verbose: bool = True, **kwargs):
         """Configure a depth estimator.
 
         Args:
             model (Models.Depth.*, optional): A validated depth model enum, e.g.
-                ``Models.Depth.DepthAnythingV2.vitl``. Defaults to ``None`` (uses
-                the preset's class-level ``default_model``).
+                ``Models.Depth.DepthAnythingV2.vitl`` or ``Models.Depth.ZipDepth.base``.
+                Defaults to ``None`` (uses the preset's class-level ``default_model``).
             device (int | str, optional): Inference device, e.g. ``'cpu'``,
                 ``'cuda'``, ``'mps'`` or a device index like ``0``. Defaults to
                 ``'cpu'``.
-            input_size (int, optional): Square input resolution used for
-                inference. Defaults to ``518``.
+            input_size (int, optional): Input resolution used for inference. For
+                Depth-Anything-V2 this is the square input size; for ZipDepth it
+                is the length of the image's shorter side (aspect ratio preserved).
+                Defaults to ``None``, which selects the model's native resolution
+                (518 for Depth-Anything-V2, 384 for ZipDepth).
             verbose (bool, optional): Print initialization info. Defaults to
                 ``True``.
-            **kwargs (Any): Reserved for forward-compatibility; currently unused by the
-                Depth-Anything-V2 backend.
+            **kwargs (Any): Reserved for forward-compatibility; currently unused by
+                the depth backends.
 
         Raises:
             ValueError: If no model can be resolved, or the model maps to an
@@ -71,11 +74,22 @@ class DepthBase:
         self.depth_framework = self.minfo['backend']
         print(f'Initiating {self.depth_framework} {model.name} for Depth Estimation')
 
-        # Get model configuration
+        # Get model configuration. When ``input_size`` is not specified, fall back
+        # to the model's native resolution declared in its registry config.
         model_config = Models.get_depth_config(model)
+        if input_size is None:
+            input_size = model_config.get('input_size', 518)
 
         if self.depth_framework == 'DepthAnythingV2':
             self.depth_estimator = DepthAnythingV2Inference(
+                model_path=model_path,
+                model_config=model_config,
+                device=device,
+                input_size=input_size,
+                verbose=verbose
+            )
+        elif self.depth_framework == 'ZipDepth':
+            self.depth_estimator = ZipDepthInference(
                 model_path=model_path,
                 model_config=model_config,
                 device=device,
@@ -169,6 +183,10 @@ class Depth:
         - [`DepthAnythingV2Large`][physiotrack.Depth.DepthAnythingV2Large] /
           [`DepthAnythingV2`][physiotrack.Depth.DepthAnythingV2]: ``vitl`` — most
           accurate.
+        - [`ZipDepth`][physiotrack.Depth.ZipDepth]: ``base`` — lightweight
+          (~6M params), fast, relative depth; GPU/server head.
+        - [`ZipDepthNPU`][physiotrack.Depth.ZipDepthNPU]: ``npu`` — ZipDepth with
+          an NPU/CPU/mobile-friendly upsampling head.
         - [`Custom`][physiotrack.Depth.Custom]: any validated depth model.
 
     Example:
@@ -202,17 +220,18 @@ class Depth:
             ```
         """
 
-        def __init__(self, model, device='cpu', input_size: int = 518,
+        def __init__(self, model, device='cpu', input_size: Optional[int] = None,
                      verbose: bool = True, **kwargs):
             """Configure a custom depth estimator.
 
             Args:
                 model (Models.Depth.*): A validated depth model enum, e.g.
-                    ``Models.Depth.DepthAnythingV2.vitl``.
+                    ``Models.Depth.DepthAnythingV2.vitl`` or
+                    ``Models.Depth.ZipDepth.base``.
                 device (int | str, optional): Inference device, e.g. ``'cpu'``,
                     ``'cuda'``, ``'mps'`` or a device index. Defaults to ``'cpu'``.
-                input_size (int, optional): Square input resolution used for
-                    inference. Defaults to ``518``.
+                input_size (int, optional): Input resolution used for inference.
+                    Defaults to ``None`` (the model's native resolution).
                 verbose (bool, optional): Print initialization info. Defaults to
                     ``True``.
                 **kwargs (Any): Forwarded to
@@ -262,3 +281,23 @@ class Depth:
         arguments.
         """
         default_model = Models.Depth.DepthAnythingV2.vitl
+
+    class ZipDepth(DepthBase):
+        """ZipDepth estimator — lightweight monocular depth (GPU/server head).
+
+        Wraps ``Models.Depth.ZipDepth.base``, a ~6M-parameter model that returns
+        a relative (affine-invariant) depth map, much faster and smaller than
+        Depth-Anything-V2. See [`DepthBase`][physiotrack.Depth] for constructor
+        arguments.
+        """
+        default_model = Models.Depth.ZipDepth.base
+
+    class ZipDepthNPU(DepthBase):
+        """ZipDepth estimator with the NPU/CPU/mobile-friendly upsampling head.
+
+        Wraps ``Models.Depth.ZipDepth.npu``. Shares ZipDepth's encoder/decoder
+        weights but uses an ONNX/mobile-friendly upsampling head instead of the
+        unfold-based one. See [`DepthBase`][physiotrack.Depth] for constructor
+        arguments.
+        """
+        default_model = Models.Depth.ZipDepth.npu

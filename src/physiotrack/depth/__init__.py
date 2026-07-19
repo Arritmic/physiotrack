@@ -1,2 +1,2 @@
-from physiotrack import DepthAnythingV2Inference, Models
+from physiotrack import DepthAnythingV2Inference, ZipDepthInference, Models
 from .depth import Depth

@@ -15,7 +15,8 @@ Models.<Task>.<Backend>.<Enum>.<member>
 
 - **Task** — what the model does: `Detection`, `Pose`, `Pose3D`, `Depth`, `Segmentation`.
 - **Backend** — the architecture/family: `YOLO`, `RTDETR`, `Sapiens`, `ViTPose`,
-  `MotionBERT`, `DDH`, `FaceOrientation`, `Canonicalizer`, `DepthAnythingV2`, `SegFace`.
+  `MotionBERT`, `DDH`, `FaceOrientation`, `Canonicalizer`, `DepthAnythingV2`,
+  `ZipDepth`, `SegFace`.
 - **Enum** — a group of interchangeable checkpoints, usually by dataset or size
   (e.g. `Detection.YOLO.PERSON`, `Pose.ViTPose.WholeBody`).
 - **member** — one checkpoint. Its `.value` is the **weight filename** on disk;
@@ -34,7 +35,8 @@ Models.<Task>.<Backend>.<Enum>.<member>
 A few groups differ from the strict four-level shape: the `Pose3D` backends
 (`MotionBERT`, `DDH`, `FaceOrientation`) are `Enum`s **directly** under `Pose3D`;
 `Pose3D.Canonicalizer` holds a nested `Models` enum (3DPCNet weights) plus a
-`View` string enum; and `Depth.DepthAnythingV2` is an `Enum` directly under `Depth`.
+`View` string enum; and the `Depth` backends (`DepthAnythingV2`, `ZipDepth`) are
+`Enum`s directly under `Depth`.
 
 ### Downloading weights
 
@@ -53,7 +55,7 @@ Where a checkpoint comes from depends on the backend:
 | Source | Which models | Notes |
 |---|---|---|
 | **Ultralytics** (auto, on demand) | All `Pose.YOLO`; every `PERSON` YOLO/RT-DETR variant (`Detection.YOLO.PERSON`, `Detection.RTDETR.PERSON`, `Segmentation.YOLO.PERSON`) | `download_model` returns `None` — ultralytics fetches stock weights itself |
-| **`tharindu326/physiotrack`** (Hugging Face) | Detection FACE / VRFACE / VR / VRSTUDENT, RT-DETR VRSTUDENT, Segmentation VRHEAD, DDH, FaceOrientation, Canonicalizer (3DPCNet), DepthAnythingV2, SegFace | Project-hosted checkpoints |
+| **`tharindu326/physiotrack`** (Hugging Face) | Detection FACE / VRFACE / VR / VRSTUDENT, RT-DETR VRSTUDENT, Segmentation VRHEAD, DDH, FaceOrientation, Canonicalizer (3DPCNet), DepthAnythingV2, ZipDepth, SegFace | Project-hosted checkpoints |
 | **Upstream Hugging Face repos** | `Sapiens` pose → `noahcao/sapiens-pose-coco`; `Sapiens` seg → `facebook/sapiens-seg-{size}-torchscript`; `ViTPose` → `JunkyByte/easy_ViTPose`; `MotionBERT` → `walterzhu/MotionBERT` | Fetched from the original authors' repos |
 
 !!! note "Weight-free members"
@@ -182,25 +184,39 @@ weights): `FRONT` (`"front"`), `BACK` (`"back"`), `LEFT_SIDE` (`"left_side"`),
 
 ## Depth
 
-Monocular depth via Depth Anything V2. See the [Depth guide](guides/depth.md).
+Monocular depth via Depth Anything V2 (heavier, ViT-based) or ZipDepth
+(lightweight, ~6M params). Both return a **relative** (affine-invariant) depth
+map. See the [Depth guide](guides/depth.md).
 
 | Access path | Backend | Weight file | Notes |
 |---|---|---|---|
 | `Models.Depth.DepthAnythingV2.vits` | DepthAnythingV2 | `depth_anything_v2_vits.pth` | ViT-S (small) encoder |
 | `Models.Depth.DepthAnythingV2.vitb` | DepthAnythingV2 | `depth_anything_v2_vitb.pth` | ViT-B (base) encoder |
 | `Models.Depth.DepthAnythingV2.vitl` | DepthAnythingV2 | `depth_anything_v2_vitl.pth` | ViT-L (large) encoder |
+| `Models.Depth.ZipDepth.base` | ZipDepth | `zipdepth_base.pth` | Lightweight (~6M params), GPU/server upsampling head |
+| `Models.Depth.ZipDepth.npu` | ZipDepth | `zipdepth_base_npu.pth` | Same weights, NPU/CPU/mobile-friendly upsampling head |
 
 ### Encoder configurations
 
 `Models.Depth.MODEL_CONFIGS` (via
 [`get_depth_config`][physiotrack.Models.get_depth_config]) supplies the
-architecture parameters used to build each encoder:
+architecture parameters used to build each DepthAnythingV2 encoder:
 
 | Encoder | `features` | `out_channels` |
 |---|---|---|
 | `vits` | 64 | `[48, 96, 192, 384]` |
 | `vitb` | 128 | `[96, 192, 384, 768]` |
 | `vitl` | 256 | `[256, 512, 1024, 1024]` |
+
+`Models.Depth.ZIPDEPTH_CONFIGS` (also via
+[`get_depth_config`][physiotrack.Models.get_depth_config]) supplies the ZipDepth
+build settings. Both variants share the `base` architecture and differ only in
+the upsampling head (`upsample_unfold`):
+
+| Variant | `variant` | `global_mode` | `upsample_unfold` | `input_size` |
+|---|---|---|---|---|
+| `base` | `base` | `balanced` | `True` | 384 |
+| `npu` | `base` | `balanced` | `False` | 384 |
 
 ---
 
@@ -227,7 +243,7 @@ architecture parameters used to build each encoder:
 | Extension | Format | Used by |
 |---|---|---|
 | `.pt` | Ultralytics native (weights + built-in config) | YOLO / RT-DETR detection, pose, segmentation; SegFace |
-| `.pth` | PyTorch state dict (loaded with a matching config) | ViTPose, DepthAnythingV2, FaceOrientation, 3DPCNet |
+| `.pth` | PyTorch state dict (loaded with a matching config) | ViTPose, DepthAnythingV2, ZipDepth, FaceOrientation, 3DPCNet |
 | `.bin` | PyTorch checkpoint | MotionBERT, DDH |
 | `.pt2` | TorchScript (optimized inference) | Sapiens pose and segmentation |
 
