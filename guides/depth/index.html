@@ -1916,10 +1916,13 @@
 
 <h1 id="depth">Depth<a class="headerlink" href="#depth" title="Permanent link">&para;</a></h1>
 <p>Monocular depth estimation predicts a per-pixel depth map from a single RGB frame —
-no stereo rig or depth sensor required. Physiotrack wraps
-<a href="../../model-zoo/">Depth-Anything-V2</a>, giving you a dense <code>(H, W)</code> map you can
-normalize, colorize, or feed into 3D reasoning. Use it to add a relative Z channel
-to 2D detections, build depth overlays, or gate foreground/background.</p>
+no stereo rig or depth sensor required. Physiotrack wraps two backends —
+<a href="../../model-zoo/">Depth-Anything-V2</a> (heavier, ViT-based) and
+<a href="../../model-zoo/">ZipDepth</a> (lightweight, ~6M params) — giving you a dense
+<code>(H, W)</code> map you can normalize, colorize, or feed into 3D reasoning. Use it to add
+a relative Z channel to 2D detections, build depth overlays, or gate
+foreground/background. Both backends produce <strong>relative</strong> (affine-invariant)
+depth, not metric distance.</p>
 <p>Presets live on <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Depth&lt;/span&gt;" href="../../api/depth/#physiotrack.Depth"><code>Depth</code></a>. Call <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Depth&lt;/span&gt;" href="../../api/depth/#physiotrack.Depth"><code>predict</code></a>
 (or the instance directly) to get a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DepthResult&lt;/span&gt;" href="../../api/results/#physiotrack.DepthResult"><code>DepthResult</code></a>.</p>
 <h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
@@ -1937,36 +1940,47 @@ to 2D detections, build depth overlays, or gate foreground/background.</p>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;depth.png&quot;</span><span class="p">,</span> <span class="n">colored</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="available-presets">Available presets<a class="headerlink" href="#available-presets" title="Permanent link">&para;</a></h2>
-<p>All presets use the Depth-Anything-V2 backend; they differ only in the ViT
-backbone size. See the <a href="../../model-zoo/">Model Zoo</a> for download details.</p>
+<p>Depth-Anything-V2 presets differ only in the ViT backbone size; the two ZipDepth
+presets share one lightweight architecture and differ only in the upsampling
+head. See the <a href="../../model-zoo/">Model Zoo</a> for download details.</p>
 <table>
 <thead>
 <tr>
 <th>Preset</th>
-<th>Backbone</th>
+<th>Backend / variant</th>
 <th>Speed / accuracy</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DepthAnythingV2Small&lt;/span&gt;" href="../../api/depth/#physiotrack.Depth.DepthAnythingV2Small"><code>Depth.DepthAnythingV2Small</code></a></td>
-<td><code>vits</code></td>
-<td>Fastest, least accurate.</td>
+<td>DA-V2 <code>vits</code></td>
+<td>Fastest DA-V2, least accurate.</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DepthAnythingV2Base&lt;/span&gt;" href="../../api/depth/#physiotrack.Depth.DepthAnythingV2Base"><code>Depth.DepthAnythingV2Base</code></a></td>
-<td><code>vitb</code></td>
+<td>DA-V2 <code>vitb</code></td>
 <td>Balanced.</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DepthAnythingV2Large&lt;/span&gt;" href="../../api/depth/#physiotrack.Depth.DepthAnythingV2Large"><code>Depth.DepthAnythingV2Large</code></a></td>
-<td><code>vitl</code></td>
+<td>DA-V2 <code>vitl</code></td>
 <td>Most accurate.</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DepthAnythingV2&lt;/span&gt;" href="../../api/depth/#physiotrack.Depth.DepthAnythingV2"><code>Depth.DepthAnythingV2</code></a></td>
-<td><code>vitl</code></td>
+<td>DA-V2 <code>vitl</code></td>
 <td>Alias for the Large model.</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ZipDepth&lt;/span&gt;" href="../../api/depth/#physiotrack.Depth.ZipDepth"><code>Depth.ZipDepth</code></a></td>
+<td>ZipDepth <code>base</code></td>
+<td>Lightweight (~6M params), fast; GPU/server head.</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ZipDepthNPU&lt;/span&gt;" href="../../api/depth/#physiotrack.Depth.ZipDepthNPU"><code>Depth.ZipDepthNPU</code></a></td>
+<td>ZipDepth <code>npu</code></td>
+<td>ZipDepth with an NPU/CPU/mobile-friendly head.</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Custom&lt;/span&gt;" href="../../api/depth/#physiotrack.Depth.Custom"><code>Depth.Custom</code></a></td>
@@ -1977,8 +1991,11 @@ backbone size. See the <a href="../../model-zoo/">Model Zoo</a> for download det
 </table>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="kn">import</span> <span class="n">Depth</span><span class="p">,</span> <span class="n">Models</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Custom preset: choose an explicit validated model</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">depth</span> <span class="o">=</span> <span class="n">Depth</span><span class="o">.</span><span class="n">Custom</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">Depth</span><span class="o">.</span><span class="n">DepthAnythingV2</span><span class="o">.</span><span class="n">vitl</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Lightweight ZipDepth</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">depth</span> <span class="o">=</span> <span class="n">Depth</span><span class="o">.</span><span class="n">ZipDepth</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Custom preset: choose an explicit validated model</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">depth</span> <span class="o">=</span> <span class="n">Depth</span><span class="o">.</span><span class="n">Custom</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">Depth</span><span class="o">.</span><span class="n">DepthAnythingV2</span><span class="o">.</span><span class="n">vitl</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition info">
 <p class="admonition-title">Auto-download</p>
@@ -2002,8 +2019,8 @@ backbone size. See the <a href="../../model-zoo/">Model Zoo</a> for download det
 </tr>
 <tr>
 <td><code>input_size</code></td>
-<td><code>518</code></td>
-<td>Square resolution used for inference.</td>
+<td><code>None</code></td>
+<td>Inference resolution. <code>None</code> uses the model's native size (518 for DA-V2, 384 for ZipDepth). For DA-V2 this is a square size; for ZipDepth it is the shorter-side length (aspect ratio preserved).</td>
 </tr>
 <tr>
 <td><code>verbose</code></td>
@@ -2076,7 +2093,7 @@ original for a quick visual check.</p>
 <ul>
 <li><a href="../../api/depth/"><code>Depth</code> API reference</a> — full class and preset docs.</li>
 <li><a href="../../api/results/">Result objects</a> — the <code>DepthResult</code> contract.</li>
-<li><a href="../../model-zoo/">Model Zoo</a> — Depth-Anything-V2 backbones.</li>
+<li><a href="../../model-zoo/">Model Zoo</a> — Depth-Anything-V2 and ZipDepth backends.</li>
 <li><a href="../pose3d/">3D Pose guide</a> — combine depth with keypoints for 3D reasoning.</li>
 </ul>
 

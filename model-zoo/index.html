@@ -2089,7 +2089,8 @@ and where the weights come from.</p>
 <ul>
 <li><strong>Task</strong> — what the model does: <code>Detection</code>, <code>Pose</code>, <code>Pose3D</code>, <code>Depth</code>, <code>Segmentation</code>.</li>
 <li><strong>Backend</strong> — the architecture/family: <code>YOLO</code>, <code>RTDETR</code>, <code>Sapiens</code>, <code>ViTPose</code>,
-  <code>MotionBERT</code>, <code>DDH</code>, <code>FaceOrientation</code>, <code>Canonicalizer</code>, <code>DepthAnythingV2</code>, <code>SegFace</code>.</li>
+  <code>MotionBERT</code>, <code>DDH</code>, <code>FaceOrientation</code>, <code>Canonicalizer</code>, <code>DepthAnythingV2</code>,
+  <code>ZipDepth</code>, <code>SegFace</code>.</li>
 <li><strong>Enum</strong> — a group of interchangeable checkpoints, usually by dataset or size
   (e.g. <code>Detection.YOLO.PERSON</code>, <code>Pose.ViTPose.WholeBody</code>).</li>
 <li><strong>member</strong> — one checkpoint. Its <code>.value</code> is the <strong>weight filename</strong> on disk;
@@ -2107,7 +2108,8 @@ and where the weights come from.</p>
 <p>A few groups differ from the strict four-level shape: the <code>Pose3D</code> backends
 (<code>MotionBERT</code>, <code>DDH</code>, <code>FaceOrientation</code>) are <code>Enum</code>s <strong>directly</strong> under <code>Pose3D</code>;
 <code>Pose3D.Canonicalizer</code> holds a nested <code>Models</code> enum (3DPCNet weights) plus a
-<code>View</code> string enum; and <code>Depth.DepthAnythingV2</code> is an <code>Enum</code> directly under <code>Depth</code>.</p>
+<code>View</code> string enum; and the <code>Depth</code> backends (<code>DepthAnythingV2</code>, <code>ZipDepth</code>) are
+<code>Enum</code>s directly under <code>Depth</code>.</p>
 <h3 id="downloading-weights">Downloading weights<a class="headerlink" href="#downloading-weights" title="Permanent link">&para;</a></h3>
 <p>Selecting a member downloads nothing. Pass it to
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;download_model&lt;/span&gt;
@@ -2138,7 +2140,7 @@ weights (the high-level predictors do this for you on first use):</p>
 </tr>
 <tr>
 <td><strong><code>tharindu326/physiotrack</code></strong> (Hugging Face)</td>
-<td>Detection FACE / VRFACE / VR / VRSTUDENT, RT-DETR VRSTUDENT, Segmentation VRHEAD, DDH, FaceOrientation, Canonicalizer (3DPCNet), DepthAnythingV2, SegFace</td>
+<td>Detection FACE / VRFACE / VR / VRSTUDENT, RT-DETR VRSTUDENT, Segmentation VRHEAD, DDH, FaceOrientation, Canonicalizer (3DPCNet), DepthAnythingV2, ZipDepth, SegFace</td>
 <td>Project-hosted checkpoints</td>
 </tr>
 <tr>
@@ -2487,7 +2489,9 @@ weights): <code>FRONT</code> (<code>"front"</code>), <code>BACK</code> (<code>"b
 <code>RIGHT_SIDE</code> (<code>"right_side"</code>).</p>
 <hr />
 <h2 id="depth">Depth<a class="headerlink" href="#depth" title="Permanent link">&para;</a></h2>
-<p>Monocular depth via Depth Anything V2. See the <a href="../guides/depth/">Depth guide</a>.</p>
+<p>Monocular depth via Depth Anything V2 (heavier, ViT-based) or ZipDepth
+(lightweight, ~6M params). Both return a <strong>relative</strong> (affine-invariant) depth
+map. See the <a href="../guides/depth/">Depth guide</a>.</p>
 <table>
 <thead>
 <tr>
@@ -2516,6 +2520,18 @@ weights): <code>FRONT</code> (<code>"front"</code>), <code>BACK</code> (<code>"b
 <td><code>depth_anything_v2_vitl.pth</code></td>
 <td>ViT-L (large) encoder</td>
 </tr>
+<tr>
+<td><code>Models.Depth.ZipDepth.base</code></td>
+<td>ZipDepth</td>
+<td><code>zipdepth_base.pth</code></td>
+<td>Lightweight (~6M params), GPU/server upsampling head</td>
+</tr>
+<tr>
+<td><code>Models.Depth.ZipDepth.npu</code></td>
+<td>ZipDepth</td>
+<td><code>zipdepth_base_npu.pth</code></td>
+<td>Same weights, NPU/CPU/mobile-friendly upsampling head</td>
+</tr>
 </tbody>
 </table>
 <h3 id="encoder-configurations">Encoder configurations<a class="headerlink" href="#encoder-configurations" title="Permanent link">&para;</a></h3>
@@ -2526,7 +2542,7 @@ weights): <code>FRONT</code> (<code>"front"</code>), <code>BACK</code> (<code>"b
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
   &lt;/span&gt;" href="../api/models/#physiotrack.Models.get_depth_config"><code>get_depth_config</code></a>) supplies the
-architecture parameters used to build each encoder:</p>
+architecture parameters used to build each DepthAnythingV2 encoder:</p>
 <table>
 <thead>
 <tr>
@@ -2550,6 +2566,42 @@ architecture parameters used to build each encoder:</p>
 <td><code>vitl</code></td>
 <td>256</td>
 <td><code>[256, 512, 1024, 1024]</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>Models.Depth.ZIPDEPTH_CONFIGS</code> (also via
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_depth_config&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../api/models/#physiotrack.Models.get_depth_config"><code>get_depth_config</code></a>) supplies the ZipDepth
+build settings. Both variants share the <code>base</code> architecture and differ only in
+the upsampling head (<code>upsample_unfold</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th><code>variant</code></th>
+<th><code>global_mode</code></th>
+<th><code>upsample_unfold</code></th>
+<th><code>input_size</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>base</code></td>
+<td><code>base</code></td>
+<td><code>balanced</code></td>
+<td><code>True</code></td>
+<td>384</td>
+</tr>
+<tr>
+<td><code>npu</code></td>
+<td><code>base</code></td>
+<td><code>balanced</code></td>
+<td><code>False</code></td>
+<td>384</td>
 </tr>
 </tbody>
 </table>
@@ -2636,7 +2688,7 @@ architecture parameters used to build each encoder:</p>
 <tr>
 <td><code>.pth</code></td>
 <td>PyTorch state dict (loaded with a matching config)</td>
-<td>ViTPose, DepthAnythingV2, FaceOrientation, 3DPCNet</td>
+<td>ViTPose, DepthAnythingV2, ZipDepth, FaceOrientation, 3DPCNet</td>
 </tr>
 <tr>
 <td><code>.bin</code></td>
