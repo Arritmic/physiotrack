@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -33,7 +33,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -3211,27 +3211,17 @@ from an RGB skin trace. The four extraction methods take an RGB trace of shape
 
 
 <a href="#physiotrack.signals.HeartRateEstimator" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HeartRateEstimator</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">method</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;DEFAULT_RPPG_METHOD&lt;/span&gt;
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HeartRateEstimator</span><span class="p">(</span><span class="n">method</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;DEFAULT_RPPG_METHOD&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.DEFAULT_RPPG_METHOD&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.DEFAULT_RPPG_METHOD">DEFAULT_RPPG_METHOD</a></span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">fps</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">window_sec</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">hr_band</span><span class="p">:</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HR_BAND&lt;/span&gt;
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.DEFAULT_RPPG_METHOD&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.DEFAULT_RPPG_METHOD">DEFAULT_RPPG_METHOD</a></span><span class="p">,</span> <span class="n">fps</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">window_sec</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span> <span class="n">hr_band</span><span class="p">:</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HR_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HR_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HR_BAND">HR_BAND</a></span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">snr_half_bw_hz</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">use_skin_mask</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">min_fill</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.6</span><span class="p">,</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">smooth_hr</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HR_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HR_BAND">HR_BAND</a></span><span class="p">,</span> <span class="n">snr_half_bw_hz</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="n">use_skin_mask</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">min_fill</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.6</span><span class="p">,</span> <span class="n">smooth_hr</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3605,7 +3595,7 @@ windows instead of the newest value. Defaults to <code>True</code>.</p>
 
 
                   <details class="mkdocstrings-source">
-                    <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+                    <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
                     <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
 <span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
 <span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
@@ -3841,7 +3831,7 @@ are available.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-150">150</a></span>
 <span class="normal"><a href="#__codelineno-0-151">151</a></span>
 <span class="normal"><a href="#__codelineno-0-152">152</a></span>
@@ -4035,7 +4025,7 @@ than 20 pixels are selected.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-198">198</a></span>
 <span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
@@ -4185,7 +4175,7 @@ available.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-218">218</a></span>
 <span class="normal"><a href="#__codelineno-0-219">219</a></span>
 <span class="normal"><a href="#__codelineno-0-220">220</a></span>
@@ -4237,12 +4227,7 @@ available.</p>
 
 
 <a href="#physiotrack.signals.HeartRateEstimator.update" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">update</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">frame_bgr</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">box</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">roi_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">frame_time</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">update</span><span class="p">(</span><span class="n">frame_bgr</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">roi_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">frame_time</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4363,7 +4348,7 @@ available.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-238">238</a></span>
 <span class="normal"><a href="#__codelineno-0-239">239</a></span>
 <span class="normal"><a href="#__codelineno-0-240">240</a></span>
@@ -4478,7 +4463,7 @@ available.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-293">293</a></span>
 <span class="normal"><a href="#__codelineno-0-294">294</a></span>
 <span class="normal"><a href="#__codelineno-0-295">295</a></span>
@@ -4584,7 +4569,7 @@ cumulative RR times of the cleaned series.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-303">303</a></span>
 <span class="normal"><a href="#__codelineno-0-304">304</a></span>
 <span class="normal"><a href="#__codelineno-0-305">305</a></span>
@@ -4650,10 +4635,7 @@ cumulative RR times of the cleaned series.</p>
 
 
 <a href="#physiotrack.signals.HeartRateEstimator.hrv" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hrv</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">domains</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;frequency&quot;</span><span class="p">,</span> <span class="s2">&quot;nonlinear&quot;</span><span class="p">),</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">correct</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hrv</span><span class="p">(</span><span class="n">domains</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="s1">&#39;frequency&#39;</span><span class="p">,</span> <span class="s1">&#39;nonlinear&#39;</span><span class="p">),</span> <span class="n">correct</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4745,7 +4727,7 @@ window is tuned for HR and yields only coarse HRV.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-330">330</a></span>
 <span class="normal"><a href="#__codelineno-0-331">331</a></span>
 <span class="normal"><a href="#__codelineno-0-332">332</a></span>
@@ -4905,7 +4887,7 @@ sinus arrhythmia). Defaults to <code>"pulse"</code>.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-357">357</a></span>
 <span class="normal"><a href="#__codelineno-0-358">358</a></span>
 <span class="normal"><a href="#__codelineno-0-359">359</a></span>
@@ -4980,7 +4962,7 @@ sinus arrhythmia). Defaults to <code>"pulse"</code>.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\estimator.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/estimator.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-384">384</a></span>
 <span class="normal"><a href="#__codelineno-0-385">385</a></span>
 <span class="normal"><a href="#__codelineno-0-386">386</a></span>
@@ -5137,7 +5119,7 @@ the sliding-window length (<code>1.6 s</code> of samples). Defaults to
 
 
                   <details class="mkdocstrings-source">
-                    <summary>Source code in <code>src\physiotrack\signals\ppg\extraction\pos_method.py</code></summary>
+                    <summary>Source code in <code>src/physiotrack/signals/ppg/extraction/pos_method.py</code></summary>
                     <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-37">37</a></span>
 <span class="normal"><a href="#__codelineno-0-38">38</a></span>
 <span class="normal"><a href="#__codelineno-0-39">39</a></span>
@@ -5245,7 +5227,7 @@ rows ordered R, G, B and <code>N</code> time samples.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\extraction\pos_method.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/extraction/pos_method.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-47">47</a></span>
 <span class="normal"><a href="#__codelineno-0-48">48</a></span>
 <span class="normal"><a href="#__codelineno-0-49">49</a></span>
@@ -5465,7 +5447,7 @@ instance; not used directly by :meth:<code>apply</code>.</p>
 
 
                   <details class="mkdocstrings-source">
-                    <summary>Source code in <code>src\physiotrack\signals\ppg\extraction\chrom_method.py</code></summary>
+                    <summary>Source code in <code>src/physiotrack/signals/ppg/extraction/chrom_method.py</code></summary>
                     <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-41">41</a></span>
 <span class="normal"><a href="#__codelineno-0-42">42</a></span>
 <span class="normal"><a href="#__codelineno-0-43">43</a></span>
@@ -5571,7 +5553,7 @@ turns <code>X - alpha*Y</code> into the reference <code>Xf - alpha*Yf</code>.</p
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\extraction\chrom_method.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/extraction/chrom_method.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-50">50</a></span>
 <span class="normal"><a href="#__codelineno-0-51">51</a></span>
 <span class="normal"><a href="#__codelineno-0-52">52</a></span>
@@ -5793,7 +5775,7 @@ instance; not used directly by :meth:<code>apply</code>.</p>
 
 
                   <details class="mkdocstrings-source">
-                    <summary>Source code in <code>src\physiotrack\signals\ppg\extraction\lgi_method.py</code></summary>
+                    <summary>Source code in <code>src/physiotrack/signals/ppg/extraction/lgi_method.py</code></summary>
                     <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-35">35</a></span>
 <span class="normal"><a href="#__codelineno-0-36">36</a></span>
 <span class="normal"><a href="#__codelineno-0-37">37</a></span>
@@ -5898,7 +5880,7 @@ second row of the projected trace).</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\extraction\lgi_method.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/extraction/lgi_method.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-44">44</a></span>
 <span class="normal"><a href="#__codelineno-0-45">45</a></span>
 <span class="normal"><a href="#__codelineno-0-46">46</a></span>
@@ -6069,7 +6051,7 @@ instance; not used directly by :meth:<code>apply</code>.</p>
 
 
                   <details class="mkdocstrings-source">
-                    <summary>Source code in <code>src\physiotrack\signals\ppg\extraction\omit_method.py</code></summary>
+                    <summary>Source code in <code>src/physiotrack/signals/ppg/extraction/omit_method.py</code></summary>
                     <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-31">31</a></span>
 <span class="normal"><a href="#__codelineno-0-32">32</a></span>
 <span class="normal"><a href="#__codelineno-0-33">33</a></span>
@@ -6174,7 +6156,7 @@ second row of the projected trace).</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\extraction\omit_method.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/extraction/omit_method.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-40">40</a></span>
 <span class="normal"><a href="#__codelineno-0-41">41</a></span>
 <span class="normal"><a href="#__codelineno-0-42">42</a></span>
@@ -6240,14 +6222,7 @@ second row of the projected trace).</p>
 
 
 <a href="#physiotrack.signals.FaceSkinExtractor" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FaceSkinExtractor</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">segmenter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">device</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">skin_classes</span><span class="p">:</span> <span class="n"><span title="typing.Sequence">Sequence</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;skin&quot;</span><span class="p">,),</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">background</span><span class="p">:</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">,</span> <span class="n"><span title="int">int</span></span><span class="p">,</span> <span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">verbose</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FaceSkinExtractor</span><span class="p">(</span><span class="n">segmenter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">skin_classes</span><span class="p">:</span> <span class="n"><span title="typing.Sequence">Sequence</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;skin&#39;</span><span class="p">,),</span> <span class="n">background</span><span class="p">:</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">,</span> <span class="n"><span title="int">int</span></span><span class="p">,</span> <span class="n"><span title="int">int</span></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">verbose</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6440,7 +6415,7 @@ Defaults to <code>False</code>.</p>
 
 
                   <details class="mkdocstrings-source">
-                    <summary>Source code in <code>src\physiotrack\signals\ppg\skin.py</code></summary>
+                    <summary>Source code in <code>src/physiotrack/signals/ppg/skin.py</code></summary>
                     <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
 <span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
 <span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
@@ -6607,7 +6582,7 @@ faces itself).</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\skin.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/skin.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-160">160</a></span>
 <span class="normal"><a href="#__codelineno-0-161">161</a></span>
 <span class="normal"><a href="#__codelineno-0-162">162</a></span>
@@ -6747,7 +6722,7 @@ set to :attr:<code>background</code>.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\skin.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/skin.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-175">175</a></span>
 <span class="normal"><a href="#__codelineno-0-176">176</a></span>
 <span class="normal"><a href="#__codelineno-0-177">177</a></span>
@@ -6876,7 +6851,7 @@ the background canvas.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\skin.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/skin.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-193">193</a></span>
 <span class="normal"><a href="#__codelineno-0-194">194</a></span>
 <span class="normal"><a href="#__codelineno-0-195">195</a></span>
@@ -6999,7 +6974,7 @@ boolean <code>(H, W)</code> ROI mask and the BGR <code>(H, W, 3)</code> skin can
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\skin.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/skin.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-208">208</a></span>
 <span class="normal"><a href="#__codelineno-0-209">209</a></span>
 <span class="normal"><a href="#__codelineno-0-210">210</a></span>
@@ -7127,7 +7102,7 @@ tuple with <code>skin_mask</code>, <code>skin_canvas</code>, <code>parsing_canva
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\skin.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/skin.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-224">224</a></span>
 <span class="normal"><a href="#__codelineno-0-225">225</a></span>
 <span class="normal"><a href="#__codelineno-0-226">226</a></span>
@@ -7316,15 +7291,7 @@ CelebAMask-HQ classes; 0 = background).</p>
 
 
 <a href="#physiotrack.signals.bvp_to_hr" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bvp_to_hr</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">bvp</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">fps</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">win_sec</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">step_sec</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">lo_hz</span><span class="o">=</span><span class="n"><span title="_LO_HZ">_LO_HZ</span></span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">hi_hz</span><span class="o">=</span><span class="n"><span title="_HI_HZ">_HI_HZ</span></span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">nfft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bvp_to_hr</span><span class="p">(</span><span class="n">bvp</span><span class="p">,</span> <span class="n">fps</span><span class="p">,</span> <span class="n">win_sec</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">step_sec</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">lo_hz</span><span class="o">=</span><span class="n"><span title="_LO_HZ">_LO_HZ</span></span><span class="p">,</span> <span class="n">hi_hz</span><span class="o">=</span><span class="n"><span title="_HI_HZ">_HI_HZ</span></span><span class="p">,</span> <span class="n">nfft</span><span class="o">=</span><span class="mi">2048</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -7495,7 +7462,7 @@ signal has fewer than 2 samples.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\metrics.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/metrics.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-36">36</a></span>
 <span class="normal"><a href="#__codelineno-0-37">37</a></span>
 <span class="normal"><a href="#__codelineno-0-38">38</a></span>
@@ -7609,15 +7576,7 @@ signal has fewer than 2 samples.</p>
 
 
 <a href="#physiotrack.signals.bvp_snr" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bvp_snr</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">bvp</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">fps</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">ref_hr_bpm</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">lo_hz</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">hi_hz</span><span class="o">=</span><span class="n"><span title="_HI_HZ">_HI_HZ</span></span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">half_bw_hz</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">nfft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bvp_snr</span><span class="p">(</span><span class="n">bvp</span><span class="p">,</span> <span class="n">fps</span><span class="p">,</span> <span class="n">ref_hr_bpm</span><span class="p">,</span> <span class="n">lo_hz</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">hi_hz</span><span class="o">=</span><span class="n"><span title="_HI_HZ">_HI_HZ</span></span><span class="p">,</span> <span class="n">half_bw_hz</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">nfft</span><span class="o">=</span><span class="mi">2048</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -7782,7 +7741,7 @@ HR is missing or the band contains no usable power.</p>
 
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\metrics.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/metrics.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
 <span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
 <span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
@@ -7961,7 +7920,7 @@ remain.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\metrics.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/metrics.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-126">126</a></span>
 <span class="normal"><a href="#__codelineno-0-127">127</a></span>
 <span class="normal"><a href="#__codelineno-0-128">128</a></span>
@@ -8061,14 +8020,12 @@ remain.</p>
 
 
 <a href="#physiotrack.signals.benchmark_rppg_methods" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">benchmark_rppg_methods</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">rgb_trace</span><span class="p">,</span> <span class="n">fps</span><span class="p">,</span> <span class="n">ref_hr_bpm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hr_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HR_BAND&lt;/span&gt;
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">benchmark_rppg_methods</span><span class="p">(</span><span class="n">rgb_trace</span><span class="p">,</span> <span class="n">fps</span><span class="p">,</span> <span class="n">ref_hr_bpm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hr_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HR_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HR_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HR_BAND">HR_BAND</a></span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HR_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HR_BAND">HR_BAND</a></span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -8218,7 +8175,7 @@ POS / CHROM / LGI / OMIT.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\metrics.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/metrics.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-171">171</a></span>
 <span class="normal"><a href="#__codelineno-0-172">172</a></span>
 <span class="normal"><a href="#__codelineno-0-173">173</a></span>
@@ -8343,17 +8300,12 @@ the Lipponen &amp; Tarvainen (2019) beat classifier before HRV analysis.</p>
 
 
 <a href="#physiotrack.signals.detect_pulse_peaks" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">detect_pulse_peaks</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">bvp</span><span class="p">:</span> <span class="n"><span title="numpy.ndarray">ndarray</span></span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">fps</span><span class="p">:</span> <span class="n"><span title="float">float</span></span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">hr_band</span><span class="p">:</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HR_BAND&lt;/span&gt;
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">detect_pulse_peaks</span><span class="p">(</span><span class="n">bvp</span><span class="p">:</span> <span class="n"><span title="numpy.ndarray">ndarray</span></span><span class="p">,</span> <span class="n">fps</span><span class="p">:</span> <span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n">hr_band</span><span class="p">:</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HR_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HR_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HR_BAND">HR_BAND</a></span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">prominence</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="numpy.ndarray">ndarray</span></span>
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HR_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HR_BAND">HR_BAND</a></span><span class="p">,</span> <span class="n">prominence</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="numpy.ndarray">ndarray</span></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -8495,7 +8447,7 @@ fewer than one peak is found).</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\peaks.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/peaks.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-27">27</a></span>
 <span class="normal"><a href="#__codelineno-0-28">28</a></span>
 <span class="normal"><a href="#__codelineno-0-29">29</a></span>
@@ -8603,17 +8555,12 @@ fewer than one peak is found).</p>
 
 
 <a href="#physiotrack.signals.bvp_to_rri" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bvp_to_rri</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">bvp</span><span class="p">:</span> <span class="n"><span title="numpy.ndarray">ndarray</span></span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">fps</span><span class="p">:</span> <span class="n"><span title="float">float</span></span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">hr_band</span><span class="p">:</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HR_BAND&lt;/span&gt;
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bvp_to_rri</span><span class="p">(</span><span class="n">bvp</span><span class="p">:</span> <span class="n"><span title="numpy.ndarray">ndarray</span></span><span class="p">,</span> <span class="n">fps</span><span class="p">:</span> <span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n">hr_band</span><span class="p">:</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HR_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HR_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HR_BAND">HR_BAND</a></span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">prominence</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="numpy.ndarray">ndarray</span></span><span class="p">,</span> <span class="n"><span title="numpy.ndarray">ndarray</span></span><span class="p">]</span>
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HR_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HR_BAND">HR_BAND</a></span><span class="p">,</span> <span class="n">prominence</span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="numpy.ndarray">ndarray</span></span><span class="p">,</span> <span class="n"><span title="numpy.ndarray">ndarray</span></span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -8763,7 +8710,7 @@ Both are empty when fewer than two peaks are detected.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\peaks.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/peaks.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-76"> 76</a></span>
 <span class="normal"><a href="#__codelineno-0-77"> 77</a></span>
 <span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
@@ -8951,7 +8898,7 @@ the series.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\artifacts.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/artifacts.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-195">195</a></span>
 <span class="normal"><a href="#__codelineno-0-196">196</a></span>
 <span class="normal"><a href="#__codelineno-0-197">197</a></span>
@@ -9118,7 +9065,7 @@ by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol 
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\artifacts.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/artifacts.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-223">223</a></span>
 <span class="normal"><a href="#__codelineno-0-224">224</a></span>
 <span class="normal"><a href="#__codelineno-0-225">225</a></span>
@@ -9232,11 +9179,7 @@ it is installed) in the test suite.</p>
 
 
 <a href="#physiotrack.signals.compute_hrv" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">compute_hrv</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">rri_ms</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">t_sec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">domains</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;frequency&quot;</span><span class="p">,</span> <span class="s2">&quot;nonlinear&quot;</span><span class="p">),</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">compute_hrv</span><span class="p">(</span><span class="n">rri_ms</span><span class="p">,</span> <span class="n">t_sec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">domains</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="s1">&#39;frequency&#39;</span><span class="p">,</span> <span class="s1">&#39;nonlinear&#39;</span><span class="p">))</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -9353,7 +9296,7 @@ domain. Defaults to <code>None</code> (cumulative RR times).</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\hrv.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/hrv.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-322">322</a></span>
 <span class="normal"><a href="#__codelineno-0-323">323</a></span>
 <span class="normal"><a href="#__codelineno-0-324">324</a></span>
@@ -9533,7 +9476,7 @@ domain. Defaults to <code>None</code> (cumulative RR times).</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\hrv.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/hrv.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-40">40</a></span>
 <span class="normal"><a href="#__codelineno-0-41">41</a></span>
 <span class="normal"><a href="#__codelineno-0-42">42</a></span>
@@ -9657,29 +9600,22 @@ domain. Defaults to <code>None</code> (cumulative RR times).</p>
 
 
 <a href="#physiotrack.signals.hrv_frequency" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hrv_frequency</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">rri_ms</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">t_sec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">interpolation_rate</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">vlf_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HRV_VLF_BAND&lt;/span&gt;
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hrv_frequency</span><span class="p">(</span><span class="n">rri_ms</span><span class="p">,</span> <span class="n">t_sec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interpolation_rate</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">vlf_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HRV_VLF_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HRV_VLF_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HRV_VLF_BAND">HRV_VLF_BAND</a></span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">lf_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HRV_LF_BAND&lt;/span&gt;
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HRV_VLF_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HRV_VLF_BAND">HRV_VLF_BAND</a></span><span class="p">,</span> <span class="n">lf_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HRV_LF_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HRV_LF_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HRV_LF_BAND">HRV_LF_BAND</a></span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">hf_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HRV_HF_BAND&lt;/span&gt;
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HRV_LF_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HRV_LF_BAND">HRV_LF_BAND</a></span><span class="p">,</span> <span class="n">hf_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;HRV_HF_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HRV_HF_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HRV_HF_BAND">HRV_HF_BAND</a></span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.HRV_HF_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.HRV_HF_BAND">HRV_HF_BAND</a></span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -9880,7 +9816,7 @@ All <code>np.nan</code> if fewer than 4 intervals are supplied.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\hrv.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/hrv.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
 <span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
 <span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
@@ -10133,7 +10069,7 @@ All <code>np.nan</code> if fewer than 4 intervals are supplied.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\hrv.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/hrv.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-276">276</a></span>
 <span class="normal"><a href="#__codelineno-0-277">277</a></span>
 <span class="normal"><a href="#__codelineno-0-278">278</a></span>
@@ -10344,7 +10280,7 @@ no length-<code>m+1</code> matches).</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\hrv.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/hrv.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-191">191</a></span>
 <span class="normal"><a href="#__codelineno-0-192">192</a></span>
 <span class="normal"><a href="#__codelineno-0-193">193</a></span>
@@ -10542,7 +10478,7 @@ matches <em>included</em>, unlike sample entropy).</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\hrv.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/hrv.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-232">232</a></span>
 <span class="normal"><a href="#__codelineno-0-233">233</a></span>
 <span class="normal"><a href="#__codelineno-0-234">234</a></span>
@@ -10751,7 +10687,7 @@ skipped.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\evaluate.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/evaluate.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-305">305</a></span>
 <span class="normal"><a href="#__codelineno-0-306">306</a></span>
 <span class="normal"><a href="#__codelineno-0-307">307</a></span>
@@ -10847,14 +10783,12 @@ skipped.</p>
 
 
 <a href="#physiotrack.signals.respiration_from_pulse" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">respiration_from_pulse</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">bvp</span><span class="p">,</span> <span class="n">fps</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;riav&quot;</span><span class="p">,</span> <span class="n">resp_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;RESP_BAND&lt;/span&gt;
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">respiration_from_pulse</span><span class="p">(</span><span class="n">bvp</span><span class="p">,</span> <span class="n">fps</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;riav&#39;</span><span class="p">,</span> <span class="n">resp_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;RESP_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.RESP_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.RESP_BAND">RESP_BAND</a></span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.RESP_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.RESP_BAND">RESP_BAND</a></span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -11019,7 +10953,7 @@ respiratory modulation waveform and the respiration rate in breaths/min
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\respiration.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/respiration.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
 <span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
 <span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
@@ -11127,17 +11061,12 @@ respiratory modulation waveform and the respiration rate in breaths/min
 
 
 <a href="#physiotrack.signals.respiration_from_rri" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">respiration_from_rri</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">rri_ms</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">t_sec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">resp_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;RESP_BAND&lt;/span&gt;
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">respiration_from_rri</span><span class="p">(</span><span class="n">rri_ms</span><span class="p">,</span> <span class="n">t_sec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resp_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;RESP_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.RESP_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.RESP_BAND">RESP_BAND</a></span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">interpolation_rate</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.RESP_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.RESP_BAND">RESP_BAND</a></span><span class="p">,</span> <span class="n">interpolation_rate</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -11275,7 +11204,7 @@ tachogram-derived waveform and the respiration rate in breaths/min
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\respiration.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/respiration.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-135">135</a></span>
 <span class="normal"><a href="#__codelineno-0-136">136</a></span>
 <span class="normal"><a href="#__codelineno-0-137">137</a></span>
@@ -11383,14 +11312,12 @@ tachogram-derived waveform and the respiration rate in breaths/min
 
 
 <a href="#physiotrack.signals.respiration_rate_from_signal" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">respiration_rate_from_signal</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">mod</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">resp_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;RESP_BAND&lt;/span&gt;
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">respiration_rate_from_signal</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">resp_band</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;RESP_BAND&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.RESP_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.RESP_BAND">RESP_BAND</a></span><span class="p">,</span> <span class="n">nfft</span><span class="o">=</span><span class="mi">4096</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+  &lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.constants.RESP_BAND&lt;/code&gt;)" href="#physiotrack.signals.ppg.constants.RESP_BAND">RESP_BAND</a></span><span class="p">,</span> <span class="n">nfft</span><span class="o">=</span><span class="mi">4096</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -11526,7 +11453,7 @@ breaths per minute and the band-passed modulation waveform. <code>rate_bpm</code
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\ppg\respiration.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/ppg/respiration.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-39">39</a></span>
 <span class="normal"><a href="#__codelineno-0-40">40</a></span>
 <span class="normal"><a href="#__codelineno-0-41">41</a></span>
@@ -11630,13 +11557,7 @@ breaths per minute and the band-passed modulation waveform. <code>rate_bpm</code
 
 
 <a href="#physiotrack.signals.respiration_from_motion" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">respiration_from_motion</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">data</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">original_fps</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">keypoint_ids</span><span class="o">=</span><span class="n"><span title="physiotrack.signals.motion.features.RESPIRATION_MOTION_KEYPOINTS">RESPIRATION_MOTION_KEYPOINTS</span></span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">detection_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">resp_band</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">respiration_from_motion</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">original_fps</span><span class="p">,</span> <span class="n">keypoint_ids</span><span class="o">=</span><span class="n"><span title="physiotrack.signals.motion.features.RESPIRATION_MOTION_KEYPOINTS">RESPIRATION_MOTION_KEYPOINTS</span></span><span class="p">,</span> <span class="n">detection_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resp_band</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -11803,7 +11724,7 @@ are too few frames or no in-band power).</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\features.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/features.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-685">685</a></span>
 <span class="normal"><a href="#__codelineno-0-686">686</a></span>
 <span class="normal"><a href="#__codelineno-0-687">687</a></span>
@@ -12140,12 +12061,7 @@ definitions.</p>
   </span>
 
 <a href="#physiotrack.signals.ppg.constants.RPPG_METHODS" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">RPPG_METHODS</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;POS&quot;</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;POS&lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.extraction.POS&lt;/code&gt;)" href="#physiotrack.signals.POS">POS</a></span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="s2">&quot;CHROM&quot;</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;CHROM&lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.extraction.CHROM&lt;/code&gt;)" href="#physiotrack.signals.CHROM">CHROM</a></span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="s2">&quot;LGI&quot;</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;LGI&lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.extraction.LGI&lt;/code&gt;)" href="#physiotrack.signals.LGI">LGI</a></span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="s2">&quot;OMIT&quot;</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;OMIT&lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.extraction.OMIT&lt;/code&gt;)" href="#physiotrack.signals.OMIT">OMIT</a></span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">}</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">RPPG_METHODS</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;POS&#39;</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;POS&lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.extraction.POS&lt;/code&gt;)" href="#physiotrack.signals.POS">POS</a></span><span class="p">,</span> <span class="s1">&#39;CHROM&#39;</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;CHROM&lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.extraction.CHROM&lt;/code&gt;)" href="#physiotrack.signals.CHROM">CHROM</a></span><span class="p">,</span> <span class="s1">&#39;LGI&#39;</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;LGI&lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.extraction.LGI&lt;/code&gt;)" href="#physiotrack.signals.LGI">LGI</a></span><span class="p">,</span> <span class="s1">&#39;OMIT&#39;</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;OMIT&lt;/span&gt; (&lt;code&gt;physiotrack.signals.ppg.extraction.OMIT&lt;/code&gt;)" href="#physiotrack.signals.OMIT">OMIT</a></span><span class="p">}</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -12312,7 +12228,7 @@ definitions.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.top", "navigation.footer", "navigation.indexes", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.tooltips"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

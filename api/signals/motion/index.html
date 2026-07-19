@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -33,7 +33,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -2179,9 +2179,7 @@ body/head/pelvic centroids, resample, and compute joint angles and range-of-moti
 
 
 <a href="#physiotrack.signals.extract_keypoint_sequence_2d" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_keypoint_sequence_2d</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">data</span><span class="p">,</span> <span class="n">keypoint_id</span><span class="p">,</span> <span class="n">original_fps</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_keypoint_sequence_2d</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">keypoint_id</span><span class="p">,</span> <span class="n">original_fps</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -2306,7 +2304,7 @@ Empty (with those columns) if the keypoint never appears.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\utils.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/utils.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-31">31</a></span>
 <span class="normal"><a href="#__codelineno-0-32">32</a></span>
 <span class="normal"><a href="#__codelineno-0-33">33</a></span>
@@ -2438,9 +2436,7 @@ Empty (with those columns) if the keypoint never appears.</p>
 
 
 <a href="#physiotrack.signals.extract_keypoint_sequence_3d" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_keypoint_sequence_3d</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">data</span><span class="p">,</span> <span class="n">keypoint_id</span><span class="p">,</span> <span class="n">original_fps</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_keypoint_sequence_3d</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">keypoint_id</span><span class="p">,</span> <span class="n">original_fps</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -2549,7 +2545,7 @@ Empty (with those columns) if the keypoint never appears.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\utils.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/utils.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
 <span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
 <span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
@@ -2651,9 +2647,7 @@ Empty (with those columns) if the keypoint never appears.</p>
 
 
 <a href="#physiotrack.signals.extract_keypoints_sequence" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_keypoints_sequence</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">data</span><span class="p">,</span> <span class="n">candidate_key_points</span><span class="o">=</span><span class="n"><span title="list">list</span></span><span class="p">(</span><span class="n"><span title="range">range</span></span><span class="p">(</span><span class="mi">17</span><span class="p">))</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_keypoints_sequence</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">candidate_key_points</span><span class="o">=</span><span class="n"><span title="list">list</span></span><span class="p">(</span><span class="n"><span title="range">range</span></span><span class="p">(</span><span class="mi">17</span><span class="p">)))</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -2765,7 +2759,7 @@ and <code>"detections"</code>; each detection may carry <code>"keypoints"</code>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\utils.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/utils.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-136">136</a></span>
 <span class="normal"><a href="#__codelineno-0-137">137</a></span>
 <span class="normal"><a href="#__codelineno-0-138">138</a></span>
@@ -3076,7 +3070,7 @@ pose model (<code>pose_estimator.architecture</code>).</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\utils.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/utils.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-223">223</a></span>
 <span class="normal"><a href="#__codelineno-0-224">224</a></span>
 <span class="normal"><a href="#__codelineno-0-225">225</a></span>
@@ -3389,7 +3383,7 @@ other centroid helpers; the body centroid always uses COCO ids <code>0..16</code
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\utils.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/utils.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-329">329</a></span>
 <span class="normal"><a href="#__codelineno-0-330">330</a></span>
 <span class="normal"><a href="#__codelineno-0-331">331</a></span>
@@ -3659,7 +3653,7 @@ pelvis is always the hip midpoint (COCO ids <code>11</code>/<code>12</code>).</p
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\utils.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/utils.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-408">408</a></span>
 <span class="normal"><a href="#__codelineno-0-409">409</a></span>
 <span class="normal"><a href="#__codelineno-0-410">410</a></span>
@@ -3847,9 +3841,7 @@ pelvis is always the hip midpoint (COCO ids <code>11</code>/<code>12</code>).</p
 
 
 <a href="#physiotrack.signals.resample_dataframe_by_interpolation" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">resample_dataframe_by_interpolation</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">df</span><span class="p">,</span> <span class="n">input_fs</span><span class="p">,</span> <span class="n">output_fs</span><span class="p">,</span> <span class="n">columns_to_resample</span><span class="o">=</span><span class="kc">None</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">resample_dataframe_by_interpolation</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">input_fs</span><span class="p">,</span> <span class="n">output_fs</span><span class="p">,</span> <span class="n">columns_to_resample</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3976,7 +3968,7 @@ spanning <code>[0, len(df) / input_fs)</code> with the new number of samples.</p
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\utils.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/utils.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-547">547</a></span>
 <span class="normal"><a href="#__codelineno-0-548">548</a></span>
 <span class="normal"><a href="#__codelineno-0-549">549</a></span>
@@ -4210,7 +4202,7 @@ non-coordinate columns (e.g. <code>time</code>, <code>frame</code>, <code>detect
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\features.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/features.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-460">460</a></span>
 <span class="normal"><a href="#__codelineno-0-461">461</a></span>
 <span class="normal"><a href="#__codelineno-0-462">462</a></span>
@@ -4522,7 +4514,7 @@ typically the pelvis-relative coordinates from
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\features.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/features.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-418">418</a></span>
 <span class="normal"><a href="#__codelineno-0-419">419</a></span>
 <span class="normal"><a href="#__codelineno-0-420">420</a></span>
@@ -4703,7 +4695,7 @@ with columns <code>"{k}_x"</code>/<code>"{k}_y"</code> (2D) and/or <code>"3d_{k}
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\features.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/features.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-333">333</a></span>
 <span class="normal"><a href="#__codelineno-0-334">334</a></span>
 <span class="normal"><a href="#__codelineno-0-335">335</a></span>
@@ -5005,7 +4997,7 @@ only. Empty if <code>keypoints</code> is empty/falsy.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\features.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/features.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-130">130</a></span>
 <span class="normal"><a href="#__codelineno-0-131">131</a></span>
 <span class="normal"><a href="#__codelineno-0-132">132</a></span>
@@ -5125,9 +5117,7 @@ only. Empty if <code>keypoints</code> is empty/falsy.</p>
 
 
 <a href="#physiotrack.signals.compute_rom_angles" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">compute_rom_angles</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">keypoints</span><span class="p">,</span> <span class="n">movements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">conf_threshold</span><span class="o">=</span><span class="mf">0.3</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">compute_rom_angles</span><span class="p">(</span><span class="n">keypoints</span><span class="p">,</span> <span class="n">movements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">conf_threshold</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5253,7 +5243,7 @@ measured movements only. Empty if <code>keypoints</code> is empty/falsy.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\features.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/features.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-70"> 70</a></span>
 <span class="normal"><a href="#__codelineno-0-71"> 71</a></span>
 <span class="normal"><a href="#__codelineno-0-72"> 72</a></span>
@@ -5383,9 +5373,7 @@ measured movements only. Empty if <code>keypoints</code> is empty/falsy.</p>
 
 
 <a href="#physiotrack.signals.get_keypoint_features" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_keypoint_features</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">motion_df</span><span class="p">,</span> <span class="n">keypoint_id_2d</span><span class="p">,</span> <span class="n">keypoint_id_3d</span><span class="o">=</span><span class="kc">None</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_keypoint_features</span><span class="p">(</span><span class="n">motion_df</span><span class="p">,</span> <span class="n">keypoint_id_2d</span><span class="p">,</span> <span class="n">keypoint_id_3d</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5507,7 +5495,7 @@ is empty if none of its columns are present.</p>
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\features.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/features.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-558">558</a></span>
 <span class="normal"><a href="#__codelineno-0-559">559</a></span>
 <span class="normal"><a href="#__codelineno-0-560">560</a></span>
@@ -5657,11 +5645,7 @@ is empty if none of its columns are present.</p>
 
 
 <a href="#physiotrack.signals.select_feature_data" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">select_feature_data</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">keypoint_id_2d</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">keypoint_id_3d</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">feature_type</span><span class="o">=</span><span class="s2">&quot;coordinates&quot;</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">select_feature_data</span><span class="p">(</span><span class="n">keypoint_id_2d</span><span class="p">,</span> <span class="n">keypoint_id_3d</span><span class="p">,</span> <span class="n">feature_type</span><span class="o">=</span><span class="s1">&#39;coordinates&#39;</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5774,7 +5758,7 @@ names. Returns <code>None</code> if <code>feature_type</code> is not recognized.
 </details>
 
             <details class="mkdocstrings-source">
-              <summary>Source code in <code>src\physiotrack\signals\motion\features.py</code></summary>
+              <summary>Source code in <code>src/physiotrack/signals/motion/features.py</code></summary>
               <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-628">628</a></span>
 <span class="normal"><a href="#__codelineno-0-629">629</a></span>
 <span class="normal"><a href="#__codelineno-0-630">630</a></span>
@@ -6008,7 +5992,7 @@ in the <a href="../rppg/#respiration">rPPG / Heart Rate</a> reference.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.top", "navigation.footer", "navigation.indexes", "navigation.tracking", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.tooltips"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
