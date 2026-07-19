@@ -24,6 +24,7 @@ from .modules import Segmentor
 from .modules import YoloPose
 from .modules import VitInference
 from .modules import DepthAnythingV2Inference
+from .modules import ZipDepthInference
 
 # --- Model registry -----------------------------------------------------------
 from .models import Models

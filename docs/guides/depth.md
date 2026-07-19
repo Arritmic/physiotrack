@@ -1,10 +1,13 @@
 # Depth
 
 Monocular depth estimation predicts a per-pixel depth map from a single RGB frame —
-no stereo rig or depth sensor required. Physiotrack wraps
-[Depth-Anything-V2](../model-zoo.md), giving you a dense `(H, W)` map you can
-normalize, colorize, or feed into 3D reasoning. Use it to add a relative Z channel
-to 2D detections, build depth overlays, or gate foreground/background.
+no stereo rig or depth sensor required. Physiotrack wraps two backends —
+[Depth-Anything-V2](../model-zoo.md) (heavier, ViT-based) and
+[ZipDepth](../model-zoo.md) (lightweight, ~6M params) — giving you a dense
+`(H, W)` map you can normalize, colorize, or feed into 3D reasoning. Use it to add
+a relative Z channel to 2D detections, build depth overlays, or gate
+foreground/background. Both backends produce **relative** (affine-invariant)
+depth, not metric distance.
 
 Presets live on [`Depth`][physiotrack.Depth]. Call [`predict`][physiotrack.Depth]
 (or the instance directly) to get a [`DepthResult`][physiotrack.DepthResult].
@@ -28,19 +31,25 @@ cv2.imwrite("depth.png", colored)
 
 ## Available presets
 
-All presets use the Depth-Anything-V2 backend; they differ only in the ViT
-backbone size. See the [Model Zoo](../model-zoo.md) for download details.
+Depth-Anything-V2 presets differ only in the ViT backbone size; the two ZipDepth
+presets share one lightweight architecture and differ only in the upsampling
+head. See the [Model Zoo](../model-zoo.md) for download details.
 
-| Preset | Backbone | Speed / accuracy |
+| Preset | Backend / variant | Speed / accuracy |
 | --- | --- | --- |
-| [`Depth.DepthAnythingV2Small`][physiotrack.Depth.DepthAnythingV2Small] | `vits` | Fastest, least accurate. |
-| [`Depth.DepthAnythingV2Base`][physiotrack.Depth.DepthAnythingV2Base] | `vitb` | Balanced. |
-| [`Depth.DepthAnythingV2Large`][physiotrack.Depth.DepthAnythingV2Large] | `vitl` | Most accurate. |
-| [`Depth.DepthAnythingV2`][physiotrack.Depth.DepthAnythingV2] | `vitl` | Alias for the Large model. |
+| [`Depth.DepthAnythingV2Small`][physiotrack.Depth.DepthAnythingV2Small] | DA-V2 `vits` | Fastest DA-V2, least accurate. |
+| [`Depth.DepthAnythingV2Base`][physiotrack.Depth.DepthAnythingV2Base] | DA-V2 `vitb` | Balanced. |
+| [`Depth.DepthAnythingV2Large`][physiotrack.Depth.DepthAnythingV2Large] | DA-V2 `vitl` | Most accurate. |
+| [`Depth.DepthAnythingV2`][physiotrack.Depth.DepthAnythingV2] | DA-V2 `vitl` | Alias for the Large model. |
+| [`Depth.ZipDepth`][physiotrack.Depth.ZipDepth] | ZipDepth `base` | Lightweight (~6M params), fast; GPU/server head. |
+| [`Depth.ZipDepthNPU`][physiotrack.Depth.ZipDepthNPU] | ZipDepth `npu` | ZipDepth with an NPU/CPU/mobile-friendly head. |
 | [`Depth.Custom`][physiotrack.Depth.Custom] | any | Run any validated `Models.Depth.*`. |
 
 ```python
 from physiotrack import Depth, Models
+
+# Lightweight ZipDepth
+depth = Depth.ZipDepth(device=0)
 
 # Custom preset: choose an explicit validated model
 depth = Depth.Custom(model=Models.Depth.DepthAnythingV2.vitl, device=0)
@@ -55,7 +64,7 @@ depth = Depth.Custom(model=Models.Depth.DepthAnythingV2.vitl, device=0)
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `device` | `'cpu'` | `'cpu'`, `'cuda'`, `'mps'`, or an index like `0`. |
-| `input_size` | `518` | Square resolution used for inference. |
+| `input_size` | `None` | Inference resolution. `None` uses the model's native size (518 for DA-V2, 384 for ZipDepth). For DA-V2 this is a square size; for ZipDepth it is the shorter-side length (aspect ratio preserved). |
 | `verbose` | `True` | Print initialization info. |
 
 See [`Depth`][physiotrack.Depth] for the full constructor signature.
@@ -136,5 +145,5 @@ See [Result objects](../api/results.md) for the full `DepthResult` contract.
 
 - [`Depth` API reference](../api/depth.md) — full class and preset docs.
 - [Result objects](../api/results.md) — the `DepthResult` contract.
-- [Model Zoo](../model-zoo.md) — Depth-Anything-V2 backbones.
+- [Model Zoo](../model-zoo.md) — Depth-Anything-V2 and ZipDepth backends.
 - [3D Pose guide](pose3d.md) — combine depth with keypoints for 3D reasoning.

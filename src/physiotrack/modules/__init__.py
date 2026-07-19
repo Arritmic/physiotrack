@@ -8,5 +8,6 @@ from .Yolo import YoloPose
 from .ViTPose import VitInference
 
 from .DepthAnythingV2 import DepthAnythingV2Inference
+from .ZipDepth import ZipDepthInference
 
 from .SegFace import SegFaceInference

@@ -150,6 +150,16 @@ def run_full_inference(video_path, output_dir='output/full_inference', floor_map
             input_size=518,
             verbose=False
         )
+        # --- Alternative: ZipDepth (lightweight, ~6M params, faster) --------------
+        # Drop-in replacement for the estimator above — same predict() API and
+        # DepthResult output. To use it, comment out the DepthAnythingV2Base(...)
+        # block above and uncomment one of the following:
+        #
+        # depth_estimator = Depth.ZipDepth(device=0, verbose=False)      # GPU/server head
+        # depth_estimator = Depth.ZipDepthNPU(device=0, verbose=False)   # CPU/mobile-friendly head
+        #
+        # input_size is optional; it defaults to ZipDepth's native 384 (shorter side).
+        # -------------------------------------------------------------------------
 
     print("\n✓ All models initialized successfully!")
     print(f"  - Segmentators: {len(segmentors)} (Person + VRHEAD)")

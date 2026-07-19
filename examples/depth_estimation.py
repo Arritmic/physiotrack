@@ -32,6 +32,17 @@ def run_depth_estimation(image_path: str, device: int = 0, save_output: bool = T
         input_size=518,
         verbose=True
     )
+    # --- Alternative: ZipDepth (lightweight, ~6M params, faster) --------------
+    # Drop-in replacement — same predict() API and DepthResult output. To use it,
+    # comment out the Depth.Custom(...) block above and uncomment one of these:
+    #
+    # depth_estimator = Depth.ZipDepth(device=device, verbose=True)       # GPU/server head
+    # depth_estimator = Depth.ZipDepthNPU(device=device, verbose=True)    # CPU/mobile-friendly head
+    #
+    # Or address it explicitly via the registry:
+    # depth_estimator = Depth.Custom(model=Models.Depth.ZipDepth.base, device=device)
+    # input_size is optional; it defaults to ZipDepth's native 384 (shorter side).
+    # -------------------------------------------------------------------------
 
     # Load image
     print(f"\nLoading image: {image_path}")
@@ -104,6 +115,17 @@ def run_video_depth_estimation(video_path: str, device: int = 0, show: bool = Tr
         input_size=518,
         verbose=True
     )
+    # --- Alternative: ZipDepth (lightweight, ~6M params, faster) --------------
+    # Drop-in replacement — same predict() API and DepthResult output. To use it,
+    # comment out the Depth.Custom(...) block above and uncomment one of these:
+    #
+    # depth_estimator = Depth.ZipDepth(device=device, verbose=True)       # GPU/server head
+    # depth_estimator = Depth.ZipDepthNPU(device=device, verbose=True)    # CPU/mobile-friendly head
+    #
+    # Or address it explicitly via the registry:
+    # depth_estimator = Depth.Custom(model=Models.Depth.ZipDepth.base, device=device)
+    # input_size is optional; it defaults to ZipDepth's native 384 (shorter side).
+    # -------------------------------------------------------------------------
 
     # Open video
     cap = cv2.VideoCapture(video_path)
