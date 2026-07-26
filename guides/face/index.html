@@ -1147,6 +1147,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1589,6 +1593,62 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overlay Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1621,7 +1681,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_10" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1643,14 +1703,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_10" id="__nav_5_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_8">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2106,11 +2166,12 @@ directly (<code>face(img)</code>) as an alias for <code>predict</code>.</p>
 </tr>
 </tbody>
 </table>
-<p><code>predict(img, bboxes=None)</code> takes a BGR frame <code>(H, W, 3)</code> and face boxes
-<code>(N, 4)</code> as <code>[x1, y1, x2, y2]</code>. If <code>bboxes</code> is omitted the <strong>whole image is
-treated as a single face</strong>, so pass boxes from a detector for multi-face frames.
-Calling the instance (<code>orient(img, boxes)</code>) is an alias; use <code>predict_batch</code> for
-a list of frames.</p>
+<p><code>predict(source, bboxes=None)</code> takes a BGR frame <code>(H, W, 3)</code>, a path to an image
+file, or a list of either, plus face boxes <code>(N, 4)</code> as <code>[x1, y1, x2, y2]</code>. If
+<code>bboxes</code> is omitted the <strong>whole image is treated as a single face</strong>, so pass boxes
+from a detector for multi-face frames. Pass a list of frames (and a matching list of
+box arrays) for batch inference; the return is then a list of results, one per frame.
+Calling the instance (<code>orient(frame, boxes)</code>) is an alias for <code>predict</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">The <code>orientation</code> dict</p>
 <p>Each returned <code>Instance</code> has <code>inst.orientation</code> = <code>{"yaw", "pitch", "roll"}</code>

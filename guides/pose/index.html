@@ -1136,6 +1136,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1578,6 +1582,62 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overlay Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1610,7 +1670,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_10" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1632,14 +1692,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_10" id="__nav_5_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_8">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2215,7 +2275,7 @@ named <code>"unknown_&lt;id&gt;"</code>. See <a href="../../api/results/">Result
 container API.</p>
 <h3 id="wholebody-133-keypoint-index-ranges">WholeBody-133 keypoint index ranges<a class="headerlink" href="#wholebody-133-keypoint-index-ranges" title="Permanent link">&para;</a></h3>
 <p>For WholeBody models the ids/names come from the COCO-WholeBody layout (ids
-<code>0</code>–<code>134</code>, i.e. 133 detected points plus two derived centroids):</p>
+<code>0</code>–<code>135</code>, i.e. 133 detected points plus three derived centroids):</p>
 <table>
 <thead>
 <tr>
@@ -2252,9 +2312,9 @@ container API.</p>
 </tr>
 <tr>
 <td>Derived</td>
-<td><code>133</code>, <code>134</code></td>
-<td>2</td>
-<td><code>head_centroid</code>, <code>body_centroid</code>.</td>
+<td><code>133</code>–<code>135</code></td>
+<td>3</td>
+<td><code>head_centroid</code>, <code>body_centroid</code>, <code>pelvic_centroid</code> — added by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_head_centroid&lt;/span&gt;" href="../../api/signals/motion/#physiotrack.signals.add_head_centroid"><code>add_head_centroid</code></a>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_body_centroid&lt;/span&gt;" href="../../api/signals/motion/#physiotrack.signals.add_body_centroid"><code>add_body_centroid</code></a> and <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_pelvic_centroid&lt;/span&gt;" href="../../api/signals/motion/#physiotrack.signals.add_pelvic_centroid"><code>add_pelvic_centroid</code></a>. <code>135</code> is the default <code>reference_point_id</code> for pelvis-relative coordinates.</td>
 </tr>
 </tbody>
 </table>
@@ -2274,7 +2334,8 @@ ways: <code>result.plot()</code>, <code>result.plot(conf=True)</code>,
 <div class="admonition warning">
 <p class="admonition-title">First run downloads weights</p>
 <p>The first time a validated model is used, its weights auto-download to the
-package's <code>model_data</code> directory. Subsequent runs load from disk.</p>
+per-user cache (see <a href="../../model-zoo/#where-weights-are-cached">Model Zoo</a>).
+Subsequent runs load from disk.</p>
 </div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>

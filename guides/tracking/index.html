@@ -1102,6 +1102,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1544,6 +1548,62 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overlay Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1576,7 +1636,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_10" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1598,14 +1658,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_10" id="__nav_5_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_8">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2048,7 +2108,7 @@ just flip <code>tracker_type</code>.</p>
 <div class="admonition tip">
 <p class="admonition-title">A Tracker is stateful — one instance per video stream</p>
 <p>The tracker holds Kalman state, track history, id counters and (optionally)
-the locked student track between calls. Create <strong>one</strong>
+the locked subject between calls. Create <strong>one</strong>
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Tracker&lt;/span&gt;" href="../../api/tracking/#physiotrack.Tracker"><code>Tracker</code></a> per video and feed it frames in order. Reusing
 a tracker across unrelated clips will carry stale state; construct a fresh one
 for each stream.</p>
@@ -2070,7 +2130,7 @@ for each stream.</p>
 </span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">data</span> <span class="o">=</span> <span class="n">track_result</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>            <span class="c1"># {&quot;task&quot;: &quot;track&quot;, &quot;tracks&quot;: [...]} — JSON-friendly</span>
 </span></code></pre></div>
 <p><code>plot()</code> with no argument returns the tracker's own <code>rendered</code> overlay (boxes,
-labels, trails, student box). Pass a <code>frame</code> to draw simple <code>ID &lt;n&gt;</code> boxes on a
+labels, trails, locked-subject box). Pass a <code>frame</code> to draw simple <code>ID &lt;n&gt;</code> boxes on a
 copy of your own frame instead: <code>track_result.plot(frame, color=(0, 255, 0))</code>. See
 <a href="../../api/results/">Result objects</a> for the full result API.</p>
 <h2 id="configuration-groups">Configuration groups<a class="headerlink" href="#configuration-groups" title="Permanent link">&para;</a></h2>
@@ -2093,12 +2153,12 @@ for every field and default.</p>
 </tr>
 <tr>
 <td>Overlay / trails</td>
-<td><code>show_detection_boxes</code>, <code>show_original_tracks</code>, <code>show_student_track</code>, <code>show_tracking_tail</code>, <code>show_all_trails</code>, <code>tail_opacity</code>, <code>colors</code></td>
+<td><code>show_detection_boxes</code>, <code>show_original_tracks</code>, <code>show_locked_subject</code>, <code>show_tracking_tail</code>, <code>show_all_trails</code>, <code>tail_opacity</code>, <code>colors</code></td>
 <td>Which boxes/labels/trails the built-in overlay draws and in what colours.</td>
 </tr>
 <tr>
-<td>Student tracking</td>
-<td><code>enable_student_tracking</code>, <code>required_consecutive_frames</code>, <code>inconsistent_motion_threshold</code>, <code>student_reinit_iou_threshold</code></td>
+<td>Subject lock</td>
+<td><code>enable_subject_lock</code>, <code>required_consecutive_frames</code>, <code>inconsistent_motion_threshold</code>, <code>subject_reinit_iou_threshold</code></td>
 <td>The single-subject isolation heuristic (see below).</td>
 </tr>
 <tr>
@@ -2127,19 +2187,19 @@ for every field and default.</p>
 may be mixed); an unknown keyword raises <code>TypeError</code>, guarding against typos:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">cfg</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">TrackerConfig</span><span class="p">(</span><span class="n">tracker</span><span class="o">=</span><span class="s2">&quot;ocsort&quot;</span><span class="p">,</span> <span class="n">classes</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># constructor kwargs</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">cfg</span><span class="o">.</span><span class="n">debug_mode</span> <span class="o">=</span> <span class="kc">True</span>                                   <span class="c1"># attribute assignment</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">cfg</span><span class="o">.</span><span class="n">print</span><span class="p">()</span>                                             <span class="c1"># inspect resolved settings</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>                                              <span class="c1"># inspect resolved settings</span>
 </span></code></pre></div>
 <details class="note">
-<summary>Student tracking — isolating a single subject</summary>
-<p>With <code>enable_student_tracking=True</code> the tracker locks onto one stable subject
-(the "student") using a stability + IOU heuristic: a track must persist for
+<summary>Subject lock — following a single subject</summary>
+<p>With <code>enable_subject_lock=True</code> the tracker locks onto one stable subject
+using a stability + IOU heuristic: a track must persist for
 <code>required_consecutive_frames</code> frames to be promoted, is re-matched by IOU
-against <code>student_reinit_iou_threshold</code>, and is dropped after
+against <code>subject_reinit_iou_threshold</code>, and is dropped after
 <code>inconsistent_motion_threshold</code> consecutive low-IOU frames (or after enough
-misses). When active, the overlay draws the student in blue with a movement
-trail (<code>show_student_track</code> / <code>show_tracking_tail</code>, both on by default), and
-the current student box is exposed as <code>tracker.student_track_id</code> /
-<code>tracker.last_known_bbox</code>. This is what the <code>examples/tracker_aided_pose_video.py</code>
+misses). When active, the overlay draws the locked subject in blue with a movement
+trail (<code>show_locked_subject</code> / <code>show_tracking_tail</code>, both on by default), and
+the locked subject is exposed as <code>tracker.locked_subject_id</code> /
+<code>tracker.locked_subject_box</code>. This is what the <code>examples/tracker_aided_pose_video.py</code>
 demo enables so pose is run only on the isolated subject.</p>
 </details>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

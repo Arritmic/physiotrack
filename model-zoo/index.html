@@ -1019,6 +1019,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#where-weights-are-cached" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where weights are cached
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1165,6 +1176,10 @@
       
         
           
+        
+      
+        
+      
         
       
         
@@ -1623,6 +1638,62 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overlay Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1655,7 +1726,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_10" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1677,14 +1748,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_10" id="__nav_5_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_8">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1930,6 +2001,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#where-weights-are-cached" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where weights are cached
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2112,17 +2194,73 @@ and where the weights come from.</p>
 <code>Enum</code>s directly under <code>Depth</code>.</p>
 <h3 id="downloading-weights">Downloading weights<a class="headerlink" href="#downloading-weights" title="Permanent link">&para;</a></h3>
 <p>Selecting a member downloads nothing. Pass it to
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../api/models/#physiotrack.Models.resolve"><code>Models.resolve</code></a> to get its local path, fetching it
+only if it is not already cached (the high-level predictors do this for you):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="kn">import</span> <span class="n">Models</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">path</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Models</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Sapiens</span><span class="o">.</span><span class="n">WholeBody</span><span class="o">.</span><span class="n">B03_TS_COCOHB</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>resolve</code> is the only place in the library that knows where weights live, so every
+predictor and backend loader agrees on one location. Use
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;download_model&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../api/models/#physiotrack.Models.download_model"><code>download_model</code></a> to fetch and cache the
-weights (the high-level predictors do this for you on first use):</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="kn">import</span> <span class="n">Models</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">path</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">download_model</span><span class="p">(</span><span class="n">Models</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Sapiens</span><span class="o">.</span><span class="n">WholeBody</span><span class="o">.</span><span class="n">B03_TS_COCOHB</span><span class="p">)</span>
+  &lt;/span&gt;" href="../api/models/#physiotrack.Models.download_model"><code>download_model</code></a> directly only to force a fetch
+into a specific directory.</p>
+<h3 id="where-weights-are-cached">Where weights are cached<a class="headerlink" href="#where-weights-are-cached" title="Permanent link">&para;</a></h3>
+<p>Checkpoints are cached <strong>outside</strong> the installed package. Writing multi-gigabyte files
+into <code>site-packages</code> breaks read-only and containerised installs, defeats Docker layer
+caching, and stops two environments sharing one download.</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Cache location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>$PHYSIOTRACK_HOME</code> set</td>
+<td><code>$PHYSIOTRACK_HOME/weights</code></td>
+</tr>
+<tr>
+<td><code>$XDG_CACHE_HOME</code> set</td>
+<td><code>$XDG_CACHE_HOME/physiotrack/weights</code></td>
+</tr>
+<tr>
+<td>Linux (default)</td>
+<td><code>~/.cache/physiotrack/weights</code></td>
+</tr>
+<tr>
+<td>macOS</td>
+<td><code>~/Library/Caches/physiotrack/weights</code></td>
+</tr>
+<tr>
+<td>Windows</td>
+<td><code>%LOCALAPPDATA%\physiotrack\weights</code></td>
+</tr>
+</tbody>
+</table>
+<p>Set <code>PHYSIOTRACK_HOME</code> to share one cache between environments, images, or CI jobs:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PHYSIOTRACK_HOME</span><span class="o">=</span>/shared/physiotrack
 </span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Upgrading from before 1.1</p>
+<p>Older releases downloaded into the package's <code>modules/model_data</code> directory.
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;migrate_weight_cache&lt;/span&gt;" href="../api/utils/#physiotrack.migrate_weight_cache"><code>migrate_weight_cache</code></a> moves existing
+checkpoints into the cache so they are not fetched again:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">physiotrack</span><span class="o">.</span><span class="n">migrate_weight_cache</span><span class="p">(</span><span class="n">dry_run</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># preview</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">physiotrack</span><span class="o">.</span><span class="n">migrate_weight_cache</span><span class="p">()</span>               <span class="c1"># move them</span>
+</span></code></pre></div>
+</div>
 <p>Where a checkpoint comes from depends on the backend:</p>
 <table>
 <thead>
@@ -2157,15 +2295,15 @@ algorithmic (weight-free) canonicalization path and is never downloaded.</p>
 </div>
 <h2 id="how-to-use-a-model">How to use a model<a class="headerlink" href="#how-to-use-a-model" title="Permanent link">&para;</a></h2>
 <p>Hand a registry member to a predictor. The two most common patterns:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pt</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Detection — a specific person-detector variant</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">det</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Detection</span><span class="o">.</span><span class="n">Custom</span><span class="p">(</span><span class="n">pt</span><span class="o">.</span><span class="n">Models</span><span class="o">.</span><span class="n">Detection</span><span class="o">.</span><span class="n">YOLO</span><span class="o">.</span><span class="n">PERSON</span><span class="o">.</span><span class="n">l_person</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">result</span> <span class="o">=</span> <span class="n">det</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Pose — the huge whole-body ViTPose checkpoint</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">pose</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Custom</span><span class="p">(</span><span class="n">pt</span><span class="o">.</span><span class="n">Models</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">ViTPose</span><span class="o">.</span><span class="n">WholeBody</span><span class="o">.</span><span class="n">h_wholebody</span><span class="p">)</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pose</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">physiotrack</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pt</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Detection — a specific person-detector variant</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">det</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Detection</span><span class="o">.</span><span class="n">Custom</span><span class="p">(</span><span class="n">pt</span><span class="o">.</span><span class="n">Models</span><span class="o">.</span><span class="n">Detection</span><span class="o">.</span><span class="n">YOLO</span><span class="o">.</span><span class="n">PERSON</span><span class="o">.</span><span class="n">l_person</span><span class="p">)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">result</span> <span class="o">=</span> <span class="n">det</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Pose — the huge whole-body ViTPose checkpoint</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">pose</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">Custom</span><span class="p">(</span><span class="n">pt</span><span class="o">.</span><span class="n">Models</span><span class="o">.</span><span class="n">Pose</span><span class="o">.</span><span class="n">ViTPose</span><span class="o">.</span><span class="n">WholeBody</span><span class="o">.</span><span class="n">h_wholebody</span><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pose</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Presets vs. <code>Custom</code></p>
@@ -2484,7 +2622,7 @@ filenames.</p>
 </tr>
 </tbody>
 </table>
-<p><code>Pose3D.Canonicalizer.View</code> is a plain string enum of canonical viewpoints (not
+<p><code>pt.CanonicalView</code> is a plain string enum of canonical viewpoints (not
 weights): <code>FRONT</code> (<code>"front"</code>), <code>BACK</code> (<code>"back"</code>), <code>LEFT_SIDE</code> (<code>"left_side"</code>),
 <code>RIGHT_SIDE</code> (<code>"right_side"</code>).</p>
 <hr />
