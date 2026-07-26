@@ -5,6 +5,27 @@ import requests
 from tqdm import tqdm
 from pathlib import Path
 
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+from ._logging import get_logger
+from ._paths import legacy_weights_dir, weights_dir
+
+logger = get_logger(__name__)
+
+try:
+    # Read the installed metadata directly rather than importing the package's own
+    # __init__, which would make this module depend on its parent finishing first.
+    __version__ = _pkg_version("physiotrack")
+except PackageNotFoundError:  # pragma: no cover - source tree that was never installed
+    __version__ = "0.0.0.dev0"
+
+# The weight cache lives in a per-user directory (see physiotrack._paths), never inside
+# the installed package. ``Models.resolve()`` is the single way any loader learns where a
+# checkpoint is, so this location is stated in exactly one place.
+#
+# Resolved per call rather than cached at import: ``PHYSIOTRACK_HOME`` must still take
+# effect when it is set after ``import physiotrack``, which is what tests and notebooks do.
+
 
 class Models:
     """Central registry of every pretrained model physiotrack can download and run.
@@ -25,16 +46,31 @@ class Models:
 
     A few groups nest one level deeper or sit directly under the task: ``Pose3D``
     backends (``MotionBERT``, ``DDH``, ``FaceOrientation``) are ``Enum``\\ s directly
-    under ``Pose3D``; ``Pose3D.Canonicalizer`` holds ``Models`` (3DPCNet weights) and
-    ``View`` (a plain string enum of canonical viewpoints); ``Depth.DepthAnythingV2``
-    is an ``Enum`` directly under ``Depth``.
+    under ``Pose3D``; ``Pose3D.Canonicalizer.Models`` holds the 3DPCNet weights; and
+    ``Depth.DepthAnythingV2`` is an ``Enum`` directly under ``Depth``.
+
+    The registry contains **only checkpoints**. The canonical viewpoint a pose is
+    rotated to is a parameter, not a model, and lives in
+    [`CanonicalView`][physiotrack.CanonicalView].
+
+    Use [`list`][physiotrack.Models.list] to browse the registry,
+    [`info`][physiotrack.Models.info] to describe a member, and
+    [`get`][physiotrack.Models.get] to resolve a dotted path string such as
+    ``"Depth.ZipDepth.base"`` — which lets a checkpoint be chosen from a config file or
+    command line rather than only in Python source.
 
     Selecting a member does not download anything by itself. Pass a member to
-    [`download_model`][physiotrack.Models.download_model] to fetch its weights, which
-    are cached locally and auto-fetched (mostly from the project's HuggingFace repos)
-    on first use. Members whose ``.value`` is an empty string (e.g.
+    [`resolve`][physiotrack.Models.resolve] to get its local weight path, fetching it
+    (mostly from the project's HuggingFace repos) only on first use; predictors do this
+    for you. Members whose ``.value`` is an empty string (e.g.
     ``Canonicalizer.Models.GEOMETRIC``) are markers for weight-free / algorithmic
     paths and are not downloaded.
+
+    Weights are cached **outside** the installed package: under ``$PHYSIOTRACK_HOME``
+    when set, otherwise ``$XDG_CACHE_HOME/physiotrack`` or the platform user-cache
+    directory. Point ``PHYSIOTRACK_HOME`` at a shared location to reuse one download
+    across environments or containers. Installs from before 1.1 kept weights inside the
+    package; [`migrate_weight_cache`][physiotrack.migrate_weight_cache] moves them.
 
     The ``validate_*`` static methods check that a given member belongs to the
     expected task/subclass, raising a descriptive ``ValueError`` otherwise; the
@@ -52,8 +88,9 @@ class Models:
         # ... download its weights (cached after the first call) ...
         weights_path = Models.download_model(model)
 
-        # ... and hand it to a predictor.
-        pose = pt.Pose(model=model)
+        # ... and hand it to a predictor. `Pose` is a namespace of presets, so a
+        # registry member goes through `Pose.Custom`.
+        pose = pt.Pose.Custom(model=model)
         ```
 
     Note:
@@ -149,12 +186,6 @@ class Models:
                 _3DPCNetTC48_byAction = 'best_model_3DPCNetTC48_byAction.pth'
                 GEOMETRIC = ''
 
-            class View(Enum):
-                FRONT = "front"
-                BACK = "back" 
-                LEFT_SIDE = "left_side"
-                RIGHT_SIDE = "right_side"
-
     class Depth:
         class DepthAnythingV2(Enum):
             vits = "depth_anything_v2_vits.pth"
@@ -205,6 +236,186 @@ class Models:
             class Face(Enum):
                 swinb_celeba_512 = "segface_swinb_celeba_512.pt"
 
+
+    # Task namespaces walked by the introspection helpers below. Kept in one place so
+    # `list`, `info`, `get` and `_get_model_info` cannot disagree about what the
+    # registry contains.
+    _TASKS = ('Detection', 'Pose', 'Segmentation', 'Pose3D', 'Depth')
+
+    @staticmethod
+    def _walk():
+        """Yield every registry member with its position in the tree.
+
+        Walks the nested ``Task.Backend[.Group].member`` structure once, so callers do
+        not have to know how deeply any particular task nests its enums.
+
+        Yields:
+            tuple[str, str, str, enum.Enum]: ``(task, backend, group, member)`` where
+                ``group`` is the enum class name (equal to ``backend`` for tasks whose
+                enums sit directly under the backend).
+        """
+        for task in Models._TASKS:
+            namespace = getattr(Models, task, None)
+            if namespace is None:
+                continue
+            for backend_name in dir(namespace):
+                if backend_name.startswith('_'):
+                    continue
+                backend = getattr(namespace, backend_name)
+                if not inspect.isclass(backend):
+                    continue
+                if issubclass(backend, Enum):
+                    # Enums sitting directly under the task (e.g. Depth.ZipDepth).
+                    for member in backend:
+                        yield task, backend_name, backend_name, member
+                    continue
+                for group_name in dir(backend):
+                    if group_name.startswith('_'):
+                        continue
+                    group = getattr(backend, group_name)
+                    if inspect.isclass(group) and issubclass(group, Enum):
+                        for member in group:
+                            yield task, backend_name, group_name, member
+
+    @staticmethod
+    def path_of(member):
+        """Return the dotted registry path of a member.
+
+        Args:
+            member (enum.Enum): A registry member.
+
+        Returns:
+            str | None: The dotted path, e.g.
+                ``"Pose.ViTPose.WholeBody.s_wholebody"``, or ``None`` if the member is
+                not part of the registry.
+        """
+        for task, backend, group, candidate in Models._walk():
+            if candidate is member:
+                prefix = f"{task}.{backend}" if backend == group else f"{task}.{backend}.{group}"
+                return f"{prefix}.{candidate.name}"
+        return None
+
+    @staticmethod
+    def list(task=None, backend=None, weights_only=False):
+        """List the registry as dotted paths.
+
+        Args:
+            task (str, optional): Restrict to one task — ``"Detection"``, ``"Pose"``,
+                ``"Segmentation"``, ``"Pose3D"`` or ``"Depth"`` (case-insensitive).
+                Defaults to ``None`` (all tasks).
+            backend (str, optional): Restrict to one backend, e.g. ``"ViTPose"``
+                (case-insensitive). Defaults to ``None`` (all backends).
+            weights_only (bool, optional): Skip members that carry no weight file —
+                currently just the training-free ``Canonicalizer.Models.GEOMETRIC``
+                marker. Defaults to ``False``.
+
+        Returns:
+            list[str]: Sorted dotted paths, each accepted by
+                [`get`][physiotrack.Models.get].
+
+        Raises:
+            ValueError: If ``task`` is not a known task name.
+
+        Example:
+            ```python
+            from physiotrack import Models
+            Models.list(task="depth")
+            # ['Depth.DepthAnythingV2.vitb', 'Depth.DepthAnythingV2.vitl', ...]
+            len(Models.list(weights_only=True))   # 51 downloadable checkpoints
+            ```
+        """
+        if task is not None:
+            match = {t.lower(): t for t in Models._TASKS}.get(task.lower())
+            if match is None:
+                raise ValueError(
+                    f"Unknown task {task!r}. Valid tasks: {', '.join(Models._TASKS)}."
+                )
+            task = match
+
+        out = []
+        for t, b, g, member in Models._walk():
+            if task is not None and t != task:
+                continue
+            if backend is not None and b.lower() != backend.lower():
+                continue
+            if weights_only and not member.value:
+                continue
+            prefix = f"{t}.{b}" if b == g else f"{t}.{b}.{g}"
+            out.append(f"{prefix}.{member.name}")
+        return sorted(out)
+
+    @staticmethod
+    def get(path):
+        """Resolve a dotted registry path to its member.
+
+        Lets a model be named as a plain string, so a checkpoint can be selected from
+        a config file, a CLI argument or an environment variable rather than only in
+        Python source.
+
+        Args:
+            path (str): Dotted path as returned by [`list`][physiotrack.Models.list],
+                e.g. ``"Pose.ViTPose.WholeBody.s_wholebody"``.
+
+        Returns:
+            enum.Enum: The matching registry member.
+
+        Raises:
+            ValueError: If no member has that path. The message suggests the closest
+                available paths.
+
+        Example:
+            ```python
+            import physiotrack as pt
+            model = pt.Models.get("Depth.ZipDepth.base")
+            depth = pt.Depth.Custom(model=model)
+            ```
+        """
+        wanted = str(path).strip()
+        for candidate in Models._walk():
+            member = candidate[3]
+            if Models.path_of(member) == wanted:
+                return member
+
+        tail = wanted.rsplit('.', 1)[-1].lower()
+        near = [p for p in Models.list() if tail and tail in p.lower()][:5]
+        hint = f" Closest matches: {', '.join(near)}." if near else ""
+        raise ValueError(f"No registry model at path {path!r}.{hint}")
+
+    @staticmethod
+    def info(member):
+        """Describe a registry member.
+
+        Args:
+            member (enum.Enum): A registry member.
+
+        Returns:
+            dict: ``task``, ``backend``, ``group``, ``name``, ``file_name`` (the weight
+                file, empty for weight-free markers), ``path`` (the dotted path) and
+                ``has_weights``.
+
+        Raises:
+            ValueError: If ``member`` is not a registry member.
+
+        Example:
+            ```python
+            from physiotrack import Models
+            Models.info(Models.Depth.ZipDepth.base)
+            # {'task': 'Depth', 'backend': 'ZipDepth', ..., 'has_weights': True}
+            ```
+        """
+        for task, backend, group, candidate in Models._walk():
+            if candidate is member:
+                prefix = f"{task}.{backend}" if backend == group else f"{task}.{backend}.{group}"
+                return {
+                    'task': task,
+                    'backend': backend,
+                    'group': group,
+                    'name': candidate.name,
+                    'file_name': candidate.value,
+                    'path': f"{prefix}.{candidate.name}",
+                    'has_weights': bool(candidate.value),
+                }
+        raise ValueError(f"{member!r} is not a member of the Models registry.")
 
     @staticmethod
     def _get_model_info(model_enum):
@@ -303,6 +514,11 @@ class Models:
             task = "seg"
             format_type = "torchscript"
             base_url = f"https://huggingface.co/facebook/sapiens-{task}-{size}-{format_type}/resolve/main"
+        else:
+            raise ValueError(
+                f"Sapiens weights are only hosted for the Pose and Segmentation tasks, "
+                f"got category {model_info['category']!r} for {file_name!r}."
+            )
         download_url = f"{base_url}/{file_name}?download=true"
         return Models._download_file(download_url, file_name, download_path)
 
@@ -327,9 +543,10 @@ class Models:
         download_url = f"{base_url}/{file_name}?download=true"
         
         return Models._download_file(download_url, actual_filename, full_download_path)
-    
+
+    @staticmethod
     def _download_ddh_model(model_info, download_path):
-        """Download MotionBERT models from HuggingFace"""
+        """Download DDHPose models from HuggingFace"""
         file_name = model_info['file_name']
         file_dir = os.path.dirname(file_name)
         actual_filename = os.path.basename(file_name)
@@ -382,43 +599,121 @@ class Models:
 
     @staticmethod
     def _download_file(url, file_name, download_path):
-        """Generic file download with progress bar"""
+        """Download a weight file into the cache, atomically.
+
+        The download streams to a temporary sibling file and is renamed into place
+        only once complete, so an interrupted transfer can never leave a truncated
+        checkpoint that later loads as a corrupt model.
+
+        Args:
+            url (str): Source URL.
+            file_name (str): Destination file name within ``download_path``.
+            download_path (str | os.PathLike): Destination directory.
+
+        Returns:
+            str: Absolute path to the cached file.
+
+        Raises:
+            requests.exceptions.RequestException: If the transfer fails.
+        """
         os.makedirs(download_path, exist_ok=True)
         file_path = os.path.join(download_path, file_name)
 
         if os.path.exists(file_path):
-            print(f"File {file_name} already exists at {file_path}")
             return file_path
 
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            }
+        # Identify the client honestly; some hosts reject an empty User-Agent.
+        headers = {"User-Agent": f"physiotrack/{__version__} (+https://github.com/tharindu326/physiotrack)"}
+        tmp_path = f"{file_path}.part"
 
-            response = requests.get(url, stream=True, headers=headers)
+        try:
+            response = requests.get(url, stream=True, headers=headers, timeout=30)
             response.raise_for_status()
 
-            total_size = int(response.headers.get('content-length', 0))
-            block_size = 8192  # 8KB blocks
-
-            with tqdm(total=total_size, unit='iB', unit_scale=True, desc=file_name) as pbar:
-                with open(file_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=block_size):
-                        if chunk:  # Filter out keep-alive chunks
+            total_size = int(response.headers.get("content-length", 0))
+            with tqdm(total=total_size, unit="iB", unit_scale=True, desc=file_name) as pbar:
+                with open(tmp_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:  # filter out keep-alive chunks
                             f.write(chunk)
                             pbar.update(len(chunk))
 
-            # print(f"Successfully downloaded {file_name} to {file_path}")
+            if total_size and os.path.getsize(tmp_path) != total_size:
+                raise IOError(
+                    f"Incomplete download for {file_name}: expected {total_size} bytes, "
+                    f"got {os.path.getsize(tmp_path)}."
+                )
+
+            os.replace(tmp_path, file_path)
             return file_path
 
-        except requests.exceptions.RequestException as e:
-            print(f"Failed to download {file_name}: {e}")
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        except BaseException:
+            # Covers KeyboardInterrupt as well as request failures: never leave a
+            # partial file behind for the exists() check above to trust later.
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
             raise
 
     @staticmethod
-    def download_model(model_enum, download_path=f"{os.path.join(os.path.dirname(__file__))}/modules/model_data"):
+    def resolve(model_enum):
+        """Return the local path to a registry member's weights, fetching on first use.
+
+        This is the only place in the library that knows where weights live. Every
+        predictor and every backend loader calls it instead of deriving a path, so the
+        cache location is a single fact rather than something restated per module, and
+        the download-if-missing check cannot drift between call sites.
+
+        Args:
+            model_enum (enum.Enum): A registry member, e.g.
+                ``Models.Pose.ViTPose.WholeBody.s_wholebody``.
+
+        Returns:
+            str | None: Absolute path to the cached weight file, or ``None`` for
+                members that ultralytics fetches on demand (any ``Pose.YOLO`` model
+                and any ``PERSON`` YOLO/RTDETR variant) and for weight-free markers
+                such as the geometric canonicalizer.
+
+        Raises:
+            ValueError: If ``model_enum`` is not a registry member.
+            requests.exceptions.RequestException: If a required download fails.
+
+        Example:
+            ```python
+            from physiotrack import Models
+            path = Models.resolve(Models.Depth.ZipDepth.base)
+            ```
+
+        Note:
+            Weights are cached under ``$PHYSIOTRACK_HOME`` when set, otherwise in the
+            platform user-cache directory — never inside ``site-packages``. Set
+            ``PHYSIOTRACK_HOME`` to share one cache between environments.
+        """
+        if not isinstance(model_enum, Enum):
+            raise ValueError(f"Expected an Enum instance, got {type(model_enum)}")
+        if not model_enum.value:
+            return None  # weight-free registry marker (e.g. GEOMETRIC canonicalizer)
+
+        path = os.path.join(str(weights_dir()), model_enum.value)
+        if os.path.isfile(path):
+            return path
+
+        # Weights are only ever read from the cache. If a pre-1.1 install already put
+        # this checkpoint inside the package, say so before spending the bandwidth --
+        # re-downloading several GB the user already has is worse than one log line.
+        stale = legacy_weights_dir() / model_enum.value
+        if stale.is_file():
+            logger.info(
+                "%s already exists in the pre-1.1 in-package location (%s) but weights "
+                "now live in %s. Run physiotrack.migrate_weight_cache() to move them "
+                "instead of re-downloading.", model_enum.value, stale.parent, os.path.dirname(path))
+
+        downloaded = Models.download_model(model_enum)
+        if downloaded is None:
+            return None  # ultralytics fetches this one itself
+        return downloaded
+
+    @staticmethod
+    def download_model(model_enum, download_path=None):
         """Download a registry model's weights and return the local file path.
 
         Resolves which task/backend the member belongs to, then fetches the weight
@@ -430,9 +725,12 @@ class Models:
                 ``Models.Pose.ViTPose.WholeBody.s_wholebody`` or
                 ``Models.Depth.DepthAnythingV2.vitl``.
             download_path (str, optional): Directory to download into. Defaults to
-                the package-local ``modules/model_data`` directory. For members whose
-                value contains a subdirectory (e.g. MotionBERT), that subdirectory is
-                created under this path.
+                ``None``, meaning the per-user weight cache resolved by
+                [`physiotrack._paths.weights_dir`][] and overridable with
+                ``$PHYSIOTRACK_HOME``. For members whose value contains a
+                subdirectory (e.g. MotionBERT), that subdirectory is created under
+                this path. Prefer [`Models.resolve`][physiotrack.Models.resolve],
+                which reuses an already-cached file instead of re-resolving the path.
 
         Returns:
             str | None: Absolute path to the downloaded (or cached) weight file, or
@@ -458,7 +756,9 @@ class Models:
         """
         if not isinstance(model_enum, Enum):
             raise ValueError(f"Expected an Enum instance, got {type(model_enum)}")
-        
+        if download_path is None:
+            download_path = str(weights_dir())
+
         model_info = Models._get_model_info(model_enum)
         if not model_info:
             raise ValueError(f"Could not determine model information for {model_enum}")
@@ -493,19 +793,22 @@ class Models:
             raise ValueError(f"Unknown backend: {model_info['backend']}")
 
     @staticmethod
-    def validate_det_model(model, expected_subclass: str):
-        """Verify a detection model belongs to the named detection subclass.
+    def validate_det_model(model, expected_subclass: str = None):
+        """Verify a detection model is valid, optionally for a specific subclass.
 
-        Checks ``model`` against the enum named ``expected_subclass`` under either
-        ``Models.Detection.YOLO`` or ``Models.Detection.RTDETR`` (matched
-        case-insensitively). Returns ``None`` on success.
+        With ``expected_subclass`` given, checks ``model`` against the enum of that
+        name under ``Models.Detection.YOLO`` or ``Models.Detection.RTDETR`` (matched
+        case-insensitively). Without it, accepts ``model`` if it is a member of any
+        enum under any ``Models.Detection`` backend — which is what
+        ``Detection.Custom`` needs, since it deliberately imposes no subclass.
+        Returns ``None`` on success.
 
         Args:
             model (enum.Enum): The candidate detection registry member, e.g.
                 ``Models.Detection.YOLO.PERSON.m_person``.
-            expected_subclass (str): Name of the required enum group, e.g.
-                ``"PERSON"``, ``"FACE"``, ``"VR"``, ``"VRSTUDENT"``,
-                ``"VRFACE"`` (case-insensitive).
+            expected_subclass (str, optional): Name of the required enum group, e.g.
+                ``"PERSON"``, ``"FACE"``, ``"VR"``, ``"VRSTUDENT"``, ``"VRFACE"``
+                (case-insensitive). Defaults to ``None`` (accept any detection model).
 
         Raises:
             ValueError: If ``model`` is not an ``Enum``, if no subclass named
@@ -516,10 +819,32 @@ class Models:
             ```python
             from physiotrack import Models
             Models.validate_det_model(Models.Detection.YOLO.PERSON.m_person, "PERSON")
+            Models.validate_det_model(Models.Detection.YOLO.FACE.m_face)  # any subclass
             ```
         """
         if not isinstance(model, Enum):
             raise ValueError(f"Expected an Enum member for `model`, got {type(model).__name__}")
+
+        if expected_subclass is None:
+            for backend_name in dir(Models.Detection):
+                if backend_name.startswith("_"):
+                    continue
+                backend = getattr(Models.Detection, backend_name)
+                if not inspect.isclass(backend):
+                    continue
+                for enum_class_name in dir(backend):
+                    if enum_class_name.startswith("_"):
+                        continue
+                    enum_class = getattr(backend, enum_class_name)
+                    if (inspect.isclass(enum_class)
+                            and issubclass(enum_class, Enum)
+                            and isinstance(model, enum_class)):
+                        return  # valid
+            raise ValueError(
+                f"Invalid detection model: {repr(model)}.\n"
+                f"Expected a valid enum member from Models.Detection.<Backend>.<EnumClass>"
+            )
+
         target = expected_subclass.strip().upper()
         enum_classes = []
         for backend in (Models.Detection.YOLO, Models.Detection.RTDETR):
@@ -857,4 +1182,4 @@ if __name__ == "__main__":
         yolo_path = Models.download_model(Models.Detection.YOLO.VRSTUDENT.m_vrstudent)
         
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error("%s", e)

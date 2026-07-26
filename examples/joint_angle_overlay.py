@@ -43,7 +43,7 @@ def run_standalone(video_path: str):
         pose_results = result.to_dict()["detections"]   # [{'keypoints': [...]}, ...]
         plotter.update(pose_results, frame_time=cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0)
         # joint-angle grid + ROM grid (2-column L|R panels) stacked on the left
-        frame = plotter.attach_panels(frame, position="top_left")
+        frame = plotter.attach_to_frame(frame, position="top_left")
         cv2.imshow("joint angles", frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break

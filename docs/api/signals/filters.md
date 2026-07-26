@@ -5,7 +5,6 @@ joint-angle time series). Cutoffs are in Hz; pass the sampling rate `fs`.
 
 ::: physiotrack.signals.bandpass_filter
 
-::: physiotrack.signals.band_pass_filter
 
 ::: physiotrack.signals.bandpass_firwin
 

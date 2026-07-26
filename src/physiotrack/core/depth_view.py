@@ -8,15 +8,26 @@ import cv2
 from typing import Optional, Tuple
 
 from physiotrack.core.overlay import OverlayCanvas, alpha_composite
+import warnings
+from .panel import PanelMixin
 
 
-class DepthView:
+class DepthView(PanelMixin):
     """
     Depth view visualization for displaying depth estimation results.
 
     Renders a colorized depth map as a miniature overlay on video frames,
     positioned similar to the radar/floor map view.
     """
+
+    # Placement and compositing come from PanelMixin; these are this panel's
+    # own defaults, preserved exactly as they were before the consolidation.
+    PANEL_POSITION = 'bottom_right'
+    PANEL_MARGIN = 10
+    PANEL_BACKDROP = True
+    PANEL_BACKDROP_PAD = 5
+    PANEL_BACKDROP_ALPHA = 0.3
+
 
     def __init__(self,
                  max_width: int = 320,
@@ -92,6 +103,10 @@ class DepthView:
             depth_normalized = np.zeros_like(depth)
         return depth_normalized.astype(np.uint8)
 
+    def panel_visible(self) -> bool:
+        """Nothing is drawn until a depth map has arrived."""
+        return bool(self.enabled) and self.depth_canvas is not None
+
     def render(self) -> np.ndarray:
         """
         Render the depth view canvas.
@@ -120,68 +135,6 @@ class DepthView:
 
         return canvas
 
-    def attach_to_frame(self, frame: np.ndarray, position: str = 'bottom_right',
-                        margin: int = 10, above_element_height: int = 0) -> np.ndarray:
-        """
-        Attach depth view to a video frame.
-
-        Args:
-            frame: Video frame to attach depth view to
-            position: Position on frame ('bottom_right', 'bottom_left', 'top_right', 'top_left')
-            margin: Margin from frame edge in pixels
-            above_element_height: Height of element below this one (e.g., radar view) to stack above it
-
-        Returns:
-            Frame with depth view attached
-        """
-        if not self.enabled or self.depth_canvas is None:
-            return frame
-
-        canvas = self.render()
-        h, w = frame.shape[:2]
-        canvas_h, canvas_w = canvas.shape[:2]
-
-        # Calculate position based on specified location
-        # Stack above any existing element (like radar view)
-        if position == 'bottom_right':
-            y1 = h - canvas_h - margin - above_element_height - (margin if above_element_height > 0 else 0)
-            y2 = y1 + canvas_h
-            x1 = w - canvas_w - margin
-            x2 = w - margin
-        elif position == 'bottom_left':
-            y1 = h - canvas_h - margin - above_element_height - (margin if above_element_height > 0 else 0)
-            y2 = y1 + canvas_h
-            x1 = margin
-            x2 = margin + canvas_w
-        elif position == 'top_right':
-            y1 = margin + above_element_height + (margin if above_element_height > 0 else 0)
-            y2 = y1 + canvas_h
-            x1 = w - canvas_w - margin
-            x2 = w - margin
-        elif position == 'top_left':
-            y1 = margin + above_element_height + (margin if above_element_height > 0 else 0)
-            y2 = y1 + canvas_h
-            x1 = margin
-            x2 = margin + canvas_w
-        else:
-            raise ValueError(f"Invalid position: {position}")
-
-        # Ensure coordinates are valid
-        if y1 < 0 or x1 < 0 or y2 > h or x2 > w:
-            return frame
-
-        result_frame = frame.copy()
-
-        # Add semi-transparent background
-        overlay = result_frame.copy()
-        cv2.rectangle(overlay, (x1 - 5, y1 - 5), (x2 + 5, y2 + 5), (0, 0, 0), -1)
-        result_frame = cv2.addWeighted(result_frame, 0.7, overlay, 0.3, 0)
-
-        # Overlay depth view
-        result_frame[y1:y2, x1:x2] = canvas
-
-        return result_frame
-
     def get_canvas_height(self) -> int:
         """Get the current canvas height for stacking calculations."""
         if self.depth_canvas is not None:
@@ -198,5 +151,6 @@ class DepthView:
         if colormap.lower() in self.colormap_dict:
             self.colormap = colormap.lower()
         else:
-            print(f"Warning: Unknown colormap '{colormap}'. Using 'inferno'.")
+            warnings.warn(f"Unknown colormap {colormap!r}; using 'inferno'.",
+                          RuntimeWarning, stacklevel=2)
             self.colormap = 'inferno'

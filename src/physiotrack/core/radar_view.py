@@ -11,9 +11,15 @@ from pathlib import Path
 from physiotrack.modules.Yolo.classes_and_palettes import COLORS
 from physiotrack.utils.spatial_transforms import compute_homography, transform_point, get_foot_position
 from physiotrack.core.overlay import OverlayCanvas, alpha_composite
+import warnings
+
+from .._logging import get_logger
+from .panel import PanelMixin
+
+logger = get_logger(__name__)
 
 
-class RadarView:
+class RadarView(PanelMixin):
     """
     Radar view visualization for tracking person movements on a floor map.
     
@@ -22,6 +28,15 @@ class RadarView:
     2. Direct canvas: Use a pre-made floor map image directly
     3. Extracted canvas: Extract and transform a floor area from source image using homography
     """
+
+    # Placement and compositing come from PanelMixin; these are this panel's
+    # own defaults, preserved exactly as they were before the consolidation.
+    PANEL_POSITION = 'bottom_right'
+    PANEL_MARGIN = 10
+    PANEL_BACKDROP = True
+    PANEL_BACKDROP_PAD = 5
+    PANEL_BACKDROP_ALPHA = 0.3
+
 
     def __init__(self, floor_map: Optional[List[Tuple[int, int]]] = None,
                  max_trajectory_length: int = 100,
@@ -81,7 +96,7 @@ class RadarView:
                     # Resize to match the computed canvas size for consistency
                     self.custom_canvas = cv2.resize(self.custom_canvas, self.canvas_size)
                     self.use_custom_canvas = True
-                    print(f"RadarView: Using floor plan from file (resized to {self.canvas_size[0]}x{self.canvas_size[1]})")
+                    logger.info(f"RadarView: Using floor plan from file (resized to {self.canvas_size[0]}x{self.canvas_size[1]})")
             elif isinstance(background, np.ndarray):
                 # Mode 4: Use provided numpy array and resize to match canvas_size
                 self.custom_canvas = self._load_canvas(background)
@@ -89,7 +104,7 @@ class RadarView:
                     # Resize to match the computed canvas size for consistency
                     self.custom_canvas = cv2.resize(self.custom_canvas, self.canvas_size)
                     self.use_custom_canvas = True
-                    print(f"RadarView: Using provided canvas array (resized to {self.canvas_size[0]}x{self.canvas_size[1]})")
+                    logger.info(f"RadarView: Using provided canvas array (resized to {self.canvas_size[0]}x{self.canvas_size[1]})")
         else:
             self.homography_matrix = None
             self.canvas_size = (max_canvas_dim, max_canvas_dim)
@@ -111,11 +126,11 @@ class RadarView:
             if isinstance(canvas_input, str):
                 canvas_path = Path(canvas_input)
                 if not canvas_path.exists():
-                    print(f"Warning: Floor map canvas file not found: {canvas_input}")
+                    warnings.warn(f"Floor map canvas file not found: {canvas_input}", RuntimeWarning, stacklevel=2)
                     return None
                 canvas = cv2.imread(str(canvas_path))
                 if canvas is None:
-                    print(f"Warning: Failed to load floor map canvas from: {canvas_input}")
+                    warnings.warn(f"Failed to load floor map canvas from: {canvas_input}", RuntimeWarning, stacklevel=2)
                     return None
                 return canvas
             elif isinstance(canvas_input, np.ndarray):
@@ -127,13 +142,13 @@ class RadarView:
                 elif canvas_input.shape[2] == 4:
                     return cv2.cvtColor(canvas_input, cv2.COLOR_BGRA2BGR)
                 else:
-                    print(f"Warning: Unsupported canvas array format with {canvas_input.shape[2]} channels")
+                    warnings.warn(f"Unsupported canvas array format with {canvas_input.shape[2]} channels", RuntimeWarning, stacklevel=2)
                     return None
             else:
-                print(f"Warning: Unsupported canvas input type: {type(canvas_input)}")
+                warnings.warn(f"Unsupported canvas input type: {type(canvas_input)}", RuntimeWarning, stacklevel=2)
                 return None
         except Exception as e:
-            print(f"Error loading floor map canvas: {e}")
+            logger.error(f"Error loading floor map canvas: {e}")
             return None
 
     def _extract_floor_canvas(self, source_image: Union[str, np.ndarray],
@@ -155,11 +170,11 @@ class RadarView:
             if isinstance(source_image, str):
                 source_path = Path(source_image)
                 if not source_path.exists():
-                    print(f"Warning: Floor map source image not found: {source_image}")
+                    warnings.warn(f"Floor map source image not found: {source_image}", RuntimeWarning, stacklevel=2)
                     return None
                 img = cv2.imread(str(source_path))
                 if img is None:
-                    print(f"Warning: Failed to load floor map source image from: {source_image}")
+                    warnings.warn(f"Failed to load floor map source image from: {source_image}", RuntimeWarning, stacklevel=2)
                     return None
             elif isinstance(source_image, np.ndarray):
                 # Ensure it's 3-channel BGR
@@ -170,10 +185,10 @@ class RadarView:
                 elif source_image.shape[2] == 4:
                     img = cv2.cvtColor(source_image, cv2.COLOR_BGRA2BGR)
                 else:
-                    print(f"Warning: Unsupported source image format with {source_image.shape[2]} channels")
+                    warnings.warn(f"Unsupported source image format with {source_image.shape[2]} channels", RuntimeWarning, stacklevel=2)
                     return None
             else:
-                print(f"Warning: Unsupported source image type: {type(source_image)}")
+                warnings.warn(f"Unsupported source image type: {type(source_image)}", RuntimeWarning, stacklevel=2)
                 return None
 
             # Compute homography matrix and canvas size with rotation
@@ -185,7 +200,7 @@ class RadarView:
             return canvas
 
         except Exception as e:
-            print(f"Error extracting floor canvas: {e}")
+            logger.error(f"Error extracting floor canvas: {e}")
             return None
 
     def set_background_from_frame(self, frame: np.ndarray) -> bool:
@@ -202,7 +217,7 @@ class RadarView:
             True if background was successfully set, False otherwise
         """
         if not self.enabled or self.floor_map is None:
-            print("Warning: Cannot extract floor from frame - floor_map not defined")
+            warnings.warn("Cannot extract floor from frame - floor_map not defined", RuntimeWarning, stacklevel=2)
             return False
 
         try:
@@ -216,15 +231,16 @@ class RadarView:
             if self.custom_canvas is not None:
                 self.use_custom_canvas = True
                 self.canvas_size = (self.custom_canvas.shape[1], self.custom_canvas.shape[0])
-                print(f"RadarView: Extracted floor area from frame and transformed to top-down view "
-                      f"({self.canvas_size[0]}x{self.canvas_size[1]})")
+                logger.info("RadarView: extracted the floor area from the frame and "
+                            "transformed it to a top-down view (%dx%d)",
+                            self.canvas_size[0], self.canvas_size[1])
                 return True
             else:
-                print("Warning: Failed to extract floor area from frame")
+                warnings.warn("Failed to extract floor area from frame", RuntimeWarning, stacklevel=2)
                 return False
                 
         except Exception as e:
-            print(f"Error setting background from frame: {e}")
+            logger.error(f"Error setting background from frame: {e}")
             return False
 
     def update(self, online_targets: List, pose_results: List[dict]) -> None:
@@ -267,6 +283,10 @@ class RadarView:
                         # Add to trajectory
                         self.trajectories[track_id].append(floor_coords)
                         break
+
+    def panel_visible(self) -> bool:
+        """The radar is drawn only when enabled."""
+        return bool(self.enabled)
 
     def render(self) -> np.ndarray:
         """
@@ -320,66 +340,6 @@ class RadarView:
         ov.text((10, 6), "Floor Map", size=22, color=(255, 255, 255), bold=True)
         alpha_composite(canvas, ov.render(), 0, 0)
         return canvas
-
-    def attach_to_frame(self, frame: np.ndarray, position: str = 'bottom_right',
-                        margin: int = 10) -> np.ndarray:
-        """
-        Attach radar view to a video frame.
-
-        Args:
-            frame: Video frame to attach radar view to
-            position: Position on frame ('bottom_right', 'bottom_left', 'top_right', 'top_left')
-            margin: Margin from frame edge in pixels
-
-        Returns:
-            Frame with radar view attached
-        """
-        if not self.enabled:
-            return frame
-
-        radar_canvas = self.render()
-        h, w = frame.shape[:2]
-        radar_h, radar_w = self.canvas_size[1], self.canvas_size[0]
-
-        # Calculate position based on specified location
-        if position == 'bottom_right':
-            y1 = h - radar_h - margin
-            y2 = h - margin
-            x1 = w - radar_w - margin
-            x2 = w - margin
-        elif position == 'bottom_left':
-            y1 = h - radar_h - margin
-            y2 = h - margin
-            x1 = margin
-            x2 = margin + radar_w
-        elif position == 'top_right':
-            y1 = margin
-            y2 = margin + radar_h
-            x1 = w - radar_w - margin
-            x2 = w - margin
-        elif position == 'top_left':
-            y1 = margin
-            y2 = margin + radar_h
-            x1 = margin
-            x2 = margin + radar_w
-        else:
-            raise ValueError(f"Invalid position: {position}")
-
-        # Ensure coordinates are valid
-        if y1 < 0 or x1 < 0 or y2 > h or x2 > w:
-            return frame
-
-        result_frame = frame.copy()
-
-        # Add semi-transparent background
-        overlay = result_frame.copy()
-        cv2.rectangle(overlay, (x1 - 5, y1 - 5), (x2 + 5, y2 + 5), (0, 0, 0), -1)
-        result_frame = cv2.addWeighted(result_frame, 0.7, overlay, 0.3, 0)
-
-        # Overlay radar view
-        result_frame[y1:y2, x1:x2] = radar_canvas
-
-        return result_frame
 
     def _get_track_color(self, track_id: int) -> Tuple[int, int, int]:
         """

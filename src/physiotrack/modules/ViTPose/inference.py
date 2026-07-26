@@ -12,6 +12,7 @@ from .vit_utils.top_down_eval import keypoints_from_heatmaps
 from .vit_utils.util import dyn_model_import, infer_dataset_by_path
 from .vit_utils.visualization import draw_points_and_skeleton, joints_dict
 import time 
+from ..._paths import weights_dir
 
 try:
     import onnxruntime
@@ -41,7 +42,7 @@ class VitInference:
                  overlay_keypoints = False):
 
         model_name = model_obj.name.split("_")[0]
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+        model_path = str(weights_dir())
         model = os.path.join(model_path, model_obj.value)
         if not os.path.isfile(model):
             raise ValueError(f'The model file {model} does not exist. Download it to model_data/')

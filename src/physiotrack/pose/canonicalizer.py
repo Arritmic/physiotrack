@@ -1,20 +1,51 @@
 import numpy as np
 from typing import Tuple, Union, Optional, Dict, Any
 import json
+from enum import Enum
 from pathlib import Path
 import os
+from .._logging import get_logger
 from ..models import Models
 from ..modules._3DCPNet.inference import canonicalize_poses_3dpcnet
 
-CanonicalView = Models.Pose3D.Canonicalizer.View
+logger = get_logger(__name__)
+import warnings
+from .._paths import weights_dir
+
+
+class CanonicalView(Enum):
+    """The canonical viewpoint a pose is rotated to.
+
+    A canonicalization *parameter*, not a model: it selects which orientation
+    [`canonicalize_pose`][physiotrack.canonicalize_pose] targets. Accepted anywhere a
+    ``view=`` argument is taken, either as a member or as its string value.
+
+    Attributes:
+        FRONT: Subject facing the camera.
+        BACK: Subject facing away from the camera.
+        LEFT_SIDE: Subject in left-side profile.
+        RIGHT_SIDE: Subject in right-side profile.
+    """
+
+    FRONT = "front"
+    BACK = "back"
+    LEFT_SIDE = "left_side"
+    RIGHT_SIDE = "right_side"
+
+
 CanonicalModels = Models.Pose3D.Canonicalizer.Models
 
 class PoseCanonicalizer:
     """Transform 3D poses to viewpoint-invariant canonical orientations.
 
-    A collection of static methods that reorient Human3.6M-style 17-joint 3D poses
-    into a canonical view (e.g. facing the camera) so that downstream analysis is
-    invariant to the subject's global rotation. Two families of methods are provided:
+    Reorients Human3.6M-style 17-joint 3D poses into a canonical view (e.g. facing the
+    camera) so that downstream analysis is invariant to the subject's global rotation.
+
+    There is one transform entry point --
+    [`to_canonical_geometric`][physiotrack.PoseCanonicalizer.to_canonical_geometric],
+    taking the target ``view`` as an argument -- because all four views share a single
+    derivation: the front view is computed from the torso plane, and the other three are
+    that result rotated about the vertical axis. Two method families are available:
 
     - **Geometric**: a closed-form transform that fits a torso plane (shoulders +
       hips), aligns its normal with the camera axis and the shoulders with the
@@ -223,130 +254,53 @@ class PoseCanonicalizer:
             return final_poses, R_total
         return final_poses
     
-    @staticmethod
-    def transform_to_back_view(poses_3d: np.ndarray, return_rotation: bool = False):
-        """Rotate poses to the canonical back view.
+    # Every non-front canonical view is the front view plus one fixed rotation about
+    # the vertical axis. Naming them here keeps a single derivation for all four.
+    _VIEW_ROTATIONS = {
+        CanonicalView.BACK: np.array([[-1, 0, 0],       # 180 deg
+                                      [0, 1, 0],
+                                      [0, 0, -1]], dtype=float),
+        CanonicalView.LEFT_SIDE: np.array([[0, 0, -1],  # 90 deg counter-clockwise
+                                           [0, 1, 0],
+                                           [1, 0, 0]], dtype=float),
+        CanonicalView.RIGHT_SIDE: np.array([[0, 0, 1],  # 90 deg clockwise
+                                            [0, 1, 0],
+                                            [-1, 0, 0]], dtype=float),
+    }
 
-        Computes the front view and then applies an additional 180° rotation about
-        the Y-axis, so the subject is seen from behind.
+    @staticmethod
+    def _rotate_from_front(poses_3d: np.ndarray, rotation: np.ndarray,
+                           return_rotation: bool = False):
+        """Canonicalize to the front view, then apply one further rotation.
 
         Args:
-            poses_3d (np.ndarray): Poses of shape ``(N, 17, 3)``.
-            return_rotation (bool, optional): If ``True``, also return the combined
-                rotation matrices. Defaults to ``False``.
+            poses_3d (np.ndarray): Input poses of shape ``(N, 17, 3)``.
+            rotation (np.ndarray): A ``(3, 3)`` rotation applied about the torso-plane
+                centre after the front-view transform.
+            return_rotation (bool, optional): Also return the combined per-frame
+                rotations. Defaults to ``False``.
 
         Returns:
-            np.ndarray | tuple[np.ndarray, np.ndarray]: The back-view poses
-                ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
-                ``(poses, R_total)`` with ``R_total`` of shape ``(N, 3, 3)`` equal to
-                ``R_flip @ R_front``.
+            np.ndarray | tuple[np.ndarray, np.ndarray]: The rotated poses
+                ``(N, 17, 3)``, or ``(poses, R_total)`` where
+                ``R_total = rotation @ R_front`` with shape ``(N, 3, 3)``.
         """
         if return_rotation:
-            front_poses, R_front = PoseCanonicalizer.transform_to_front_view(poses_3d, return_rotation=True)
+            front, r_front = PoseCanonicalizer.transform_to_front_view(
+                poses_3d, return_rotation=True)
         else:
-            front_poses = PoseCanonicalizer.transform_to_front_view(poses_3d)
-        
-        # 180 degree rotation around Y axis
-        N = poses_3d.shape[0]
-        R_flip = np.array([[-1, 0, 0],
-                          [0, 1, 0], 
-                          [0, 0, -1]])
-        R_flip_batch = np.tile(R_flip[None, :, :], (N, 1, 1))
-        
-        # Apply to all frames
-        plane_center, _, _ = PoseCanonicalizer.extract_torso_plane(front_poses)
-        centered = front_poses - plane_center[:, None, :]
-        rotated = np.matmul(centered, R_flip.T)
-        back_poses = rotated + plane_center[:, None, :]
-        
+            front = PoseCanonicalizer.transform_to_front_view(poses_3d)
+
+        # Rotate about the torso-plane centre so the subject spins in place rather than
+        # orbiting the origin.
+        centre, _, _ = PoseCanonicalizer.extract_torso_plane(front)
+        rotated = np.matmul(front - centre[:, None, :], rotation.T) + centre[:, None, :]
+
         if return_rotation:
-            # Combine rotations: R_total = R_flip @ R_front
-            R_total = np.matmul(R_flip_batch, R_front)
-            return back_poses, R_total
-        return back_poses
-    
-    @staticmethod
-    def transform_to_left_side_view(poses_3d: np.ndarray, return_rotation: bool = False):
-        """Rotate poses to the canonical left-side view.
+            batch = np.tile(rotation[None, :, :], (poses_3d.shape[0], 1, 1))
+            return rotated, np.matmul(batch, r_front)
+        return rotated
 
-        Computes the front view and then applies an additional 90° counter-clockwise
-        rotation about the Y-axis, giving a left-profile view.
-
-        Args:
-            poses_3d (np.ndarray): Poses of shape ``(N, 17, 3)``.
-            return_rotation (bool, optional): If ``True``, also return the combined
-                rotation matrices. Defaults to ``False``.
-
-        Returns:
-            np.ndarray | tuple[np.ndarray, np.ndarray]: The left-side-view poses
-                ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
-                ``(poses, R_total)`` with ``R_total`` of shape ``(N, 3, 3)`` equal to
-                ``R_left @ R_front``.
-        """
-        if return_rotation:
-            front_poses, R_front = PoseCanonicalizer.transform_to_front_view(poses_3d, return_rotation=True)
-        else:
-            front_poses = PoseCanonicalizer.transform_to_front_view(poses_3d)
-        
-        # 90 degree rotation around Y axis (counterclockwise)
-        N = poses_3d.shape[0]
-        R_left = np.array([[0, 0, -1],
-                          [0, 1, 0],
-                          [1, 0, 0]])
-        R_left_batch = np.tile(R_left[None, :, :], (N, 1, 1))
-        
-        plane_center, _, _ = PoseCanonicalizer.extract_torso_plane(front_poses)
-        centered = front_poses - plane_center[:, None, :]
-        rotated = np.matmul(centered, R_left.T)
-        left_poses = rotated + plane_center[:, None, :]
-        
-        if return_rotation:
-            # Combine rotations: R_total = R_left @ R_front
-            R_total = np.matmul(R_left_batch, R_front)
-            return left_poses, R_total
-        return left_poses
-    
-    @staticmethod
-    def transform_to_right_side_view(poses_3d: np.ndarray, return_rotation: bool = False):
-        """Rotate poses to the canonical right-side view.
-
-        Computes the front view and then applies an additional 90° clockwise
-        rotation about the Y-axis, giving a right-profile view.
-
-        Args:
-            poses_3d (np.ndarray): Poses of shape ``(N, 17, 3)``.
-            return_rotation (bool, optional): If ``True``, also return the combined
-                rotation matrices. Defaults to ``False``.
-
-        Returns:
-            np.ndarray | tuple[np.ndarray, np.ndarray]: The right-side-view poses
-                ``(N, 17, 3)``; if ``return_rotation`` is ``True``, a tuple of
-                ``(poses, R_total)`` with ``R_total`` of shape ``(N, 3, 3)`` equal to
-                ``R_right @ R_front``.
-        """
-        if return_rotation:
-            front_poses, R_front = PoseCanonicalizer.transform_to_front_view(poses_3d, return_rotation=True)
-        else:
-            front_poses = PoseCanonicalizer.transform_to_front_view(poses_3d)
-        
-        # 90 degree rotation around Y axis (clockwise)
-        N = poses_3d.shape[0]
-        R_right = np.array([[0, 0, 1],
-                           [0, 1, 0],
-                           [-1, 0, 0]])
-        R_right_batch = np.tile(R_right[None, :, :], (N, 1, 1))
-        
-        plane_center, _, _ = PoseCanonicalizer.extract_torso_plane(front_poses)
-        centered = front_poses - plane_center[:, None, :]
-        rotated = np.matmul(centered, R_right.T)
-        right_poses = rotated + plane_center[:, None, :]
-        
-        if return_rotation:
-            # Combine rotations: R_total = R_right @ R_front
-            R_total = np.matmul(R_right_batch, R_front)
-            return right_poses, R_total
-        return right_poses
-    
     @staticmethod
     def canonicalize_3dpcnet(poses_3d: np.ndarray, 
                             model: Union[CanonicalModels, None] = None,
@@ -372,7 +326,7 @@ class PoseCanonicalizer:
                 ``_3DPCNetTC48_byCam``, ``_3DPCNetTC48_byAction``. ``GEOMETRIC`` and
                 ``None`` skip download and rely on ``checkpoint_path``. Defaults to
                 ``None``.
-            view (Models.Pose3D.Canonicalizer.View | str, optional): Target view.
+            view (CanonicalView | str, optional): Target view.
                 Only ``"front"`` is supported; others warn and use front. Accepts the
                 enum or its string value. Defaults to ``"front"``.
             checkpoint_path (str, optional): Explicit checkpoint path that overrides
@@ -407,17 +361,18 @@ class PoseCanonicalizer:
             view = view.value
         
         if view != 'front':
-            print(f"Warning: 3DPCNet currently only supports front view. Applying front view.")
+            warnings.warn(
+                "3DPCNet supports only the front view; applying the front view instead of "
+                f"{view!r}.", RuntimeWarning, stacklevel=2)
         
         # Handle model download if model enum is provided
         if model is not None and model != CanonicalModels.GEOMETRIC:
             if checkpoint_path is None:
                 # Download model if not exists
-                model_path = os.path.join(os.path.dirname(__file__), '..', 'modules', 'model_data')
-                checkpoint_file = os.path.join(model_path, model.value)
+                checkpoint_file = os.path.join(str(weights_dir()), model.value)
                 
                 if not os.path.isfile(checkpoint_file):
-                    print(f"Downloading model {model.name}...")
+                    logger.info('Downloading canonicalizer weights: %s', model.name)
                     Models.download_model(model)
                 
                 checkpoint_path = checkpoint_file
@@ -442,7 +397,8 @@ class PoseCanonicalizer:
         )
         
         if verbose:
-            print(f'Pose is canonicalized using 3DPCNet method')
+            # Per call: debug level, since this runs once per frame in a video loop.
+            logger.debug('Canonicalized pose using the 3DPCNet method')
         return result
     
     @staticmethod
@@ -456,7 +412,7 @@ class PoseCanonicalizer:
 
         Args:
             poses_3d (np.ndarray): Input poses of shape ``(N, 17, 3)``.
-            view (Models.Pose3D.Canonicalizer.View | str): Target view — one of
+            view (CanonicalView | str): Target view — one of
                 ``"front"``, ``"back"``, ``"left_side"``, ``"right_side"`` (or the
                 corresponding ``View`` enum). Strings are lower-cased.
             return_rotation (bool, optional): If ``True``, also return the rotation
@@ -479,20 +435,15 @@ class PoseCanonicalizer:
         if isinstance(view, str):
             view = CanonicalView(view.lower())
         if verbose:
-            print(f'Pose is canonicalized to {view.value} view using geometric method')
+            logger.debug('Canonicalized pose to the %s view using the geometric method',
+                     view.value)
         
-        # All views now support returning rotation matrices
-        transform_map = {
-            CanonicalView.FRONT: PoseCanonicalizer.transform_to_front_view,
-            CanonicalView.BACK: PoseCanonicalizer.transform_to_back_view,
-            CanonicalView.LEFT_SIDE: PoseCanonicalizer.transform_to_left_side_view,
-            CanonicalView.RIGHT_SIDE: PoseCanonicalizer.transform_to_right_side_view
-        }
-        
-        if view not in transform_map:
+        if view is CanonicalView.FRONT:
+            return PoseCanonicalizer.transform_to_front_view(poses_3d, return_rotation)
+        if view not in PoseCanonicalizer._VIEW_ROTATIONS:
             raise ValueError(f"Unsupported view: {view}. Choose from {list(CanonicalView)}")
-        
-        return transform_map[view](poses_3d, return_rotation)
+        return PoseCanonicalizer._rotate_from_front(
+            poses_3d, PoseCanonicalizer._VIEW_ROTATIONS[view], return_rotation)
     
     @staticmethod
     def process_json_file(json_path: str, output_path: Optional[str] = None, 
@@ -510,7 +461,7 @@ class PoseCanonicalizer:
             json_path (str): Path to the input JSON file with 3D keypoints.
             output_path (str, optional): Where to save the processed JSON. Defaults
                 to ``None`` (no file written; data returned only).
-            view (Models.Pose3D.Canonicalizer.View | str, optional): Target canonical
+            view (CanonicalView | str, optional): Target canonical
                 view. Defaults to ``"front"``.
             model (Models.Pose3D.Canonicalizer.Models, optional): Canonicalization
                 model — ``GEOMETRIC``, ``_3DPCNetS2``, ``_3DPCNetS3``, etc. Defaults
@@ -559,7 +510,7 @@ class PoseCanonicalizer:
             npy_path (str): Path to the input ``.npy`` file with 3D poses.
             output_path (str, optional): Where to save the canonicalized array.
                 Defaults to ``None`` (no file written; array returned only).
-            view (Models.Pose3D.Canonicalizer.View | str, optional): Target canonical
+            view (CanonicalView | str, optional): Target canonical
                 view. Defaults to ``"front"``.
             model (Models.Pose3D.Canonicalizer.Models, optional): Canonicalization
                 model. Defaults to ``Models.Pose3D.Canonicalizer.Models.GEOMETRIC``.
@@ -574,7 +525,7 @@ class PoseCanonicalizer:
             canonical = pt.PoseCanonicalizer.process_npy_file(
                 "output/X3D.npy",
                 output_path="output/X3D_canonical.npy",
-                view=pt.Models.Pose3D.Canonicalizer.View.FRONT,
+                view=pt.CanonicalView.FRONT,
                 model=pt.Models.Pose3D.Canonicalizer.Models.GEOMETRIC,
             )
             ```
@@ -671,7 +622,7 @@ def canonicalize_pose(poses_3d: np.ndarray,
             ``_3DPCNetS2``, ``_3DPCNetS3``, ``_3DPCNetTC48_byCam``,
             ``_3DPCNetTC48_byAction`` use the learned network. Defaults to
             ``Models.Pose3D.Canonicalizer.Models.GEOMETRIC``.
-        view (Models.Pose3D.Canonicalizer.View | str, optional): Target view — one of
+        view (CanonicalView | str, optional): Target view — one of
             ``"front"``, ``"back"``, ``"left_side"``, ``"right_side"``. 3DPCNet models
             only support ``"front"``. Defaults to ``"front"``.
         return_rotation (bool, optional): If ``True``, also return the rotation
@@ -702,7 +653,7 @@ def canonicalize_pose(poses_3d: np.ndarray,
         canonical = pt.canonicalize_pose(
             poses,
             model=pt.Models.Pose3D.Canonicalizer.Models.GEOMETRIC,
-            view=pt.Models.Pose3D.Canonicalizer.View.FRONT,
+            view=pt.CanonicalView.FRONT,
         )
 
         # Learned 3DPCNet (auto-downloads weights on first use)
@@ -727,34 +678,3 @@ def canonicalize_pose(poses_3d: np.ndarray,
         return result
     else:
         raise ValueError(f"Unsupported canonicalization model: {model}. Choose from {list(CanonicalModels)}")
-
-
-if __name__ == "__main__":
-    poses = np.random.randn(100, 17, 3)  # 100 frames, 17 joints, 3D coords
-    
-    # Test geometric method
-    print("Testing geometric canonicalization:")
-    front_poses = canonicalize_pose(poses, CanonicalModels.GEOMETRIC, "front")
-    back_poses = canonicalize_pose(poses, CanonicalModels.GEOMETRIC, CanonicalView.BACK)
-    left_poses = canonicalize_pose(poses, view="left_side")
-    right_poses = canonicalize_pose(poses, view="right_side")
-    print(f"Original poses shape: {poses.shape}")
-    print(f"Canonical poses shape: {front_poses.shape}")
-    print(f"Available views: {[v.value for v in CanonicalView]}")
-    print(f"Available models: {[m.name for m in CanonicalModels]}")
-    
-    # Test 3DPCNet models
-    print("\nTesting 3DPCNet models:")
-    try:
-        # Test with S2 model
-        dpcnet_poses = canonicalize_pose(poses, CanonicalModels._3DPCNetS2, "front")
-        print(f"3DPCNet S2 canonicalized poses shape: {dpcnet_poses.shape}")
-    except Exception as e:
-        print(f"3DPCNet S2 error (model/checkpoint may not be available): {e}")
-    
-    try:
-        # Test with S3 model
-        dpcnet_poses = canonicalize_pose(poses, CanonicalModels._3DPCNetS3, "front")
-        print(f"3DPCNet S3 canonicalized poses shape: {dpcnet_poses.shape}")
-    except Exception as e:
-        print(f"3DPCNet S3 error (model/checkpoint may not be available): {e}")

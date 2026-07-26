@@ -40,7 +40,6 @@ head. See the [Model Zoo](../model-zoo.md) for download details.
 | [`Depth.DepthAnythingV2Small`][physiotrack.Depth.DepthAnythingV2Small] | DA-V2 `vits` | Fastest DA-V2, least accurate. |
 | [`Depth.DepthAnythingV2Base`][physiotrack.Depth.DepthAnythingV2Base] | DA-V2 `vitb` | Balanced. |
 | [`Depth.DepthAnythingV2Large`][physiotrack.Depth.DepthAnythingV2Large] | DA-V2 `vitl` | Most accurate. |
-| [`Depth.DepthAnythingV2`][physiotrack.Depth.DepthAnythingV2] | DA-V2 `vitl` | Alias for the Large model. |
 | [`Depth.ZipDepth`][physiotrack.Depth.ZipDepth] | ZipDepth `base` | Lightweight (~6M params), fast; GPU/server head. |
 | [`Depth.ZipDepthNPU`][physiotrack.Depth.ZipDepthNPU] | ZipDepth `npu` | ZipDepth with an NPU/CPU/mobile-friendly head. |
 | [`Depth.Custom`][physiotrack.Depth.Custom] | any | Run any validated `Models.Depth.*`. |

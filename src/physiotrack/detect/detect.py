@@ -1,10 +1,12 @@
-from . import Detector, Models
+from ..models import Models
+from ..modules import Detector
 from ..results import Result, Instance
 import os
 import numpy as np
+from ..core.predictor import PredictorMixin
 
 
-class _DetectionAPI:
+class _DetectionAPI(PredictorMixin):
     """Mixin adding the unified ``predict()`` -> :class:`Result` interface.
 
     Mixed in ahead of the YOLO ``Detector`` backend so ``predict``/``__call__`` here
@@ -61,30 +63,14 @@ class _DetectionAPI:
         if classes is not None:
             overrides["classes"] = classes
 
-        if isinstance(source, (list, tuple)):
-            outputs = self.detect_batch(list(source), **overrides)
+        frames, was_batch = self._as_frames(source)
+        if was_batch:
+            outputs = self.detect_batch(frames, **overrides)
             return [self._to_result(frame, results)
-                    for frame, (results, _) in zip(source, outputs)]
+                    for frame, (results, _) in zip(frames, outputs)]
 
-        results, _ = self.detect(source, **overrides)
-        return self._to_result(source, results)
-
-    def __call__(self, source, **kwargs):
-        """Alias for [`predict`][physiotrack.Detection].
-
-        Lets a detector instance be called directly, e.g. ``det(frame)`` instead
-        of ``det.predict(frame)``. All keyword arguments are forwarded to
-        ``predict`` (``conf``, ``iou``, ``classes``).
-
-        Args:
-            source (np.ndarray | list[np.ndarray]): A single BGR frame ``(H, W, 3)``
-                or a list of frames.
-            **kwargs (Any): Forwarded to [`predict`][physiotrack.Detection].
-
-        Returns:
-            Result | list[Result]: See [`predict`][physiotrack.Detection].
-        """
-        return self.predict(source, **kwargs)
+        results, _ = self.detect(frames[0], **overrides)
+        return self._unwrap([self._to_result(frames[0], results)], was_batch)
 
     def _to_result(self, frame, results) -> Result:
         names = getattr(self.model, "names", None)
@@ -162,12 +148,14 @@ class ValidatedDetector(_DetectionAPI, Detector):
             classes = self.classes
 
         if model is None:
-            raise ValueError("Model must be provided either as parameter or class attribute")
+            raise ValueError(
+                f"{type(self).__name__} needs a model: pass model=<a Models.Detection "
+                f"member>, or use a preset such as Detection.Person() that supplies one. "
+                f"Browse the options with Models.list(task='Detection')."
+            )
 
         Models.validate_det_model(model, expected_subclass=self.expected_subclass)
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'modules', 'model_data', model.value)
-        if not os.path.isfile(model_path):
-            Models.download_model(model)
+        model_path = Models.resolve(model)
         super().__init__(
             model=model,
             device=device,
@@ -214,6 +202,22 @@ class Detection:
         [`Segmentation`][physiotrack.Segmentation]: mask-based prediction.
     """
 
+    def __new__(cls, *args, **kwargs):
+        """Refuse direct instantiation of the preset namespace.
+
+        Raises:
+            TypeError: Always. ``Detection`` groups the presets; it is not itself a
+                predictor, and instantiating it used to return an object with no
+                model attached, which failed later with a confusing error.
+        """
+        presets = [n for n in vars(cls) if not n.startswith("_")
+                   and isinstance(vars(cls)[n], type)]
+        raise TypeError(
+            f"Detection is a namespace of presets, not a predictor. Use one of: "
+            f"{', '.join(f'Detection.{p}()' for p in presets)} "
+            f"— for example Detection.Person()."
+        )
+
     class Custom(_DetectionAPI, Detector):
         """Detector backed by any user-specified validated detection model.
 
@@ -254,9 +258,7 @@ class Detection:
                 On first use the model weights are auto-downloaded and cached.
             """
             Models.validate_det_model(model)
-            model_path = os.path.join(os.path.dirname(__file__), '..', 'modules', 'model_data', model.value)
-            if not os.path.isfile(model_path):
-                Models.download_model(model)
+            model_path = Models.resolve(model)
             super().__init__(
                 model=model,
                 device=device,

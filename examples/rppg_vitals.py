@@ -34,7 +34,7 @@ from physiotrack.signals import (
     HeartRateEstimator, HeartRatePlotter, RPPGPlotter, HRVPlotter,
     RespirationPlotter, FaceSkinExtractor,
 )
-from physiotrack.capture.orientation import resolve_rotation, apply_rotation
+from physiotrack.capture import resolve_rotation, apply_rotation, open_video_writer
 
 
 def _panel(canvas, title, width):
@@ -87,7 +87,9 @@ def run(video_path, method="POS", hr_band=(0.75, 4.0), window_sec=60.0,
         frame = apply_rotation(frame, rot)
         if out_path is not None and writer is None:
             h, w = frame.shape[:2]
-            writer = cv2.VideoWriter(str(out_path), cv2.VideoWriter_fourcc(*"avc1"), fps, (w, h))
+            # Uses the library helper so a missing H.264 encoder falls back instead of
+            # silently discarding every frame.
+            writer = open_video_writer(out_path, fps, (w, h))
 
         # Re-segment every `seg_every` frames (face region changes slowly); reuse between.
         # One SegFace pass yields the skin ROI (for rPPG) and the full face parsing.

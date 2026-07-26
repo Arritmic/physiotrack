@@ -10,7 +10,6 @@ from .filters import (
     bandpass_filter,
     zero_mean_std_norm,
     zero_mean_std_norm_1ch,
-    band_pass_filter,
     notch_filter,
     highpass_filter,
     lowpass_filter,
@@ -42,15 +41,7 @@ from .evaluate import (
     calculate_dtw_distance,
     hrv_errors,
 )
-from .plotting import (
-    RealTimePlotter,
-    KeypointMotionPlotter,
-    JointAnglePlotter,
-    HeartRatePlotter,
-    RPPGPlotter,
-    HRVPlotter,
-    RespirationPlotter,
-)
+from .keypoints import as_frame_records, as_keypoint_dicts
 from .ppg import POS, CHROM, LGI, OMIT
 from .ppg.constants import (
     HR_BAND, RESP_BAND, HRV_VLF_BAND, HRV_LF_BAND, HRV_HF_BAND,
@@ -58,7 +49,6 @@ from .ppg.constants import (
 )
 from .ppg.metrics import bvp_to_hr, bvp_snr, hr_errors, benchmark_rppg_methods
 from .ppg.estimator import HeartRateEstimator
-from .ppg.skin import FaceSkinExtractor, FaceParsing
 from .ppg.peaks import detect_pulse_peaks, bvp_to_rri
 from .ppg.artifacts import find_rr_artifacts, correct_rr_artifacts
 from .ppg.hrv import (
@@ -93,7 +83,6 @@ __all__ = [
     "bandpass_filter",
     "zero_mean_std_norm",
     "zero_mean_std_norm_1ch",
-    "band_pass_filter",
     "notch_filter",
     "highpass_filter",
     "lowpass_filter",
@@ -122,14 +111,6 @@ __all__ = [
     "calculate_pearson_correlation",
     "calculate_dtw_distance",
     "hrv_errors",
-    # plotting
-    "RealTimePlotter",
-    "KeypointMotionPlotter",
-    "JointAnglePlotter",
-    "HeartRatePlotter",
-    "RPPGPlotter",
-    "HRVPlotter",
-    "RespirationPlotter",
     # rPPG extraction
     "POS",
     "CHROM",
@@ -149,8 +130,6 @@ __all__ = [
     "hr_errors",
     "benchmark_rppg_methods",
     "HeartRateEstimator",
-    "FaceSkinExtractor",
-    "FaceParsing",
     # RR-interval extraction, artefact correction, HRV, respiration
     "detect_pulse_peaks",
     "bvp_to_rri",
@@ -182,4 +161,68 @@ __all__ = [
     "compute_rom_angles",
     "get_keypoint_features",
     "select_feature_data",
+    # result <-> dict adapters
+    "as_keypoint_dicts",
+    "as_frame_records",
 ]
+
+
+# Resolved on first access rather than at import time (PEP 562).
+#
+# The filters, metrics, HRV, respiration and motion-feature code above is pure
+# NumPy/SciPy/pandas. These two groups are not: the OpenCV overlay panels pull in cv2
+# and matplotlib, and the SegFace-based skin ROI pulls the whole deep-learning stack
+# (torch and ultralytics). Importing them eagerly made `from physiotrack.signals
+# import joint_angles` cost seconds and load torch, which the DSP layer never uses.
+# The lazy names below are invisible to anything that reads this file without running
+# it -- type checkers, IDE completion, and the mkdocstrings/griffe pass that builds the
+# API reference. Declaring them under TYPE_CHECKING makes the public surface statically
+# resolvable while keeping the import cost at zero: the block never executes at runtime,
+# so ``__getattr__`` still does the real work on first access.
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .plotting import (
+        HRVPlotter,
+        HeartRatePlotter,
+        JointAnglePlotter,
+        KeypointMotionPlotter,
+        RPPGPlotter,
+        RealTimePlotter,
+        RespirationPlotter,
+    )
+    from .ppg.skin import FaceParsing, FaceSkinExtractor
+
+_LAZY_ATTRS = {
+    # overlay panels (cv2 + matplotlib)
+    "RealTimePlotter": ".plotting",
+    "KeypointMotionPlotter": ".plotting",
+    "JointAnglePlotter": ".plotting",
+    "HeartRatePlotter": ".plotting",
+    "RPPGPlotter": ".plotting",
+    "HRVPlotter": ".plotting",
+    "RespirationPlotter": ".plotting",
+    # SegFace skin/face parsing (torch)
+    "FaceSkinExtractor": ".ppg.skin",
+    "FaceParsing": ".ppg.skin",
+}
+
+# The lazily-resolved names are declared once, here, so __all__ cannot drift from
+# the map above.
+__all__ += list(_LAZY_ATTRS)
+
+
+def __getattr__(name):
+    """Resolve the plotting and skin-ROI names on first access."""
+    if name in _LAZY_ATTRS:
+        import importlib
+
+        module = importlib.import_module(_LAZY_ATTRS[name], __name__)
+        value = getattr(module, name)
+        globals()[name] = value  # cache so later lookups skip this path
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_LAZY_ATTRS))

@@ -64,11 +64,12 @@ See the [Model Zoo](../model-zoo.md) for weights and downloads.
 | `device` | `'cpu'` | `'cpu'`, `'cuda'`, or a device id like `0`. |
 | `verbose` | `False` | Print progress / download notes. |
 
-`predict(img, bboxes=None)` takes a BGR frame `(H, W, 3)` and face boxes
-`(N, 4)` as `[x1, y1, x2, y2]`. If `bboxes` is omitted the **whole image is
-treated as a single face**, so pass boxes from a detector for multi-face frames.
-Calling the instance (`orient(img, boxes)`) is an alias; use `predict_batch` for
-a list of frames.
+`predict(source, bboxes=None)` takes a BGR frame `(H, W, 3)`, a path to an image
+file, or a list of either, plus face boxes `(N, 4)` as `[x1, y1, x2, y2]`. If
+`bboxes` is omitted the **whole image is treated as a single face**, so pass boxes
+from a detector for multi-face frames. Pass a list of frames (and a matching list of
+box arrays) for batch inference; the return is then a list of results, one per frame.
+Calling the instance (`orient(frame, boxes)`) is an alias for `predict`.
 
 !!! note "The `orientation` dict"
     Each returned `Instance` has `inst.orientation` = `{"yaw", "pitch", "roll"}`

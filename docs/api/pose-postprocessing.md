@@ -9,6 +9,8 @@ evaluation metrics. See [3D Pose & Canonicalization](../guides/pose3d.md).
 
 ::: physiotrack.canonicalize_pose
 
+::: physiotrack.CanonicalView
+
 ::: physiotrack.apply_3dpcnet_transform
 
 ::: physiotrack.reverse_3dpcnet_transform

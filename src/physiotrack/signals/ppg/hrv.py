@@ -22,6 +22,7 @@ LF/HF tone), and additionally cross-checked against NeuroKit2 when it is install
 """
 
 import numpy as np
+from scipy.integrate import trapezoid
 from scipy.signal import welch
 from scipy.interpolate import interp1d
 
@@ -160,7 +161,7 @@ def hrv_frequency(rri_ms, t_sec=None, interpolation_rate=4.0,
 
     def _bandpower(band):
         sel = (freqs >= band[0]) & (freqs < band[1])
-        return float(np.trapz(psd[sel], freqs[sel])) if np.any(sel) else 0.0
+        return float(trapezoid(psd[sel], freqs[sel])) if np.any(sel) else 0.0
 
     vlf, lf, hf = _bandpower(vlf_band), _bandpower(lf_band), _bandpower(hf_band)
     total = vlf + lf + hf

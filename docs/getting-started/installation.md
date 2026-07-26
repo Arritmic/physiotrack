@@ -11,7 +11,7 @@ Depth-Anything-V2, MotionBERT, SegFace, 6DRepNet360) through its dependencies.
     | **PyTorch** | 2.x — install the build matching your platform/CUDA *first* |
     | **OS**      | Linux, Windows, macOS |
     | **Hardware**| CPU works; a CUDA GPU is recommended for real-time/video |
-    | **Weights** | Auto-downloaded from Hugging Face / Ultralytics on first use |
+    | **Weights** | Auto-downloaded from Hugging Face / Ultralytics on first use, cached outside the package |
 
 ## Install PyTorch first
 

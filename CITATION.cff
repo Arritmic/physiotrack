@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+title: "PhysioTrack: contactless human sensing and body-signal extraction from RGB video"
+message: "If you use this software, please cite it using these metadata."
+type: software
+authors:
+  # TODO: add the remaining co-authors listed on the manuscript, with ORCIDs.
+  - given-names: Tharindu
+    family-names: Ekanayake
+    email: physiotrack.ai@gmail.com
+    affiliation: "Center for Machine Vision and Signal Analysis, University of Oulu"
+repository-code: "https://github.com/tharindu326/physiotrack"
+url: "https://tharindu326.github.io/physiotrack/"
+abstract: >-
+  PhysioTrack is an open-source Python library for contactless human sensing from
+  monocular RGB video. It provides person and face detection, multi-object tracking,
+  2D and 3D pose estimation with viewpoint canonicalization, face parsing and head
+  orientation, body-part segmentation, monocular depth estimation, and extraction of
+  physiological signals — remote photoplethysmography heart rate, heart-rate
+  variability, and respiration — behind one unified predictor API.
+keywords:
+  - computer vision
+  - human pose estimation
+  - remote photoplethysmography
+  - heart rate variability
+  - respiration
+  - physiological signals
+  - monocular depth
+  - multi-object tracking
+  - biomechanics
+license: GPL-3.0-or-later
+# TODO: once a release is archived (e.g. on Zenodo), add its DOI here and set the
+# version/date-released to match that archived release.

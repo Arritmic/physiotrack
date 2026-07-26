@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 from scipy.signal import hilbert
 from scipy.signal import find_peaks
+import warnings
 
 
 def compute_plv(signal1, signal2):
@@ -252,7 +253,8 @@ def calculate_pearson_correlation(signal1, signal2):
 
         # Check for constant signals
         if np.all(signal1 == signal1[0]) or np.all(signal2 == signal2[0]):
-            print("Warning: One of the signals is constant. Pearson correlation is undefined.")
+            warnings.warn("One of the signals is constant, so Pearson correlation is "
+                          "undefined; returning nan.", RuntimeWarning, stacklevel=2)
             return np.nan
 
         signal1 = (signal1 - np.mean(signal1)) / np.std(signal1)
@@ -261,7 +263,8 @@ def calculate_pearson_correlation(signal1, signal2):
         correlation, _ = pearsonr(signal1, signal2)
         return correlation
     except ValueError:
-        print("Warning: Could not calculate Pearson correlation. Signals may be invalid.")
+        warnings.warn("Could not compute Pearson correlation; the signals may be "
+                      "invalid. Returning nan.", RuntimeWarning, stacklevel=2)
         return np.nan
 
 
@@ -298,7 +301,8 @@ def calculate_dtw_distance(signal1, signal2, distance_metric=euclidean):
         distance, _ = fastdtw(signal1.reshape(-1, 1), signal2.reshape(-1, 1), dist=distance_metric)
         return distance
     except Exception as e:
-        print(f"Error calculating DTW distance: {e}")
+        warnings.warn(f"Could not compute the DTW distance: {e!r}. Returning nan.",
+                      RuntimeWarning, stacklevel=2)
         return np.nan
 
 

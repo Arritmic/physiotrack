@@ -209,7 +209,7 @@ results = video.batch_run(
 
 ## Complete example
 
-A pose + detector + tracker pass with the student-tracking overlay, adapted from
+A pose + detector + tracker pass with the subject-lock overlay, adapted from
 `examples/tracker_aided_pose_video.py`:
 
 ```python
@@ -227,7 +227,7 @@ detector = Detection.VRStudent(
 tracker_config = TrackerConfig()
 tracker_config.tracker_type = "ocsort"
 tracker_config.classes = [0]
-tracker_config.enable_student_tracking = True     # lock onto one subject
+tracker_config.enable_subject_lock = True     # lock onto one subject
 tracker = Tracker(config=tracker_config)
 
 input_video = "BV_S17_cut1.mp4"

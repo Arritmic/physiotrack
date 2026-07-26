@@ -1,12 +1,47 @@
-import cv2
 import numpy as np
 import scipy
 import lap
 from scipy.spatial.distance import cdist
 
-from cython_bbox import bbox_overlaps as bbox_ious
 from .kalman_filter import chi2inv95
-import time
+
+
+def bbox_ious(boxes, query_boxes):
+    """Pairwise IoU between two sets of axis-aligned boxes.
+
+    Args:
+        boxes (np.ndarray): Shape ``(N, 4)`` in ``[x1, y1, x2, y2]`` order.
+        query_boxes (np.ndarray): Shape ``(K, 4)`` in ``[x1, y1, x2, y2]`` order.
+
+    Returns:
+        np.ndarray: Shape ``(N, K)`` of IoU values in ``[0, 1]``.
+
+    Note:
+        Areas are computed pixel-inclusively as ``(x2 - x1 + 1) * (y2 - y1 + 1)``.
+        This matches the convention the association thresholds in
+        :class:`~physiotrack.trackers.bytetrack.byte_tracker.BYTETracker` were
+        tuned against, so it must not be changed to the exclusive form.
+    """
+    boxes = np.ascontiguousarray(boxes, dtype=np.float64).reshape(-1, 4)
+    query_boxes = np.ascontiguousarray(query_boxes, dtype=np.float64).reshape(-1, 4)
+
+    box_areas = (boxes[:, 2] - boxes[:, 0] + 1.0) * (boxes[:, 3] - boxes[:, 1] + 1.0)
+    query_areas = (query_boxes[:, 2] - query_boxes[:, 0] + 1.0) * (
+        query_boxes[:, 3] - query_boxes[:, 1] + 1.0
+    )
+
+    inter_w = np.minimum(boxes[:, None, 2], query_boxes[None, :, 2]) - np.maximum(
+        boxes[:, None, 0], query_boxes[None, :, 0]
+    ) + 1.0
+    inter_h = np.minimum(boxes[:, None, 3], query_boxes[None, :, 3]) - np.maximum(
+        boxes[:, None, 1], query_boxes[None, :, 1]
+    ) + 1.0
+    np.clip(inter_w, 0.0, None, out=inter_w)
+    np.clip(inter_h, 0.0, None, out=inter_h)
+
+    intersection = inter_w * inter_h
+    union = box_areas[:, None] + query_areas[None, :] - intersection
+    return np.where(union > 0.0, intersection / union, 0.0)
 
 
 def merge_matches(m1, m2, shape):

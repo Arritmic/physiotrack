@@ -13,9 +13,11 @@ from typing import Optional, Tuple, List, Dict
 from scipy.signal import butter, lfilter
 
 from physiotrack.core.overlay import OverlayCanvas, alpha_composite, SS
+import warnings
+from ...core.panel import PanelMixin
 
 
-class KeypointMotionPlotter:
+class KeypointMotionPlotter(PanelMixin):
     """Real-time overlay of one keypoint's motion, measured relative to the pelvis.
 
     Tracks a single COCO keypoint per frame, expresses its position relative to the
@@ -48,7 +50,7 @@ class KeypointMotionPlotter:
             ok, frame = cap.read()
             if not ok:
                 break
-            pose_results = pose.predict(frame).to_dict()["detections"]
+            pose_results = pose.predict(frame).to_dict()["instances"]
             t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
             plotter.update(pose_results, frame_time=t)
             frame = plotter.attach_to_frame(frame, position="top_right")
@@ -61,6 +63,15 @@ class KeypointMotionPlotter:
         The ``Video`` orchestrator wires this up automatically via
         ``plot_keypoint=<id>`` / ``plot_keypoint_name=<name>``.
     """
+
+    # Placement and compositing come from PanelMixin; these are this panel's
+    # own defaults, preserved exactly as they were before the consolidation.
+    PANEL_POSITION = 'top_right'
+    PANEL_MARGIN = 10
+    PANEL_BACKDROP = True
+    PANEL_BACKDROP_PAD = 5
+    PANEL_BACKDROP_ALPHA = 0.15
+
 
     def __init__(self,
                  keypoint_id: int = 9,
@@ -128,7 +139,8 @@ class KeypointMotionPlotter:
                 fs=self.fps
             )
         except Exception as e:
-            print(f"Warning: Could not initialize filter: {e}")
+            warnings.warn(f"Could not initialise the signal filter: {e!r}. "
+                          f"Plotting the unfiltered signal.", RuntimeWarning, stacklevel=2)
             self.filter_signal = False
     
     def _get_pelvis_position(self, keypoints: List[dict]) -> Optional[Tuple[float, float]]:
@@ -189,7 +201,7 @@ class KeypointMotionPlotter:
         Args:
             pose_results (list[dict]): Per-person pose results, each with a
                 ``"keypoints"`` list of ``{"id", "x", "y", "confidence"}`` dicts (e.g.
-                ``result.to_dict()["detections"]``).
+                ``result.to_dict()["instances"]``).
             frame_time (float): Current frame timestamp in seconds.
         """
         # For now, track the first person with valid keypoints
@@ -332,75 +344,6 @@ class KeypointMotionPlotter:
                 size=22, color=(100, 100, 100), bold=True)
         alpha_composite(canvas, ov.render(), 0, 0)
         return canvas
-    
-    def attach_to_frame(self, frame: np.ndarray, position: str = 'top_right',
-                        margin: int = 10) -> np.ndarray:
-        """Composite the rendered motion plot onto a corner of a video frame.
-
-        Renders the plot, draws a faint dark backing box behind it and overlays it at the
-        requested corner. Returns the frame unchanged if the plot cannot fit at the given
-        position/margin.
-
-        Args:
-            frame (numpy.ndarray): Target BGR frame ``(H, W, 3)``.
-            position (str, optional): Placement, one of ``"top"``, ``"top_left"``,
-                ``"top_right"``, ``"bottom"``, ``"bottom_left"``, ``"bottom_right"``.
-                Defaults to ``"top_right"``.
-            margin (int, optional): Margin from the frame edge in pixels. Defaults to ``10``.
-
-        Returns:
-            numpy.ndarray: A copy of ``frame`` with the plot composited (or the original
-                ``frame`` if it does not fit).
-
-        Raises:
-            ValueError: If ``position`` is not one of the accepted values.
-        """
-        plot_canvas = self.render()
-        if plot_canvas is None:
-            return frame
-        
-        h, w = frame.shape[:2]
-        plot_h, plot_w = plot_canvas.shape[:2]
-        
-        # Calculate position
-        if position == 'top' or position == 'top_left':
-            y1 = margin
-            y2 = margin + plot_h
-            x1 = margin
-            x2 = margin + plot_w
-        elif position == 'top_right':
-            y1 = margin
-            y2 = margin + plot_h
-            x1 = w - plot_w - margin
-            x2 = w - margin
-        elif position == 'bottom' or position == 'bottom_left':
-            y1 = h - plot_h - margin
-            y2 = h - margin
-            x1 = margin
-            x2 = margin + plot_w
-        elif position == 'bottom_right':
-            y1 = h - plot_h - margin
-            y2 = h - margin
-            x1 = w - plot_w - margin
-            x2 = w - margin
-        else:
-            raise ValueError(f"Invalid position: {position}")
-        
-        # Ensure coordinates are valid
-        if y1 < 0 or x1 < 0 or y2 > h or x2 > w:
-            return frame
-        
-        result_frame = frame.copy()
-        
-        # Add semi-transparent background
-        overlay = result_frame.copy()
-        cv2.rectangle(overlay, (x1 - 5, y1 - 5), (x2 + 5, y2 + 5), (0, 0, 0), -1)
-        result_frame = cv2.addWeighted(result_frame, 0.85, overlay, 0.15, 0)
-        
-        # Overlay plot
-        result_frame[y1:y2, x1:x2] = plot_canvas
-        
-        return result_frame
     
     def clear(self):
         """Clear all buffered data and close the cached Matplotlib figure.

@@ -1,14 +1,87 @@
-from . import Models
-from .. import MotionBERTInference, DDHPoseInference
-import os
-import numpy as np
-from .utils import COCO2Halpe, add_3d_keypoints, coco2h36m
 import json
-from .canonicalizer import canonicalize_pose, CanonicalView
+import logging
+import os
 from datetime import datetime
+
+import numpy as np
+
+from .._logging import get_logger
+from ..models import Models
+from ..modules.DDHPose.inference import DDHPoseInference
+from ..modules.MotionBERT.inference import MotionBERTInference
+from ..results import Pose3DResult, ResultMeta
+from ..signals.keypoints import as_frame_records, as_keypoint_dicts
+from .canonicalizer import CanonicalView, canonicalize_pose
+from .utils import add_3d_keypoints, coco17_to_h36m, coco17_to_halpe26
+
+logger = get_logger(__name__)
 
 # ``render_and_save`` (3D-video rendering) pulls in heavy/optional deps (smplx, ipdb).
 # Import it lazily so Pose3D can be imported/used without them unless rendering is requested.
+
+_COCO17_JOINTS = 17
+
+
+def _video_properties(vid_path):
+    """Read ``(fps, (width, height))`` from a video without decoding frames.
+
+    Args:
+        vid_path (str | os.PathLike): Path to the video.
+
+    Returns:
+        tuple[float, tuple[int, int]]: Frame rate and ``(width, height)``.
+    """
+    import imageio
+
+    meta = imageio.get_reader(str(vid_path), 'ffmpeg').get_meta_data()
+    return meta['fps'], meta['size']
+
+
+def _as_coco17_sequence(source):
+    """Normalise any accepted 2D-pose input into a ``(N, 17, 3)`` COCO array.
+
+    Accepts a raw array, a [`VideoResults`][physiotrack.VideoResults], or a list of
+    per-frame records. Lifting is single-subject, so the first subject of each frame is
+    taken; frames with no subject contribute a zero-confidence pose, which keeps the
+    sequence temporally aligned with the source video instead of silently shortening it.
+
+    Args:
+        source (np.ndarray | VideoResults | list): The 2D pose sequence.
+
+    Returns:
+        np.ndarray: ``(N, 17, 3)`` keypoints as ``(x, y, confidence)``.
+
+    Raises:
+        ValueError: If an array has the wrong shape, or no frames could be read.
+    """
+    if isinstance(source, np.ndarray):
+        arr = np.asarray(source, dtype=float)
+        if arr.ndim != 3 or arr.shape[1] < _COCO17_JOINTS or arr.shape[2] not in (2, 3):
+            raise ValueError(
+                f"2D keypoints must be (N, 17, 2) or (N, 17, 3) in COCO order, got "
+                f"{tuple(arr.shape)}. Whole-body keypoints are accepted: only the first "
+                f"17 (the COCO body joints) are used."
+            )
+        arr = arr[:, :_COCO17_JOINTS, :]
+        if arr.shape[2] == 2:
+            arr = np.concatenate([arr, np.ones((*arr.shape[:2], 1))], axis=2)
+        return arr
+
+    frames = []
+    for record in as_frame_records(source):
+        instances = record.get('instances') or []
+        pose = np.zeros((_COCO17_JOINTS, 3))
+        if instances:
+            for kp in as_keypoint_dicts(instances[0]):
+                if kp['id'] < _COCO17_JOINTS:
+                    pose[kp['id']] = (kp['x'], kp['y'], kp['confidence'])
+        frames.append(pose)
+
+    if not frames:
+        raise ValueError(
+            "No frames found in the 2D pose input, so there is nothing to lift."
+        )
+    return np.stack(frames)
 
 
 class Pose3D:
@@ -20,13 +93,17 @@ class Pose3D:
     - **MotionBERT** — transformer lifter driven by a config YAML and checkpoint.
     - **DDHPose** (``DDH``) — diffusion-based lifter with its own sampling params.
 
-    It consumes a 2D-pose JSON (as produced by running a
-    [`Pose`][physiotrack.Pose] predictor over a video, e.g. via ``Video``) plus
-    the source video, and returns per-frame data augmented with 3D keypoints
-    alongside the raw 3D pose array in Human3.6M joint order (see
-    [`config`][physiotrack.pose.pose3D.Pose3D] ``HUMAN26M``). Optionally it can
-    canonicalize the poses to a fixed viewpoint, render a 3D video, and save an
-    ``.npy`` array.
+    Like every other predictor, [`predict`][physiotrack.Pose3D] takes keypoints in
+    memory and returns a result object — here a
+    [`Pose3DResult`][physiotrack.Pose3DResult] holding ``(N, 17, 3)`` joints in
+    Human3.6M order. It differs in one respect that is intrinsic to the task rather
+    than a design choice: lifting is **sequence-level**, because a temporal model needs
+    a window of 2D frames (``clip_len``) to produce each 3D frame. A single frame
+    therefore cannot be lifted in isolation, and lifting is single-subject.
+
+    For the offline workflow where the 2D pass already wrote a JSON file, use
+    [`predict_json`][physiotrack.pose.pose3D.Pose3D.predict_json], which additionally
+    renders a 3D video and saves an ``.npy`` array.
 
     Attributes:
         model (Models.Pose3D): The loaded 3D model enum.
@@ -34,9 +111,9 @@ class Pose3D:
         pose3d_estimator: The underlying backend inference object.
         device (str | int): Compute device the model runs on.
         pixel (bool): Whether outputs are in pixel space (MotionBERT).
-        render_video (bool): Whether ``predict`` renders a 3D ``.mp4`` when an
+        render_video (bool): Whether ``predict_json`` renders a 3D ``.mp4`` when an
             output path is given.
-        save_npy (bool): Whether ``predict`` saves the raw 3D array as ``.npy``
+        save_npy (bool): Whether ``predict_json`` saves the raw 3D array as ``.npy``
             when an output path is given.
         clip_len (int): Temporal window length used by the lifter.
 
@@ -44,24 +121,19 @@ class Pose3D:
         ```python
         import physiotrack as pt
 
-        View = pt.Models.Pose3D.Canonicalizer.View
-        pose3d = pt.Pose3D(
-            model=pt.Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite,
-            device="cuda",
-            render_video=True,
-            save_npy=True,
-        )
-        frames_data, results_3d = pose3d.predict(
-            json_path="output/BV_S17_cut1_result.json",
-            vid_path="BV_S17_cut1.mp4",
-            out_path="output/",
-            canonical_view=View.FRONT,
-        )
-        print(results_3d.shape)   # (num_frames, 17, 3)
+        # 2D pass, then lift -- the keypoints never touch the filesystem.
+        results = pt.Video(source="clip.mp4", pose=pt.Pose.Person()).run()
+
+        lifter = pt.Pose3D(model=pt.Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite)
+        poses = lifter.predict(results, fps=30, canonical_view=pt.CanonicalView.FRONT)
+
+        poses.poses.shape                  # (N, 17, 3)
+        poses.by_name("left_wrist")        # (N, 3) trajectory of one joint
         ```
 
     See Also:
-        [`Pose`][physiotrack.Pose]: produces the 2D keypoints/JSON this consumes.
+        [`Pose`][physiotrack.Pose]: produces the 2D keypoints this consumes.
+        [`Pose3DResult`][physiotrack.Pose3DResult]: the returned sequence.
     """
 
     def __init__(self, model=None, device='cpu',
@@ -83,6 +155,7 @@ class Pose3D:
                  joints_right=[1, 2, 3, 14, 15, 16],
                  num_proposals=300,
                  sampling_timesteps=5,
+                 verbose=False,
                  **kwargs):
         """Load a 3D-lifting model and configure its backend.
 
@@ -126,6 +199,8 @@ class Pose3D:
                 Defaults to ``300``.
             sampling_timesteps (int, optional): DDHPose DDIM sampling steps.
                 Defaults to ``5``.
+            verbose (bool, optional): Emit load/progress messages at ``INFO`` rather
+                than ``DEBUG``. Defaults to ``False``.
             **kwargs (Any): Reserved for forward compatibility; unused by the current
                 backends.
 
@@ -135,21 +210,22 @@ class Pose3D:
 
         Note:
             The first time a validated model is loaded its weights are
-            auto-downloaded to the package's ``model_data`` directory.
+            auto-downloaded to the per-user weight cache (see
+            [`Models.resolve`][physiotrack.Models.resolve]).
         """
 
         if model is None:
             model = Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite
 
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'modules', 'model_data', model.value)
-        if not os.path.isfile(model_path):
-            Models.download_model(model)
+        model_path = Models.resolve(model)
 
         Models.validate_pose3d_model(model)
     
+        self.verbose = verbose
         self.minfo = Models._get_model_info(model)
         self.pose3d_framework = self.minfo['backend']
-        print(f'Initiating {self.pose3d_framework} {model.name} for 3D Pose estimation')
+        logger.log(logging.INFO if verbose else logging.DEBUG,
+                   'Initiating %s %s for 3D pose estimation', self.pose3d_framework, model.name)
         
         # Initialize 3D pose estimator based on framework
         if self.pose3d_framework == 'MotionBERT':
@@ -189,175 +265,192 @@ class Pose3D:
         self.save_npy = save_npy
         self.clip_len = clip_len
     
-    def predict(self, json_path, vid_path, out_path=None, focus=None,
-                 scale_range=None, keep_imgs=False, no_conf=None, 
-                 flip=None, rootrel=None, gt_2d=None, convert2alpha=True, canonical_view=None, canonical_model=None,
-                 # DDHPose specific parameters
-                 batch_size=64):
-        """Estimate 3D poses from a 2D-pose JSON file and its source video.
+    def predict(self, keypoints_2d, fps=None, frame_size=None,
+                canonical_view=None, canonical_model=None,
+                focus=None, scale_range=None, no_conf=None, flip=None, rootrel=None,
+                gt_2d=None, batch_size=64) -> "Pose3DResult":
+        """Lift a 2D keypoint sequence to 3D.
 
-        Reads the 2D-pose JSON, runs the configured lifter (converting COCO->Halpe
-        for MotionBERT or COCO->H3.6M for DDHPose as needed), optionally
-        canonicalizes to a fixed viewpoint, and augments the per-frame data with
-        3D keypoints. When ``out_path`` is set, side effects are written there: a
-        rendered ``.mp4`` (if ``render_video``), the raw ``.npy`` array (if
-        ``save_npy``), and a ``*_with_3d_keypoints.json``.
+        Takes keypoints in memory and returns a result object, like every other
+        predictor in the library. The lifter is *temporal*: it consumes a window of
+        frames (``clip_len``) to produce each 3D frame, so the whole sequence is passed
+        at once rather than frame by frame.
 
         Args:
-            json_path (str): Path to the 2D-pose detection JSON (e.g. produced by
-                running a [`Pose`][physiotrack.Pose] predictor over the video).
-            vid_path (str): Path to the input video the 2D poses came from.
-            out_path (str, optional): Output directory for rendered video, ``.npy``
-                and augmented JSON. Defaults to ``None`` (nothing written to disk).
-            focus (int, optional): MotionBERT focus/subject index. Defaults to
-                ``None``.
-            scale_range (list | tuple, optional): MotionBERT 2D scale range.
-                Defaults to ``None``.
-            keep_imgs (bool, optional): Retain intermediate frame images.
-                Defaults to ``False``.
-            no_conf (bool, optional): MotionBERT flag to drop keypoint confidence
-                from the input. Defaults to ``None`` (backend default).
-            flip (bool, optional): MotionBERT flip test-time augmentation.
-                Defaults to ``None`` (backend default).
-            rootrel (bool, optional): MotionBERT flag for root-relative output.
-                Defaults to ``None`` (backend default).
-            gt_2d (bool, optional): MotionBERT flag to treat 2D input as ground
-                truth. Defaults to ``None`` (backend default).
-            convert2alpha (bool, optional): For MotionBERT, convert the COCO JSON
-                to AlphaPose/Halpe format via a temporary file before inference.
-                Defaults to ``True``.
-            canonical_view (Models.Pose3D.Canonicalizer.View, optional): Canonical
-                viewpoint to transform the 3D poses to — one of ``View.FRONT``,
-                ``View.BACK``, ``View.LEFT_SIDE`` or ``View.RIGHT_SIDE``. Defaults
-                to ``None`` (no canonicalization).
+            keypoints_2d (np.ndarray | VideoResults | list): The 2D sequence, as either
+                a ``(N, 17, 2)``/``(N, 17, 3)`` COCO-17 array, a
+                [`VideoResults`][physiotrack.VideoResults] from
+                [`Video.run`][physiotrack.Video.run], or a list of per-frame records.
+                For the non-array forms the first subject of each frame is used, since
+                lifting is single-subject.
+            fps (float, optional): Source frame rate, recorded on the result and used
+                when rendering. Defaults to ``None``.
+            frame_size (tuple[int, int], optional): ``(width, height)`` of the source
+                video in pixels. Required for DDHPose, which normalises pixel
+                coordinates, and for ``pixel=True`` with MotionBERT.
+            canonical_view (CanonicalView, optional): Rotate the lifted poses to a fixed
+                viewpoint -- ``View.FRONT``, ``View.BACK``, ``View.LEFT_SIDE`` or
+                ``View.RIGHT_SIDE``. Defaults to ``None`` (no canonicalization).
             canonical_model (Models.Pose3D.Canonicalizer.Models, optional):
-                Canonicalization model to use when ``canonical_view`` is set (e.g.
-                ``Models.GEOMETRIC``). Defaults to ``None`` (backend default).
-            batch_size (int, optional): DDHPose inference batch size. Defaults to
-                ``64``.
+                Canonicalization model, used only when ``canonical_view`` is set.
+            focus (int, optional): MotionBERT subject index. Defaults to ``None``.
+            scale_range (list | tuple, optional): MotionBERT 2D scale range.
+            no_conf (bool, optional): MotionBERT flag to drop keypoint confidence.
+            flip (bool, optional): MotionBERT flip test-time augmentation.
+            rootrel (bool, optional): MotionBERT root-relative output flag.
+            gt_2d (bool, optional): MotionBERT flag to treat the 2D input as ground truth.
+            batch_size (int, optional): DDHPose sampling batch size. Defaults to ``64``.
 
         Returns:
-            tuple[list, np.ndarray]: A 2-tuple ``(frames_data, results_3d)`` where
-                ``frames_data`` is the input detection data augmented with 3D
-                keypoints, and ``results_3d`` is the raw 3D pose array of shape
-                ``(N, 17, 3)`` in Human3.6M joint order.
+            Pose3DResult: The lifted sequence, ``(N, 17, 3)`` in Human3.6M joint order.
+                Coordinates are root-relative and unitless unless the estimator was
+                constructed with ``pixel=True``.
 
-        Note:
-            Canonicalization can also be applied separately to an existing 3D
-            array via ``canonicalize_pose``.
+        Raises:
+            ValueError: If the keypoints cannot be interpreted as a COCO-17 sequence, or
+                if a required ``frame_size`` is missing.
 
         Example:
             ```python
             import physiotrack as pt
 
-            View = pt.Models.Pose3D.Canonicalizer.View
-            pose3d = pt.Pose3D(model=pt.Models.Pose3D.DDH.best, device="cuda")
-            frames_data, results_3d = pose3d.predict(
-                json_path="output/BV_S17_cut1_result.json",
-                vid_path="BV_S17_cut1.mp4",
-                out_path="output/",
-                batch_size=8,
-                canonical_view=View.FRONT,
-            )
+            results = pt.Video(source="clip.mp4", pose=pt.Pose.Person()).run()
+            lifter = pt.Pose3D(model=pt.Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite)
+            poses = lifter.predict(results, fps=30, canonical_view=pt.CanonicalView.FRONT)
+            poses.by_name("left_wrist")     # (N, 3) trajectory
             ```
+
+        See Also:
+            [`predict_json`][physiotrack.pose.pose3D.Pose3D.predict_json]: the offline
+            file-based workflow, which also writes rendered video and ``.npy`` output.
         """
-        with open(json_path, 'r') as f:
-            frames_data = json.load(f)
+        keypoints = _as_coco17_sequence(keypoints_2d)
 
         if self.pose3d_framework == 'MotionBERT':
-            if convert2alpha:
-                dir_path = os.path.dirname(json_path)
-                base_name = os.path.splitext(os.path.basename(json_path))[0]
-                temp_output_json_path = os.path.join(dir_path, f"{base_name}_temp_alphapose.json")
-                json_path = COCO2Halpe(json_path, temp_output_json_path) # converted temporary json file path
-
-            results_3d = self.pose3d_estimator.infer(
-                json_path=json_path,
-                vid_path=vid_path,
+            poses = self.pose3d_estimator.infer(
+                coco17_to_halpe26(keypoints),
                 pixel=self.pixel,
                 focus=focus,
                 scale_range=scale_range,
                 no_conf=no_conf,
                 flip=flip,
                 rootrel=rootrel,
-                gt_2d=gt_2d
+                gt_2d=gt_2d,
+                fps=fps,
+                frame_size=frame_size,
             )
-            
-            if convert2alpha:
-                os.remove(temp_output_json_path)
-                
-        elif self.pose3d_framework == 'DDH':
-
-            keypoints_2d = coco2h36m(json_path)
-            results_3d = self.pose3d_estimator.infer(
-                keypoints_2d=keypoints_2d,
-                vid_path=vid_path,
+        else:  # DDH -- the constructor rejects anything else
+            if frame_size is None:
+                raise ValueError(
+                    "DDHPose normalises pixel coordinates, so it needs the source frame "
+                    "size: pass frame_size=(width, height). MotionBERT does not require it."
+                )
+            poses = self.pose3d_estimator.infer(
+                coco17_to_h36m(keypoints),
                 batch_size=batch_size,
+                fps=fps,
+                frame_size=frame_size,
             )
-        
+
         if canonical_view:
-            results_3d = canonicalize_pose(results_3d, model=canonical_model, view=canonical_view)
+            poses = canonicalize_pose(poses, model=canonical_model, view=canonical_view)
+
+        return Pose3DResult(
+            poses=poses,
+            fps=fps if fps is not None else getattr(self.pose3d_estimator, 'fps_in', None),
+            view=canonical_view,
+            meta=ResultMeta(
+                fps=fps,
+                model=self.minfo['path'] if 'path' in self.minfo else self.model.name,
+                device=str(self.device),
+                units={"poses": "pixels" if self.pixel else "relative"},
+            ),
+        )
+
+    def predict_json(self, json_path, vid_path, out_path=None, canonical_view=None,
+                     canonical_model=None, **kwargs):
+        """Lift a 2D-pose JSON file, optionally writing rendered and array output.
+
+        The offline counterpart to [`predict`][physiotrack.Pose3D]: it reads a 2D-pose
+        JSON produced by [`Video.run`][physiotrack.Video.run], lifts it, and augments the
+        per-frame records with 3D keypoints so the JSON can be re-saved. Use this when
+        the 2D pass and the lifting pass are separate steps; use ``predict`` when the
+        keypoints are already in memory.
+
+        Args:
+            json_path (str | os.PathLike): 2D-pose JSON path.
+            vid_path (str | os.PathLike): Source video, used for frame rate and size.
+            out_path (str | os.PathLike, optional): Directory for the rendered ``.mp4``
+                (when ``render_video``), the ``.npy`` array (when ``save_npy``) and a
+                ``*_with_3d_keypoints.json``. Defaults to ``None`` (nothing written).
+            canonical_view (CanonicalView, optional): Canonical viewpoint to rotate to.
+            canonical_model (Models.Pose3D.Canonicalizer.Models, optional):
+                Canonicalization model.
+            **kwargs (Any): Forwarded to [`predict`][physiotrack.Pose3D].
+
+        Returns:
+            tuple[list, Pose3DResult]: The per-frame records augmented with 3D keypoints,
+                and the lifted sequence. The records are returned because this method's
+                purpose is to enrich an existing JSON; ``predict`` is the interface that
+                returns a result object alone.
+
+        Example:
+            ```python
+            import physiotrack as pt
+
+            lifter = pt.Pose3D(model=pt.Models.Pose3D.DDH.best, device="cuda")
+            frames, poses = lifter.predict_json(
+                "output/clip_result.json", "clip.mp4", out_path="output/",
+                canonical_view=pt.CanonicalView.FRONT,
+            )
+            ```
+        """
+        with open(json_path, 'r') as f:
+            frames_data = json.load(f)
+
+        fps, frame_size = _video_properties(vid_path)
+        result = self.predict(frames_data, fps=fps, frame_size=frame_size,
+                             canonical_view=canonical_view,
+                             canonical_model=canonical_model, **kwargs)
+        poses = result.poses
 
         if out_path:
             os.makedirs(out_path, exist_ok=True)
-            
-        if self.render_video and out_path:
-            from ..modules.MotionBERT.utils.vismo import render_and_save
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            render_and_save(
-                results_3d, 
-                f'{out_path}/X3D_{timestamp}.mp4', 
-                fps=self.pose3d_estimator.fps_in
-            )
+            if self.render_video:
+                from ..modules.MotionBERT.utils.vismo import render_and_save
+                render_and_save(poses, f'{out_path}/X3D_{timestamp}.mp4',
+                                fps=result.fps or 30)
+            if self.save_npy:
+                np.save(f'{out_path}/X3D_{timestamp}.npy', poses)
 
-        if self.save_npy and out_path:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            np.save(f'{out_path}/X3D_{timestamp}.npy', results_3d)
-
-        frames_data = add_3d_keypoints(frames_data, results_3d)
+        frames_data = add_3d_keypoints(frames_data, poses)
 
         if out_path:
-            dir_path = os.path.dirname(out_path)
-            base_name = os.path.splitext(os.path.basename(json_path))[0]
-            output_json_path = os.path.join(dir_path, f"{base_name}_with_3d_keypoints.json")
-
-            # Save updated frame data
+            base_name = os.path.splitext(os.path.basename(str(json_path)))[0]
+            output_json_path = os.path.join(out_path, f"{base_name}_with_3d_keypoints.json")
             with open(output_json_path, 'w') as f:
                 json.dump(frames_data, f, indent=2)
-        
-        return frames_data, results_3d
-    
+
+        return frames_data, result
+
     def predict_batch(self, json_paths, vid_paths, out_paths=None, **kwargs):
-        """Run [`predict`][physiotrack.pose.pose3D.Pose3D] over multiple videos.
+        """Run [`predict_json`][physiotrack.pose.pose3D.Pose3D.predict_json] over many videos.
 
         Args:
             json_paths (list[str]): 2D-pose JSON paths, one per video.
             vid_paths (list[str]): Source video paths, aligned with ``json_paths``.
-            out_paths (list[str], optional): Per-video output directories.
-                Defaults to ``None`` (no output written for any video).
-            **kwargs (Any): Extra keyword arguments forwarded to
-                [`predict`][physiotrack.pose.pose3D.Pose3D] for every video (e.g.
-                ``canonical_view``, ``batch_size``).
+            out_paths (list[str], optional): Per-video output directories. Defaults to
+                ``None`` (nothing written for any video).
+            **kwargs (Any): Forwarded to
+                [`predict_json`][physiotrack.pose.pose3D.Pose3D.predict_json].
 
         Returns:
-            tuple[list, list]: A 2-tuple ``(results, poses)`` where ``results`` is
-                the list of per-video augmented ``frames_data`` and ``poses`` is
-                the list of raw 3D pose arrays (each ``(N, 17, 3)``).
+            list[tuple[list, Pose3DResult]]: One ``(frames_data, result)`` pair per video,
+                in input order.
         """
-        results = []
-        poses = []
-
         if out_paths is None:
             out_paths = [None] * len(json_paths)
 
-        for json_path, vid_path, out_path in zip(json_paths, vid_paths, out_paths):
-            frames_data, results_3d = self.predict(
-                json_path=json_path,
-                vid_path=vid_path,
-                out_path=out_path,
-                **kwargs
-            )
-            results.append(frames_data)
-            poses.append(results_3d)
-        
-        return results, poses
+        return [self.predict_json(json_path=j, vid_path=v, out_path=o, **kwargs)
+                for j, v, o in zip(json_paths, vid_paths, out_paths)]

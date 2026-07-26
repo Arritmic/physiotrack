@@ -1,4 +1,4 @@
-from physiotrack import Pose, Video, Models, Detection, Tracker, TrackerConfig, Pose3D, PoseCanonicalizer
+from physiotrack import Pose, Video, Models, Detection, Tracker, TrackerConfig, Pose3D, PoseCanonicalizer, CanonicalView
 from physiotrack.pose import COCO_WHOLEBODY_NAMES, HUMAN26M_NAMES
 from physiotrack.signals import (
     # motion: keypoint sequences, centroids, resampling
@@ -9,7 +9,7 @@ from physiotrack.signals import (
     get_relative_coordinates, compute_all_motion_features,
     get_keypoint_features, select_feature_data, respiration_from_motion,
     # normalization / filtering / signal-comparison metrics
-    min_max_normalize, band_pass_filter,
+    min_max_normalize, bandpass_filter,
     calculate_pearson_correlation, calculate_dtw_distance,
     normalized_cross_correlation, phase_synchrony, compute_rmse, compute_plv,
 )
@@ -40,7 +40,7 @@ def run_motion_pipeline():
     tracker_config.tracker_type = 'ocsort'
     tracker_config.debug_mode = True
     tracker_config.classes = [0]
-    tracker_config.enable_student_tracking = True
+    tracker_config.enable_subject_lock = True
     tracker = Tracker(config=tracker_config)
     
     # Setup paths
@@ -82,11 +82,13 @@ def run_motion_pipeline():
         testloader_params=None
     )
 
-    detection_data_3D, results_3d = pose3D.predict(
-        json_path=json_output_path,
-        vid_path=input_video,
+    # The 2D pass already wrote a JSON here, so use the file-based entry point; it
+    # also renders the 3D video and saves the .npy array into output_directory.
+    detection_data_3D, poses_3d = pose3D.predict_json(
+        json_output_path,
+        input_video,
         out_path=output_directory,
-        canonical_view=Models.Pose3D.Canonicalizer.View.FRONT,
+        canonical_view=CanonicalView.FRONT,
         canonical_model=Models.Pose3D.Canonicalizer.Models._3DPCNetS2
     )
 
@@ -135,7 +137,7 @@ def run_motion_pipeline():
     #     json_path=json_output_path,
     #     vid_path='BV_S17_cut1.mp4',
     #     out_path=output_directory,
-    #     canonical_view=Models.Pose3D.Canonicalizer.View.FRONT,
+    #     canonical_view=CanonicalView.FRONT,
     #     canonical_model=Models.Pose3D.Canonicalizer.Models._3DPCNetS2,
     #     batch_size=1  # Small batch size for DDH to avoid OOM
     # )
@@ -188,8 +190,8 @@ if __name__ == "__main__":
     y = keypoint_df_2d['norm_y'].to_numpy()
     time = keypoint_df_2d['time'].to_numpy()
 
-    # x = band_pass_filter(x, [0.05, 0.35], sampling_freq)
-    # y = band_pass_filter(y, [0.05, 0.35], sampling_freq)
+    # x = bandpass_filter(x, [0.05, 0.35][0], [0.05, 0.35][1], sampling_freq)
+    # y = bandpass_filter(y, [0.05, 0.35][0], [0.05, 0.35][1], sampling_freq)
 
     # Plotting
     plt.figure(figsize=(12, 6))
@@ -220,9 +222,9 @@ if __name__ == "__main__":
     z_3d = keypoint_df_3d['norm_z'].to_numpy()
     time_3d = keypoint_df_3d['time'].to_numpy()
 
-    # x_3d = band_pass_filter(x_3d, [0.05, 0.35], sampling_freq)
-    # y_3d = band_pass_filter(y_3d, [0.05, 0.35], sampling_freq)
-    # z_3d = band_pass_filter(z_3d, [0.05, 0.35], sampling_freq)
+    # x_3d = bandpass_filter(x_3d, [0.05, 0.35][0], [0.05, 0.35][1], sampling_freq)
+    # y_3d = bandpass_filter(y_3d, [0.05, 0.35][0], [0.05, 0.35][1], sampling_freq)
+    # z_3d = bandpass_filter(z_3d, [0.05, 0.35][0], [0.05, 0.35][1], sampling_freq)
 
     # Plotting 3D data
     plt.figure(figsize=(12, 6))

@@ -13,6 +13,11 @@ from collections import deque
 
 from .dpt import DepthAnythingV2
 
+from ..._logging import get_logger
+from ..._paths import weights_dir
+
+logger = get_logger(__name__)
+
 
 class DepthAnythingV2Inference:
     """
@@ -39,7 +44,7 @@ class DepthAnythingV2Inference:
         # Check if model file exists
         if not os.path.isfile(model_path):
             model_name = os.path.basename(model_path)
-            model_dir = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+            model_dir = str(weights_dir())
             raise ValueError(
                 f"The model file '{model_name}' does not exist at {model_path}\n"
                 f"Please download it manually from HuggingFace:\n"
@@ -75,7 +80,7 @@ class DepthAnythingV2Inference:
         self.model = self.model.to(self.device).eval()
 
         if self.verbose:
-            print(f"DepthAnythingV2 ({self.encoder}) loaded on {self.device}")
+            logger.info("DepthAnythingV2 (%s) loaded on %s", self.encoder, self.device)
 
         # Inference time tracking
         self._inference_times = deque(maxlen=100)

@@ -11,6 +11,8 @@ Use :func:`resolve_rotation` once to normalise the setting, then
 ``cv2.imread`` already honours EXIF orientation.
 """
 
+from typing import Union
+
 import cv2
 
 _ROTATE = {
@@ -42,7 +44,7 @@ def apply_rotation(frame, deg: int):
     return cv2.rotate(frame, _ROTATE[deg]) if deg in _ROTATE else frame
 
 
-def resolve_rotation(rotate) -> int:
+def resolve_rotation(rotate: Union[None, int, str]) -> int:
     """Normalise an explicit rotation setting to one of ``0``/``90``/``180``/``270``.
 
     There is no auto/metadata mode: either an explicit value is provided or no
@@ -50,7 +52,7 @@ def resolve_rotation(rotate) -> int:
     can be applied per frame.
 
     Args:
-        rotate: The requested rotation. ``None`` / ``"none"`` / ``0`` / ``"0"``
+        rotate (None | int | str): The requested rotation. ``None`` / ``"none"`` / ``0`` / ``"0"``
             mean no rotation; ``90`` / ``180`` / ``270`` (int or numeric string)
             select that clockwise angle. Values are taken modulo 360, and anything
             that is not one of the supported angles falls back to ``0``.

@@ -4,13 +4,11 @@
 from __future__ import print_function
 
 from copy import deepcopy
-from typing import Optional, List
+from typing import List
 
 import numpy as np
 
-# from trackers.boosttrack.embedding import EmbeddingComputer
 from .assoc import associate, iou_batch
-# from trackers.boosttrack.ecc import ECC
 from .kalmanfilter import KalmanFilter
 
 
@@ -53,7 +51,7 @@ class KalmanBoxTracker(object):
 
     count = 0
 
-    def __init__(self, bbox, cls, emb: Optional[np.ndarray] = None):
+    def __init__(self, bbox, cls):
         """
         Initialises a tracker using initial bounding box.
 
@@ -67,7 +65,6 @@ class KalmanBoxTracker(object):
         KalmanBoxTracker.count += 1
 
         self.kf = KalmanFilter(self.bbox_to_z_func(bbox))
-        self.emb = emb
         self.hit_streak = 0
         self.age = 0
         self.cls = cls
@@ -89,14 +86,6 @@ class KalmanBoxTracker(object):
         self.kf.update(self.bbox_to_z_func(bbox), score)
         
 
-    def camera_update(self, transform: np.ndarray):
-        x1, y1, x2, y2 = self.get_state()[0]
-        x1_, y1_, _ = transform @ np.array([x1, y1, 1]).T
-        x2_, y2_, _ = transform @ np.array([x2, y2, 1]).T
-        w, h = x2_ - x1_, y2_ - y1_
-        cx, cy = x1_ + w / 2, y1_ + h / 2
-        self.kf.x[:4] = [cx, cy, h,  w / h]
-
     def predict(self):
         """
         Advances the state vector and returns the predicted bounding box estimate.
@@ -116,13 +105,6 @@ class KalmanBoxTracker(object):
         """
         return self.x_to_bbox_func(self.kf.x)
 
-    def update_emb(self, emb, alpha=0.9):
-        self.emb = alpha * self.emb + (1 - alpha) * emb
-        self.emb /= np.linalg.norm(self.emb)
-
-    def get_emb(self):
-        return self.emb
-
 
 class BoostTrack(object):
     def __init__(
@@ -136,12 +118,7 @@ class BoostTrack(object):
         max_age: int = 30,
         min_hits: int = 3,
         iou_threshold: float = 0.3,
-        use_ecc: bool = False,
-        use_embedding: bool = False,
         dlo_boost_coef: float = 0.65,
-        video_name: Optional[str] = None,
-        dataset_name: Optional[str] = None,
-        test_dataset: bool = False
     ):
 
         self.max_age = max_age
@@ -152,25 +129,12 @@ class BoostTrack(object):
         self.min_hits = min_hits
         self.dlo_boost_coef = dlo_boost_coef
 
-        self.use_embedding = use_embedding
-        # if self.use_embedding:
-        #     if dataset_name is None and test_dataset is None:
-        #         raise Exception("dataset_name and test_dataset must be specified when using visual embedding!")
-        #     self.embedder = EmbeddingComputer(dataset_name, test_dataset, True)
-        # else:
-        #     self.embedder = None
-
         self.lambda_iou = lambda_iou
         self.lambda_mhd = lambda_mhd
         self.lambda_shape = lambda_shape
 
         self.use_dlo_boost = use_dlo_boost
         self.use_duo_boost = use_duo_boost
-        self.use_ecc = use_ecc
-        # if use_ecc:
-        #     self.ecc = ECC(scale=350, video_name=video_name, use_cache=False)
-        # else:
-        #     self.ecc = None
 
     def update(self, dets, _):
         """
@@ -186,21 +150,7 @@ class BoostTrack(object):
             dets = dets.cpu().detach().numpy()
 
         self.frame_count += 1
-        mahalanobis_distance = None
-
-        # Rescale
-        # scale = min(img_tensor.shape[2] / img_numpy.shape[0], img_tensor.shape[3] / img_numpy.shape[1])
-        # dets = deepcopy(dets)
-        # dets[:, :4] /= scale
         dets = deepcopy(dets)
-        # clss = dets[:, 5]
-        
-        # classes = clss
-
-        # if self.use_ecc:
-        #     transform = self.ecc(img_numpy, self.frame_count, tag)
-        #     for trk in self.trackers:
-        #         trk.camera_update(transform)
 
         # get predicted locations from existing trackers.
         trks = np.zeros((len(self.trackers), 6))
@@ -223,22 +173,7 @@ class BoostTrack(object):
         dets = dets[remain_inds]
         scores = dets[:, 4]
 
-        if mahalanobis_distance is not None and mahalanobis_distance.size > 0:
-            mahalanobis_distance = mahalanobis_distance[remain_inds]
-        else:
-            mahalanobis_distance = self.get_mh_dist_matrix(dets)
-
-        # Generate embeddings
-        dets_embs = np.ones((dets.shape[0], 1))
-        emb_cost = None
-        # if self.embedder and dets.size > 0:
-        #     dets_embs = self.embedder.compute_embedding(img_numpy, dets[:, :4], tag)
-        #     trk_embs = []
-        #     for t in range(len(self.trackers)):
-        #         trk_embs.append(self.trackers[t].get_emb())
-        #     trk_embs = np.array(trk_embs)
-        #     if trk_embs.size > 0 and dets.size > 0:
-        #         emb_cost = dets_embs.reshape(dets_embs.shape[0], -1) @ trk_embs.reshape((trk_embs.shape[0], -1)).T
+        mahalanobis_distance = self.get_mh_dist_matrix(dets)
 
         matched, unmatched_dets, unmatched_trks = associate(
             dets,
@@ -247,26 +182,17 @@ class BoostTrack(object):
             mahalanobis_distance=mahalanobis_distance,
             track_confidence=confs,
             detection_confidence=scores,
-            emb_cost=emb_cost,
             lambda_iou=self.lambda_iou,
             lambda_mhd=self.lambda_mhd,
             lambda_shape=self.lambda_shape
         )
 
-        trust = (dets[:, 4] - self.det_thresh) / (1 - self.det_thresh)
-        af = 0.95
-        dets_alpha = af + (1 - af) * (1 - trust)
-
         for m in matched:
             self.trackers[m[1]].update(dets[m[0], :], scores[m[0]])
-            self.trackers[m[1]].update_emb(dets_embs[m[0]], alpha=dets_alpha[m[0]])
 
         for i in unmatched_dets:
             if dets[i, 4] >= self.det_thresh:
-                print(dets)
-                # self.trackers.append(KalmanBoxTracker(dets[i, :], emb=dets_embs[i]))
-                self.trackers.append(KalmanBoxTracker(dets[i, :5], dets[i, 5], emb=dets_embs[i]))
-
+                self.trackers.append(KalmanBoxTracker(dets[i, :5], dets[i, 5]))
 
         ret = []
         i = len(self.trackers)
@@ -283,10 +209,6 @@ class BoostTrack(object):
         if len(ret) > 0:
             return np.concatenate(ret)
         return np.empty((0, 5))
-
-    def dump_cache(self):
-        if self.use_ecc:
-            self.ecc.save_cache()
 
     def get_iou_matrix(self, detections: np.ndarray) -> np.ndarray:
         trackers = np.zeros((len(self.trackers), 5))

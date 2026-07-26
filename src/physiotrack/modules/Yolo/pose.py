@@ -6,12 +6,13 @@ from .classes_and_palettes import COLORS
 import cv2
 import numpy as np
 import time
+from ..._paths import weights_dir
 
 
 class YoloPose:
     def __init__(self, model, device, OBJECTNESS_CONFIDENCE, NMS_THRESHOLD, classes, overlay_keypoints=True,
                  render_labels=False, render_box_detections=False, verbose=False, **kwargs):
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+        model_path = str(weights_dir())
         self.model = YOLO(os.path.join(model_path, model.value))
         self.device = device
         self.conf = OBJECTNESS_CONFIDENCE

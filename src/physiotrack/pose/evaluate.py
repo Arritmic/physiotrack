@@ -6,6 +6,8 @@ import numpy as np
 import torch
 from typing import Dict, Tuple, Optional, Union
 
+from .canonicalizer import CanonicalView
+
 
 def compute_similarity_transform(X: np.ndarray, Y: np.ndarray, 
                                 compute_optimal_scale: bool = False) -> Tuple[float, np.ndarray, np.ndarray, float, np.ndarray]:
@@ -91,7 +93,7 @@ def calculate_mpjpe(preds: np.ndarray, gts: np.ndarray) -> float:
         float: The MPJPE, in the same units as the inputs (e.g. meters).
 
     Raises:
-        AssertionError: If ``preds`` and ``gts`` do not have identical shapes.
+        ValueError: If ``preds`` and ``gts`` do not have identical shapes.
 
     Example:
         ```python
@@ -108,7 +110,11 @@ def calculate_mpjpe(preds: np.ndarray, gts: np.ndarray) -> float:
         [`evaluate_pose_predictions`][physiotrack.evaluate_pose_predictions]: bundles
             MPJPE with other metrics and rescales to millimeters.
     """
-    assert preds.shape == gts.shape, f"Shape mismatch: preds {preds.shape} vs gts {gts.shape}"
+    if preds.shape != gts.shape:
+        raise ValueError(
+            f"preds and gts must have the same shape, got preds {preds.shape} "
+            f"vs gts {gts.shape}."
+        )
     
     # Compute Euclidean distance for each joint
     distances = np.linalg.norm(preds - gts, axis=-1)  # (N, J)
@@ -139,7 +145,7 @@ def calculate_pampjpe(preds: np.ndarray, gts: np.ndarray) -> float:
         float: The PA-MPJPE, in the same units as the inputs (e.g. meters).
 
     Raises:
-        AssertionError: If ``preds`` and ``gts`` do not have identical shapes.
+        ValueError: If ``preds`` and ``gts`` do not have identical shapes.
 
     Example:
         ```python
@@ -151,7 +157,11 @@ def calculate_pampjpe(preds: np.ndarray, gts: np.ndarray) -> float:
     See Also:
         [`calculate_mpjpe`][physiotrack.calculate_mpjpe]: unaligned position error.
     """
-    assert preds.shape == gts.shape, f"Shape mismatch: preds {preds.shape} vs gts {gts.shape}"
+    if preds.shape != gts.shape:
+        raise ValueError(
+            f"preds and gts must have the same shape, got preds {preds.shape} "
+            f"vs gts {gts.shape}."
+        )
     
     N = preds.shape[0]
     num_joints = preds.shape[1]
@@ -201,7 +211,7 @@ def calculate_rotation_error(pred_rotation: np.ndarray, gt_rotation: np.ndarray,
         float: The mean rotation error, in degrees if ``return_degrees`` else radians.
 
     Raises:
-        AssertionError: If ``pred_rotation`` and ``gt_rotation`` do not have
+        ValueError: If ``pred_rotation`` and ``gt_rotation`` do not have
             identical shapes.
 
     Example:
@@ -215,7 +225,11 @@ def calculate_rotation_error(pred_rotation: np.ndarray, gt_rotation: np.ndarray,
         [`evaluate_canonicalization`][physiotrack.evaluate_canonicalization]: reports
             this rotation error alongside pose metrics.
     """
-    assert pred_rotation.shape == gt_rotation.shape, f"Shape mismatch: {pred_rotation.shape} vs {gt_rotation.shape}"
+    if pred_rotation.shape != gt_rotation.shape:
+        raise ValueError(
+            f"pred_rotation and gt_rotation must have the same shape, got "
+            f"{pred_rotation.shape} vs {gt_rotation.shape}."
+        )
     
     if method == 'frobenius':
         # Match 3DPCNet's approach: Frobenius norm treated as radians
@@ -421,7 +435,7 @@ def compare_canonicalization_methods(poses_3d: np.ndarray,
         geometric_canonical = canonicalize_pose(
             poses_3d,
             model=Models.Pose3D.Canonicalizer.Models.GEOMETRIC,
-            view=Models.Pose3D.Canonicalizer.View.FRONT
+            view=CanonicalView.FRONT
         )
         
         if gt_canonical is not None:
@@ -438,7 +452,7 @@ def compare_canonicalization_methods(poses_3d: np.ndarray,
         s2_canonical = canonicalize_pose(
             poses_3d,
             model=Models.Pose3D.Canonicalizer.Models._3DPCNetS2,
-            view=Models.Pose3D.Canonicalizer.View.FRONT
+            view=CanonicalView.FRONT
         )
         
         if gt_canonical is not None:
@@ -455,7 +469,7 @@ def compare_canonicalization_methods(poses_3d: np.ndarray,
         s3_canonical = canonicalize_pose(
             poses_3d,
             model=Models.Pose3D.Canonicalizer.Models._3DPCNetS3,
-            view=Models.Pose3D.Canonicalizer.View.FRONT
+            view=CanonicalView.FRONT
         )
         
         if gt_canonical is not None:

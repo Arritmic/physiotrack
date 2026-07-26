@@ -15,8 +15,8 @@ Example
 -------
 >>> from physiotrack.signals import JointAnglePlotter
 >>> plotter = JointAnglePlotter(rom=True, fps=30.0)
->>> plotter.update(result.to_dict()["detections"], frame_time=t)   # per frame
->>> frame = plotter.attach_panels(frame, position="top_left")      # joint + ROM grids
+>>> plotter.update(result.to_dict()["instances"], frame_time=t)   # per frame
+>>> frame = plotter.attach_to_frame(frame, position="top_left")    # joint + ROM grids
 """
 
 import cv2
@@ -25,6 +25,7 @@ from collections import deque
 from typing import Dict, List, Optional, Sequence
 
 from physiotrack.core.overlay import OverlayCanvas
+from physiotrack.core.panel import PanelMixin
 from physiotrack.signals.motion.features import (
     JOINT_ANGLE_TRIPLETS,
     ROM_DEFINITIONS,
@@ -39,7 +40,7 @@ _LEFT_COLOR = (171, 134, 46)    # #2E86AB
 _RIGHT_COLOR = (114, 59, 162)   # #A23B72
 
 
-class JointAnglePlotter:
+class JointAnglePlotter(PanelMixin):
     """Render interior joint angles and clinical ROM as 2-column grid overlays.
 
     Per frame, measures the interior anatomical joint angles (shoulders, elbows, hips,
@@ -74,10 +75,10 @@ class JointAnglePlotter:
             ok, frame = cap.read()
             if not ok:
                 break
-            pose_results = pose.predict(frame).to_dict()["detections"]
+            pose_results = pose.predict(frame).to_dict()["instances"]
             t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
             plotter.update(pose_results, frame_time=t)
-            frame = plotter.attach_panels(frame, position="top_left")
+            frame = plotter.attach_to_frame(frame, position="top_left")
             cv2.imshow("angles", frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
@@ -172,7 +173,7 @@ class JointAnglePlotter:
 
         Args:
             pose_results (list[dict]): Per-person pose results, each with a
-                ``"keypoints"`` list (e.g. ``result.to_dict()["detections"]``).
+                ``"keypoints"`` list (e.g. ``result.to_dict()["instances"]``).
             frame_time (float, optional): Frame timestamp in seconds. Defaults to ``0.0``.
         """
         keypoints = self._first_keypoints(pose_results)
@@ -306,80 +307,42 @@ class JointAnglePlotter:
             ov.polyline(pts, color, width=1)
 
     # ----------------------------------------------------------------- compose
-    def attach_canvas(self, frame: np.ndarray, canvas: Optional[np.ndarray],
-                      position: str = "top_left", margin: int = 10,
-                      above_element_height: int = 0) -> np.ndarray:
-        """Alpha-composite a BGRA grid canvas onto the frame at a corner.
+    PANEL_POSITION = "top_left"
+    PANEL_MARGIN = 10
+    PANEL_BACKDROP = False          # the grids are BGRA and carry their own alpha
 
-        Downscales the canvas if it is wider than the available width, then blends it in
-        using its alpha channel. Returns the frame unchanged if ``canvas`` is ``None`` or
-        it would not fit.
+    def render(self, width: Optional[int] = None) -> Optional[np.ndarray]:
+        """Render the joint-angle grid and the ROM grid as one stacked BGRA canvas.
 
-        Args:
-            frame (numpy.ndarray): Target BGR frame ``(H, W, 3)``.
-            canvas (numpy.ndarray | None): A BGRA grid from
-                [`render_grid`][physiotrack.signals.JointAnglePlotter.render_grid].
-            position (str, optional): Placement; ``"top"``/``"bottom"`` and
-                ``"left"``/``"right"`` substrings are honored (e.g. ``"top_left"``,
-                ``"bottom_right"``). Defaults to ``"top_left"``.
-            margin (int, optional): Margin from the frame edge in pixels. Defaults to ``10``.
-            above_element_height (int, optional): Vertical offset in pixels to stack this
-                panel below/above another one. Defaults to ``0``.
-
-        Returns:
-            numpy.ndarray: A copy of ``frame`` with the canvas composited (or the
-                original ``frame`` if it does not fit).
-        """
-        if canvas is None:
-            return frame
-        h, w = frame.shape[:2]
-        ch, cw = canvas.shape[:2]
-        if cw > w - 2 * margin:
-            sc = (w - 2 * margin) / cw
-            canvas = cv2.resize(canvas, (int(cw * sc), int(ch * sc)))
-            ch, cw = canvas.shape[:2]
-        extra = margin if above_element_height > 0 else 0
-        y1 = (margin + above_element_height + extra) if "top" in position \
-            else (h - ch - margin - above_element_height - extra)
-        x1 = margin if "left" in position else w - cw - margin
-        if y1 < 0 or x1 < 0 or y1 + ch > h or x1 + cw > w:
-            return frame
-        roi = frame[y1:y1 + ch, x1:x1 + cw].astype(np.float32)
-        alpha = canvas[:, :, 3:4].astype(np.float32) / 255.0
-        blended = alpha * canvas[:, :, :3].astype(np.float32) + (1.0 - alpha) * roi
-        out = frame.copy()
-        out[y1:y1 + ch, x1:x1 + cw] = blended.astype(np.uint8)
-        return out
-
-    def attach_panels(self, frame: np.ndarray, position: str = "top_left",
-                      margin: int = 10, width: Optional[int] = None) -> np.ndarray:
-        """Stack the joint-angle grid then the ROM grid onto the frame (convenience).
-
-        Renders both grids and composites them at the same corner, offset so they stack
-        without overlapping. This is the one-call method used in the standalone example.
+        Both grids belong to the same panel, so they are fused here rather than
+        composited separately: the caller places one canvas and the vertical gap between
+        the grids is this panel's business, not the caller's.
 
         Args:
-            frame (numpy.ndarray): Target BGR frame ``(H, W, 3)``.
-            position (str, optional): Placement corner (see
-                [`attach_canvas`][physiotrack.signals.JointAnglePlotter.attach_canvas]).
-                Defaults to ``"top_left"``.
-            margin (int, optional): Margin from the frame edge in pixels. Defaults to ``10``.
             width (int, optional): Grid width in pixels. Defaults to ``None``
-                (uses ``self.canvas_width``).
+                (``self.canvas_width``).
 
         Returns:
-            numpy.ndarray: The frame with the joint-angle and (if enabled) ROM grids
-                composited on top.
+            np.ndarray | None: A BGRA canvas ``(h, w, 4)``, or ``None`` when neither grid
+                has anything to draw yet.
         """
         width = self.canvas_width if width is None else width
-        offset = 0
-        for which in ("joint", "rom"):
-            grid = self.render_grid(which, width)
-            if grid is None:
-                continue
-            frame = self.attach_canvas(frame, grid, position, margin, offset)
-            offset += grid.shape[0] + 10
-        return frame
+        grids = [g for g in (self.render_grid("joint", width),
+                             self.render_grid("rom", width)) if g is not None]
+        if not grids:
+            return None
+        if len(grids) == 1:
+            return grids[0]
+
+        gap = 10
+        w = max(g.shape[1] for g in grids)
+        h = sum(g.shape[0] for g in grids) + gap * (len(grids) - 1)
+        canvas = np.zeros((h, w, 4), dtype=grids[0].dtype)
+        y = 0
+        for grid in grids:
+            canvas[y:y + grid.shape[0], :grid.shape[1]] = grid
+            y += grid.shape[0] + gap
+        return canvas
 
     # ------------------------------------------------------------------ access
     def values(self) -> Dict[str, Optional[float]]:

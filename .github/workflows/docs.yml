@@ -1,6 +1,15 @@
-name: Deploy docs
+name: Docs
 
-# Build the MkDocs site and publish it to GitHub Pages on every push to main.
+# Two jobs from one file:
+#   build  - runs on pull requests and on main, fails on any mkdocs/griffe warning.
+#   deploy - publishes to GitHub Pages, only from main, only if build passed.
+#
+# The strict build is the gate that matters. Without it, a broken mkdocstrings
+# reference (a renamed symbol, an undocumented public class, a mis-indented
+# docstring) deploys silently and only surfaces as a missing page for readers.
+#
+# The two path lists are duplicated on purpose: GitHub Actions rejects YAML
+# anchors/aliases in workflow files, so they cannot be shared.
 on:
   push:
     branches: [main]
@@ -8,7 +17,14 @@ on:
       - "docs/**"
       - "src/physiotrack/**"
       - "mkdocs.yml"
-      - "requirements-docs.txt"
+      - "pyproject.toml"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "src/physiotrack/**"
+      - "mkdocs.yml"
+      - "pyproject.toml"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
@@ -16,7 +32,8 @@ permissions:
   contents: write
 
 jobs:
-  deploy:
+  build:
+    name: Build (strict)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +43,29 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install docs toolchain
-        run: pip install -r requirements-docs.txt
+        run: pip install -e ".[docs]"
+      - name: Build with warnings as errors
+        run: mkdocs build --strict
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install docs toolchain
+        run: pip install -e ".[docs]"
+      - name: Attribute deploy commits to the Actions bot
+        # Without an identity, gh-deploy writes commits with an empty author, which
+        # then show up as a phantom contributor in git shortlog and the graphs.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Build & deploy to gh-pages
         run: mkdocs gh-deploy --force --clean

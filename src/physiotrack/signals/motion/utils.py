@@ -7,6 +7,8 @@ import json
 import cv2
 from tqdm import tqdm
 
+from ..keypoints import as_frame_records
+
 
 def read_biosignals(input_file):
     pd.set_option("display.precision", 15)
@@ -28,7 +30,7 @@ def read_biosignals(input_file):
     return biosignals, readed
 
 
-def extract_keypoint_sequence_2d(data, keypoint_id, original_fps):
+def extract_keypoint_sequence_2d(data, keypoint_id):
     """Extract one 2D keypoint's trajectory across all frames as a tidy DataFrame.
 
     Walks the per-frame detection records and pulls the ``(x, y, confidence)`` of a
@@ -38,15 +40,12 @@ def extract_keypoint_sequence_2d(data, keypoint_id, original_fps):
 
     Args:
         data (list[dict]): Per-frame pose records, one dict per frame with keys
-            ``"frame_id"``, ``"timestamp"`` and ``"detections"`` (a list of
+            ``"frame_id"``, ``"timestamp"`` and ``"instances"`` (a list of
             ``{"id", "keypoints": [{"id", "x", "y", "confidence"}, ...]}`` dicts).
-            This is the ``detections`` list produced by the ``Video`` pipeline /
+            This is the ``instances`` list produced by the ``Video`` pipeline /
             ``Result.to_dict()``.
         keypoint_id (int): COCO-WholeBody keypoint id to extract (e.g. ``9`` for the
             left wrist). The human-readable name is looked up in ``COCO_WHOLEBODY``.
-        original_fps (float): Source frame rate. Accepted for API symmetry with the
-            resampling helpers; not used in the extraction itself.
-
     Returns:
         pandas.DataFrame: One row per (frame, detection) with columns
             ``["time", "frame", "detection_id", "keypoint_id", "x", "y", "confidence"]``.
@@ -58,7 +57,7 @@ def extract_keypoint_sequence_2d(data, keypoint_id, original_fps):
         from physiotrack.signals import extract_keypoint_sequence_2d
 
         result = pt.Video(source="in.mp4", pose=pt.Pose.Person()).run(output_json="poses.json")
-        df = extract_keypoint_sequence_2d(result, keypoint_id=9, original_fps=30.0)
+        df = extract_keypoint_sequence_2d(result, keypoint_id=9)
         ```
 
     See Also:
@@ -68,10 +67,11 @@ def extract_keypoint_sequence_2d(data, keypoint_id, original_fps):
             wide-format extraction of many keypoints at once.
     """
     sequence_data = []
+    data = as_frame_records(data)
     for frame_info in data:
         frame_number = frame_info.get("frame_id")
         timestamp = frame_info.get("timestamp")
-        for detection in frame_info.get("detections", []):
+        for detection in frame_info.get("instances", []):
             detection_id = detection.get("id", None)
             for kp in detection.get("keypoints", []):
                 if kp.get("id") == keypoint_id:
@@ -88,7 +88,7 @@ def extract_keypoint_sequence_2d(data, keypoint_id, original_fps):
     df = pd.DataFrame(sequence_data, columns=["time", "frame", "detection_id", "keypoint_id", "x", "y", "confidence"])
     return df
 
-def extract_keypoint_sequence_3d(data, keypoint_id, original_fps):
+def extract_keypoint_sequence_3d(data, keypoint_id):
     """Extract one 3D keypoint's trajectory across all frames as a tidy DataFrame.
 
     Same as [`extract_keypoint_sequence_2d`][physiotrack.signals.extract_keypoint_sequence_2d]
@@ -101,7 +101,6 @@ def extract_keypoint_sequence_3d(data, keypoint_id, original_fps):
             ``"keypoints3D"`` list of ``{"id", "x", "y", "z"}`` dicts (as produced by
             [`Pose3D`][physiotrack.pose.pose3D.Pose3D]).
         keypoint_id (int): Human3.6M keypoint id to extract.
-        original_fps (float): Source frame rate. Accepted for API symmetry; unused here.
 
     Returns:
         pandas.DataFrame: One row per (frame, detection) with columns
@@ -113,10 +112,11 @@ def extract_keypoint_sequence_3d(data, keypoint_id, original_fps):
             the 2D counterpart.
     """
     sequence_data = []
+    data = as_frame_records(data)
     for frame_info in data:
         frame_number = frame_info.get("frame_id")
         timestamp = frame_info.get("timestamp")
-        for detection in frame_info.get("detections", []):
+        for detection in frame_info.get("instances", []):
             detection_id = detection.get("id", None)
             for kp in detection.get("keypoints3D", []):
                 if kp.get("id") == keypoint_id:
@@ -153,7 +153,7 @@ def extract_keypoints_sequence(data, candidate_key_points=list(range(17))):
 
     Args:
         data (list[dict]): Per-frame pose records with ``"frame_id"``, ``"timestamp"``
-            and ``"detections"``; each detection may carry ``"keypoints"`` (2D) and/or
+            and ``"instances"``; each detection may carry ``"keypoints"`` (2D) and/or
             ``"keypoints3D"`` (3D) lists.
         candidate_key_points (list[int], optional): Keypoint ids to keep. Defaults to
             ``list(range(17))`` (the COCO-17 body joints). Pass e.g.
@@ -175,17 +175,18 @@ def extract_keypoints_sequence(data, candidate_key_points=list(range(17))):
         [`add_pelvic_centroid`][physiotrack.signals.add_pelvic_centroid]: add a pelvis
             reference point (id ``135``) before extraction.
     """
+    data = as_frame_records(data)
     sequence_data = []
     columns = ['time', 'frame', 'detection_id']
     processed_key_points_2d = []
     processed_key_points_3d = []
-        
+
     for frame_info in tqdm(data, desc="Extracting key points", unit="frame"):
         frame_number = frame_info.get("frame_id")
         timestamp = frame_info.get("timestamp")
-        detections = frame_info.get("detections", [])
+        instances = frame_info.get("instances", [])
         
-        for detection in detections:
+        for detection in instances:
             detection_id = detection.get("id", None)
             frame_data = {
                 "time": timestamp,
@@ -234,7 +235,7 @@ def add_head_centroid(data, pose_architecture):
     and returns it.
 
     Args:
-        data (list[dict]): Per-frame pose records (each with ``"detections"``); each
+        data (list[dict]): Per-frame pose records (each with ``"instances"``); each
             detection's keypoint lists are extended in place.
         pose_architecture (str): Pose layout, ``"WHOLEBODY"`` or ``"COCO"``. Match your
             pose model (``pose_estimator.architecture``).
@@ -254,8 +255,9 @@ def add_head_centroid(data, pose_architecture):
         [`add_body_centroid`][physiotrack.signals.add_body_centroid],
         [`add_pelvic_centroid`][physiotrack.signals.add_pelvic_centroid].
     """
+    data = as_frame_records(data)
     for frame_info in data:
-        for detection in frame_info.get("detections", []):
+        for detection in frame_info.get("instances", []):
             # 2D head centroid
             x_coords_2d = []
             y_coords_2d = []
@@ -335,7 +337,7 @@ def add_body_centroid(data, pose_architecture):
     confidences. Mutates ``data`` in place and returns it.
 
     Args:
-        data (list[dict]): Per-frame pose records (each with ``"detections"``); each
+        data (list[dict]): Per-frame pose records (each with ``"instances"``); each
             detection's keypoint lists are extended in place.
         pose_architecture (str): Pose layout string. Accepted for API symmetry with the
             other centroid helpers; the body centroid always uses COCO ids ``0..16``.
@@ -347,8 +349,9 @@ def add_body_centroid(data, pose_architecture):
         [`add_head_centroid`][physiotrack.signals.add_head_centroid],
         [`add_pelvic_centroid`][physiotrack.signals.add_pelvic_centroid].
     """
+    data = as_frame_records(data)
     for frame_info in data:
-        for detection in frame_info.get("detections", []):
+        for detection in frame_info.get("instances", []):
             # 2D body centroid
             x_coords_2d = []
             y_coords_2d = []
@@ -416,7 +419,7 @@ def add_pelvic_centroid(data, pose_architecture):
     pelvis-center the motion features. Mutates ``data`` in place and returns it.
 
     Args:
-        data (list[dict]): Per-frame pose records (each with ``"detections"``); each
+        data (list[dict]): Per-frame pose records (each with ``"instances"``); each
             detection's keypoint lists are extended in place.
         pose_architecture (str): Pose layout string. Accepted for API symmetry; the
             pelvis is always the hip midpoint (COCO ids ``11``/``12``).
@@ -436,8 +439,9 @@ def add_pelvic_centroid(data, pose_architecture):
         [`get_relative_coordinates`][physiotrack.signals.get_relative_coordinates]:
             consumes id ``135`` as the default reference point.
     """
+    data = as_frame_records(data)
     for frame_info in data:
-        for detection in frame_info.get("detections", []):
+        for detection in frame_info.get("instances", []):
             # 2D pelvic centroid
             left_hip_2d = None
             right_hip_2d = None

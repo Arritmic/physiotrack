@@ -19,6 +19,11 @@ import torch.nn.functional as F
 
 from .models import create_model
 
+from ..._logging import get_logger
+from ..._paths import weights_dir
+
+logger = get_logger(__name__)
+
 
 def _strip_state_dict_prefixes(state_dict: dict) -> dict:
     """Remove DDP (``module.``) and ``torch.compile`` (``_orig_mod.``) prefixes.
@@ -73,7 +78,7 @@ class ZipDepthInference:
         """
         if not os.path.isfile(model_path):
             model_name = os.path.basename(model_path)
-            model_dir = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+            model_dir = str(weights_dir())
             raise ValueError(
                 f"The model file '{model_name}' does not exist at {model_path}\n"
                 f"It is normally auto-downloaded from the physiotrack HuggingFace "
@@ -112,7 +117,7 @@ class ZipDepthInference:
         state_dict = _strip_state_dict_prefixes(state_dict)
         missing, unexpected = self.model.load_state_dict(state_dict, strict=False)
         if self.verbose and unexpected:
-            print(f"  ZipDepth: ignored unexpected keys: {unexpected}")
+            logger.debug("ZipDepth: ignored unexpected checkpoint keys: %s", unexpected)
         if self.verbose and missing:
             print(f"  ZipDepth: warning — missing keys (random init): {missing}")
 
@@ -124,7 +129,7 @@ class ZipDepthInference:
 
         if self.verbose:
             head = 'NPU/mobile head' if not self.upsample_unfold else 'GPU head'
-            print(f"ZipDepth ({self.variant}, {head}) loaded on {self.device}")
+            logger.info("ZipDepth (%s, %s) loaded on %s", self.variant, head, self.device)
 
         # Inference time tracking
         self._inference_times = deque(maxlen=100)

@@ -8,8 +8,13 @@ from ..modules._6DRepNet360 import HeadPoseEstimator
 from ..models import Models
 from ..results import Result, Instance
 
+from .._logging import get_logger
+from ..core.predictor import PredictorMixin
 
-class FaceOrientation:
+logger = get_logger(__name__)
+
+
+class FaceOrientation(PredictorMixin):
     """Head pose (yaw/pitch/roll) estimator using 6DRepNet360.
 
     Estimates the 3D orientation of each face using the 6D rotation
@@ -75,22 +80,14 @@ class FaceOrientation:
 
         Models.validate_pose3d_model(model, expected_subclass='FaceOrientation')
 
-        # Check if model file exists, download if needed
-        model_path = os.path.join(
-            os.path.dirname(__file__),
-            '..',
-            'modules',
-            'model_data',
-            model.value
-        )
-        if not os.path.isfile(model_path):
-            # Try to download from HuggingFace, but skip if not available
-            # The 6DRepNet360 model will auto-download from its source
-            try:
-                Models.download_model(model)
-            except Exception as e:
-                if verbose:
-                    print(f"Note: Could not download from HuggingFace ({e}). Model will auto-download from 6DRepNet source.")
+        # Not fatal if this fails: 6DRepNet360 downloads its own weights on demand,
+        # so a missing HuggingFace copy still leaves a working predictor.
+        try:
+            Models.resolve(model)
+        except Exception as e:
+            if verbose:
+                logger.info("Could not fetch weights from HuggingFace (%r); falling back "
+                            "to the 6DRepNet source, which downloads on demand.", e)
 
         # Rendering is handled by Result.plot(); the backend never draws.
         self.estimator = HeadPoseEstimator(
@@ -105,20 +102,6 @@ class FaceOrientation:
         self.device = device
         self.verbose = verbose
 
-    def __call__(self, img: np.ndarray, bboxes: np.ndarray = None):
-        """Alias for [`predict`][physiotrack.FaceOrientation.predict].
-
-        Args:
-            img (np.ndarray): BGR frame ``(H, W, 3)``.
-            bboxes (np.ndarray, optional): Face boxes ``(N, 4)`` as
-                ``[x1, y1, x2, y2]``. Defaults to ``None`` (whole image is one
-                face).
-
-        Returns:
-            Result: Same as [`predict`][physiotrack.FaceOrientation.predict].
-        """
-        return self.predict(img, bboxes)
-
     @staticmethod
     def _to_result(frame, results_dict) -> Result:
         instances = []
@@ -130,17 +113,20 @@ class FaceOrientation:
             ))
         return Result(orig_img=frame, instances=instances, task="face")
 
-    def predict(self, img: np.ndarray, bboxes: np.ndarray = None) -> Result:
-        """Estimate head orientation (yaw/pitch/roll) for faces in a frame.
+    def predict(self, source, bboxes=None):
+        """Estimate head orientation (yaw/pitch/roll) for faces in one or more frames.
 
         Args:
-            img (np.ndarray): BGR frame of shape ``(H, W, 3)``.
-            bboxes (np.ndarray, optional): Face boxes of shape ``(N, 4)`` as
-                ``[x1, y1, x2, y2]``. Defaults to ``None`` (the whole image is
-                treated as a single face).
+            source (str | os.PathLike | np.ndarray | Sequence): A single BGR frame
+                ``(H, W, 3)``, a path to an image file, or a sequence of either for
+                batch inference.
+            bboxes (np.ndarray | list, optional): Face boxes ``(N, 4)`` as
+                ``[x1, y1, x2, y2]`` for a single frame, or one such array per frame for
+                a batch. Defaults to ``None`` (the whole image is treated as one face).
 
         Returns:
-            Result: A [`Result`][physiotrack.Result] with ``task="face"``; each
+            Result | list[Result]: A [`Result`][physiotrack.Result] with ``task="face"``
+                for a single frame, or one per frame for a batch. Each
                 ``instance.orientation`` is a dict ``{"yaw", "pitch", "roll"}`` in
                 degrees. ``result.plot()`` draws the pose axes.
 
@@ -153,24 +139,14 @@ class FaceOrientation:
                 print(inst.orientation)
             ```
         """
-        _, results_dict = self.estimator.predict(img, bboxes)
-        return self._to_result(img, results_dict)
-
-    def predict_batch(self, frames, bboxes_list=None) -> List[Result]:
-        """Estimate head orientation for a batch of frames.
-
-        Args:
-            frames (list[np.ndarray]): List of BGR frames, each ``(H, W, 3)``.
-            bboxes_list (list[np.ndarray], optional): Per-frame face boxes, each
-                ``(N, 4)``. Defaults to ``None`` (each whole frame is one face).
-
-        Returns:
-            list[Result]: One [`Result`][physiotrack.Result] per input frame, in
-                order; see [`predict`][physiotrack.FaceOrientation.predict].
-        """
-        outputs = self.estimator.predict_batch(frames, bboxes_list)
-        return [self._to_result(frame, results_dict)
-                for frame, (_, results_dict) in zip(frames, outputs)]
+        frames, was_batch = self._as_frames(source)
+        if was_batch:
+            boxes_list = bboxes if isinstance(bboxes, (list, tuple)) else [None] * len(frames)
+            outputs = self.estimator.predict_batch(frames, list(boxes_list))
+            return [self._to_result(frame, results_dict)
+                    for frame, (_, results_dict) in zip(frames, outputs)]
+        _, results_dict = self.estimator.predict(frames[0], bboxes)
+        return self._unwrap([self._to_result(frames[0], results_dict)], was_batch)
 
     def get_avg_inference_time(self):
         """Return the average per-call inference time.

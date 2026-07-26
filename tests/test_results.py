@@ -1,0 +1,200 @@
+"""The result-object serialization contract.
+
+One vocabulary across the object model and its serialized form, and a genuine
+round-trip: ``from_dict(to_dict(x))`` must reproduce ``x``. Previously each result type
+used different keys (``detections`` / ``tracks``), renamed fields on the way out
+(``box`` -> ``bbox``, ``orientation`` -> ``pose``), dropped ``cls_name`` and ``mask``
+entirely, and had no way back at all, so a written JSON file could not be reloaded.
+"""
+
+import json
+
+import numpy as np
+import pytest
+
+import physiotrack as pt
+
+
+def _instance():
+    keypoints = pt.Keypoints(
+        [
+            {"id": 5, "x": 1.0, "y": 2.0, "confidence": 0.9},
+            {"id": 7, "x": 3.0, "y": 4.0, "confidence": 0.8},
+        ],
+        "COCO",
+    )
+    return pt.Instance(
+        id=7,
+        box=np.array([1, 2, 3, 4], np.float32),
+        confidence=0.77,
+        cls=0,
+        cls_name="person",
+        keypoints=keypoints,
+        orientation={"yaw": 1.0, "pitch": 2.0, "roll": 3.0},
+        mask=np.ones((4, 4), bool),
+    )
+
+
+def _result():
+    return pt.Result(orig_img=np.zeros((8, 8, 3), np.uint8), instances=[_instance()],
+                     task="pose", architecture="COCO")
+
+
+# --- one vocabulary ----------------------------------------------------------------
+
+def test_serialized_keys_match_the_attribute_names():
+    data = _result().to_dict()
+    assert "instances" in data and "detections" not in data
+    instance = data["instances"][0]
+    # The attribute is `box`, so the key is `box`; likewise `orientation`.
+    assert "box" in instance and "bbox" not in instance
+    assert "orientation" in instance and "pose" not in instance
+
+
+def test_cls_name_is_not_dropped():
+    assert _result().to_dict()["instances"][0]["cls_name"] == "person"
+
+
+def test_track_result_uses_the_same_key_as_result():
+    track = pt.TrackResult(instances=[_instance()], orig_img=np.zeros((8, 8, 3), np.uint8))
+    data = track.to_dict()
+    assert "instances" in data and "tracks" not in data
+
+
+# --- round-trip --------------------------------------------------------------------
+
+def test_result_round_trips():
+    original = _result()
+    restored = pt.Result.from_dict(original.to_dict())
+    a, b = original[0], restored[0]
+
+    assert (restored.task, restored.architecture) == (original.task, original.architecture)
+    assert (b.id, b.confidence, b.cls, b.cls_name) == (a.id, a.confidence, a.cls, a.cls_name)
+    assert np.array_equal(np.asarray(b.box), np.asarray(a.box))
+    assert b.orientation == a.orientation
+    assert len(b.keypoints) == len(a.keypoints)
+    # Keypoint names are rebuilt from the recorded architecture.
+    assert b.keypoints[0].name == a.keypoints[0].name == "left_shoulder"
+
+
+def test_masks_are_flagged_but_omitted_by_default():
+    data = _result().to_dict()
+    assert data["instances"][0]["has_mask"] is True
+    assert "mask" not in data["instances"][0]
+    assert pt.Result.from_dict(data)[0].mask is None
+
+
+def test_masks_round_trip_when_arrays_are_requested():
+    restored = pt.Result.from_dict(_result().to_dict(include_arrays=True))
+    assert restored[0].mask is not None
+    assert restored[0].mask.shape == (4, 4)
+
+
+def test_to_json_is_valid_json_and_writes_a_file(tmp_path):
+    result = _result()
+    assert isinstance(json.loads(result.to_json()), dict)
+
+    path = tmp_path / "result.json"
+    assert result.to_json(path) is None
+    assert pt.Result.from_dict(json.loads(path.read_text(encoding="utf-8")))[0].id == 7
+
+
+def test_from_dict_rejects_a_payload_without_a_task():
+    with pytest.raises(KeyError, match="task"):
+        pt.Result.from_dict({"instances": []})
+
+
+# --- depth -------------------------------------------------------------------------
+
+def test_depth_records_that_it_is_relative_not_metric():
+    depth = pt.DepthResult(orig_img=np.zeros((4, 4, 3), np.uint8),
+                           depth=np.arange(16, dtype=float).reshape(4, 4))
+    data = depth.to_dict()
+    assert data["relative"] is True
+    assert data["shape"] == [4, 4]
+
+
+def test_depth_array_round_trips_only_when_requested():
+    depth = pt.DepthResult(orig_img=np.zeros((4, 4, 3), np.uint8),
+                           depth=np.arange(16, dtype=float).reshape(4, 4))
+    # Without the array the map genuinely cannot be recovered, so this must not
+    # silently produce an empty or zero-filled result.
+    with pytest.raises(KeyError, match="include_arrays"):
+        pt.DepthResult.from_dict(depth.to_dict())
+
+    restored = pt.DepthResult.from_dict(depth.to_dict(include_arrays=True))
+    assert np.array_equal(restored.depth, depth.depth)
+
+
+# --- Video output: FrameResult / VideoResults ---------------------------------------
+# Video.run() used to return plain dicts, which discarded the Instance/Keypoints object
+# model at exactly the point most users enter the library. These pin the replacement.
+
+def _frame_result(frame_index=0, timestamp=0.0, vitals=None):
+    result = pt.Result(orig_img=np.zeros((8, 8, 3), np.uint8), instances=[_instance()],
+                       task="pose", architecture="COCO",
+                       meta=pt.ResultMeta(frame_index=frame_index, timestamp=timestamp,
+                                          fps=30.0))
+    return pt.FrameResult(result=result, vitals=vitals)
+
+
+def test_frame_result_behaves_like_its_instances():
+    frame = _frame_result()
+    assert len(frame) == 1
+    assert frame[0].id == 7
+    assert [i.id for i in frame] == [7]
+    # The object model is intact: keypoints are still named, not raw dicts.
+    assert frame[0].keypoints.by_name("left_shoulder") is not None
+
+
+def test_frame_result_exposes_metadata():
+    frame = _frame_result(frame_index=12, timestamp=0.4)
+    assert (frame.meta.frame_index, frame.meta.timestamp, frame.meta.fps) == (12, 0.4, 30.0)
+
+
+def test_frame_result_vitals_accessors():
+    frame = _frame_result(vitals={"hr": 72.0, "snr": -3.0})
+    assert (frame.hr, frame.snr) == (72.0, -3.0)
+    # Absent vitals must read as None rather than raising.
+    assert _frame_result().hr is None
+
+
+def test_frame_result_round_trips():
+    original = _frame_result(frame_index=3, timestamp=0.1, vitals={"hr": 60.0})
+    restored = pt.FrameResult.from_dict(original.to_dict(), architecture="COCO")
+    assert restored.meta.frame_index == 3
+    assert restored.hr == 60.0
+    assert restored[0].keypoints.by_name("left_shoulder") is not None
+
+
+def test_video_results_is_a_sequence_that_serializes(tmp_path):
+    results = pt.VideoResults([_frame_result(i, i / 30.0) for i in range(3)])
+    assert len(results) == 3
+    assert [f.meta.frame_index for f in results] == [0, 1, 2]
+    # list semantics, including slicing
+    assert len(results[:2]) == 2
+
+    path = tmp_path / "run.json"
+    results.to_json(path)
+    reloaded = pt.VideoResults.from_dict_list(
+        json.loads(path.read_text(encoding="utf-8")), architecture="COCO")
+    assert len(reloaded) == 3
+    assert reloaded[1].meta.frame_index == 1
+
+
+def test_signals_accept_video_results_and_dicts_alike():
+    from physiotrack.signals import as_frame_records
+
+    results = pt.VideoResults([_frame_result(i, i / 30.0) for i in range(2)])
+    from_objects = as_frame_records(results)
+    from_dicts = as_frame_records(results.to_dict_list())
+
+    assert from_objects == from_dicts
+    assert [r["frame_id"] for r in from_objects] == [0, 1]
+
+
+def test_as_frame_records_rejects_unsupported_elements():
+    from physiotrack.signals import as_frame_records
+
+    with pytest.raises(TypeError, match="FrameResult"):
+        as_frame_records([object()])

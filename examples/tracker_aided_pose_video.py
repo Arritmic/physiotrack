@@ -9,7 +9,7 @@ tracker_config = TrackerConfig()
 tracker_config.tracker_type = 'ocsort'
 tracker_config.debug_mode = True
 tracker_config.classes = [0]
-tracker_config.enable_student_tracking = True
+tracker_config.enable_subject_lock = True
 tracker = Tracker(config=tracker_config)
 
 input_video = 'BV_S17_cut1.mp4'

@@ -10,6 +10,7 @@ from torchvision import transforms
 
 from .model import load_model
 from . import utils
+from ..._paths import weights_dir
 
 
 class HeadPoseEstimator:
@@ -56,7 +57,7 @@ class HeadPoseEstimator:
         self.extra_args = kwargs
         
         # Load model following the same pattern as Yolo
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+        model_path = str(weights_dir())
         if model is not None:
             snapshot_path = os.path.join(model_path, model.value)
             # Check if file exists, if not set to None to trigger auto-download

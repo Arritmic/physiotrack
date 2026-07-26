@@ -1,7 +1,8 @@
-import numpy as np
-import math
 import json
 import math
+import os
+
+import numpy as np
 from torch.utils.data import Dataset
 from .utils_data import crop_scale
 
@@ -57,32 +58,61 @@ def halpe2h36m(x):
     y[:,16,:] = x[:,10,:]
     return y
     
+def prepare_motion(keypoints, vid_size, scale_range):
+    """Normalise a Halpe-ordered keypoint sequence into MotionBERT's input space.
+
+    Args:
+        keypoints (np.ndarray): ``(N, J, 3)`` Halpe/AlphaPose keypoints as
+            ``(x, y, confidence)``.
+        vid_size (tuple[int, int] | None): ``(width, height)`` used to centre and
+            scale pixel coordinates. ``None`` skips that step.
+        scale_range (list | tuple | None): Target scale range for ``crop_scale``.
+
+    Returns:
+        np.ndarray: ``(N, 17, 3)`` float32 motion in Human3.6M joint order.
+    """
+    kpts_all = halpe2h36m(np.asarray(keypoints, dtype=np.float64))
+    motion = kpts_all
+    if vid_size:
+        w, h = vid_size
+        scale = min(w, h) / 2.0
+        kpts_all[:, :, :2] = kpts_all[:, :, :2] - np.array([w, h]) / 2.0
+        kpts_all[:, :, :2] = kpts_all[:, :, :2] / scale
+        motion = kpts_all
+    if scale_range:
+        motion = crop_scale(kpts_all, scale_range)
+    return motion.astype(np.float32)
+
+
 def read_input(json_path, vid_size, scale_range, focus):
+    """Load an AlphaPose/Halpe JSON and normalise it into MotionBERT's input space."""
     with open(json_path, "r") as read_file:
         results = json.load(read_file)
     kpts_all = []
     for item in results:
-        if focus!=None and item['idx']!=focus:
+        if focus is not None and item['idx'] != focus:
             continue
-        kpts = np.array(item['keypoints']).reshape([-1,3])
+        kpts = np.array(item['keypoints']).reshape([-1, 3])
         kpts_all.append(kpts)
-    kpts_all = np.array(kpts_all)
-    kpts_all = halpe2h36m(kpts_all)
-    if vid_size:
-        w, h = vid_size
-        scale = min(w,h) / 2.0
-        kpts_all[:,:,:2] = kpts_all[:,:,:2] - np.array([w, h]) / 2.0
-        kpts_all[:,:,:2] = kpts_all[:,:,:2] / scale
-        motion = kpts_all
-    if scale_range:
-        motion = crop_scale(kpts_all, scale_range) 
-    return motion.astype(np.float32)
+    return prepare_motion(np.array(kpts_all), vid_size, scale_range)
+
 
 class WildDetDataset(Dataset):
-    def __init__(self, json_path, clip_len=243, vid_size=None, scale_range=None, focus=None):
-        self.json_path = json_path
+    """Clip-batched 2D keypoint sequence.
+
+    Accepts either an in-memory ``(N, J, 3)`` Halpe keypoint array or a path to an
+    AlphaPose/Halpe JSON file. The array form is what the library uses; the JSON form
+    exists for the upstream file-based entry point.
+    """
+
+    def __init__(self, source, clip_len=243, vid_size=None, scale_range=None, focus=None):
         self.clip_len = clip_len
-        self.vid_all = read_input(json_path, vid_size, scale_range, focus)
+        if isinstance(source, (str, os.PathLike)):
+            self.json_path = str(source)
+            self.vid_all = read_input(source, vid_size, scale_range, focus)
+        else:
+            self.json_path = None
+            self.vid_all = prepare_motion(source, vid_size, scale_range)
         
     def __len__(self):
         'Denotes the total number of samples'

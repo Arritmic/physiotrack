@@ -48,10 +48,30 @@ pt.Pose.Custom(model=pt.Models.Pose.ViTPose.WholeBody.l_wholebody)
 | [`Detection`][physiotrack.Detection] | `.Person` · `.Face` · `.VR` · `.VRStudent` · `.Custom` |
 | [`Pose`][physiotrack.Pose] | `.Person` · `.VRStudent` · `.Custom` |
 | [`Segmentation`][physiotrack.Segmentation] | `.Person` · `.VRHead` · `.BodyPart` · `.Face` · `.Custom` |
-| [`Depth`][physiotrack.Depth] | `.DepthAnythingV2Small` · `Base` · `Large` · `.DepthAnythingV2` · `.Custom` |
+| [`Depth`][physiotrack.Depth] | `.DepthAnythingV2Small` · `Base` · `Large` · `.ZipDepth` · `.ZipDepthNPU` · `.Custom` |
 
-Common constructor arguments are shared: `conf`, `iou`, `classes`, `device`,
-`verbose`. See each [API page](../api/index.md) for the exhaustive list.
+`device` and `verbose` are accepted by every predictor. `conf`, `iou` and `classes`
+apply to the **box-based** backends (detection, pose, instance segmentation) — a dense
+predictor has no detections to threshold or filter, so `Depth` and `Segmentation.Face`
+do not take them. Where such a predictor builds a detector internally, the detector's
+thresholds are named for it: `Segmentation.Face(face_conf=…, face_iou=…)` configures the
+face detector, not the parser. See each [API page](../api/index.md) for the exhaustive list.
+
+### What `predict()` accepts
+
+Every image predictor takes the same kinds of input and follows the same batching rule:
+
+```python
+det.predict(frame)                      # np.ndarray (H, W, 3) BGR  -> Result
+det.predict("photo.jpg")                # a path is loaded for you  -> Result
+det.predict([frame_a, frame_b])         # a sequence               -> list[Result]
+det.predict(["a.png", "b.png"])         # paths work in batches too -> list[Result]
+det(frame)                              # calling is an alias for predict
+```
+
+A sequence always returns a list — a one-element list gives a one-element list of
+results — so code that batches does not need a special case for `n == 1`. For video,
+use [`Video`][physiotrack.Video] rather than passing a video path here.
 
 ## The `Result` family
 

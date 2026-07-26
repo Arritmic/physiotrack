@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from ..keypoints import as_frame_records, as_keypoint_dicts
+
 
 # Single source of truth for the anatomical joint-angle definitions, shared by
 # ``compute_all_joint_angles`` and the ``JointAnglePlotter`` overlay so the two
@@ -18,32 +20,39 @@ JOINT_ANGLE_TRIPLETS = {
 }
 
 
-# Clinical range-of-motion (ROM) / goniometry definitions. Unlike the interior
-# joint angles above, a ROM movement measures a distal limb segment against a body
-# reference axis, named by the anatomical movement and zeroed to a neutral pose.
-# Each entry: vertex (joint), ref (defines the reference axis vertex->ref),
-# moving (distal point, vertex->moving), and ``value = scale * raw + offset`` where
-# ``raw`` is the angle (deg) between the two vectors. COCO-17 ids:
-#   shoulders 5/6, hips 11/12, knees 13/14.
+# Clinical range-of-motion (ROM) / goniometry definitions. Unlike the interior joint
+# angles above, a ROM movement measures a distal limb segment against a body reference
+# axis, named by the anatomical movement and zeroed to a neutral pose.
+#
+# Only two measurements are geometrically distinct per hip, one per anatomical plane.
+# Flexion and extension are the *same* sagittal measurement read in opposite
+# directions, and abduction/adduction likewise in the frontal plane; a single
+# image-plane angle cannot tell them apart without a signed convention. Rather than
+# list four names per hip that resolve to two duplicated numbers, each entry is one
+# measurement whose sign carries the direction.
+#
+# Each entry: vertex (joint), ref (defines the reference axis vertex->ref), moving
+# (distal point, vertex->moving), and ``value = scale * raw + offset`` where ``raw`` is
+# the angle in degrees between the two vectors. COCO-17 ids: shoulders 5/6, hips 11/12,
+# knees 13/14.
 ROM_DEFINITIONS = {
-    # Sagittal plane (thigh vs trunk); flexion and extension share the geometry.
-    "leftHipFlexion":    dict(vertex=11, ref=5,  moving=13, scale=-1.0, offset=180.0, label="L Hip Flex"),
-    "rightHipFlexion":   dict(vertex=12, ref=6,  moving=14, scale=-1.0, offset=180.0, label="R Hip Flex"),
-    "leftHipExtension":  dict(vertex=11, ref=5,  moving=13, scale=-1.0, offset=180.0, label="L Hip Ext"),
-    "rightHipExtension": dict(vertex=12, ref=6,  moving=14, scale=-1.0, offset=180.0, label="R Hip Ext"),
-    # Frontal plane (thigh vs pelvis line); abduction is zeroed, adduction is raw.
-    "leftHipAbduction":  dict(vertex=11, ref=12, moving=13, scale=1.0,  offset=-90.0, label="L Hip Abd"),
-    "rightHipAbduction": dict(vertex=12, ref=11, moving=14, scale=1.0,  offset=-90.0, label="R Hip Abd"),
-    "leftHipAdduction":  dict(vertex=11, ref=12, moving=13, scale=1.0,  offset=0.0,   label="L Hip Add"),
-    "rightHipAdduction": dict(vertex=12, ref=11, moving=14, scale=1.0,  offset=0.0,   label="R Hip Add"),
+    # Sagittal plane (thigh vs trunk). 0 deg at the neutral standing pose; positive
+    # values are flexion, negative values are extension.
+    "leftHipFlexion":   dict(vertex=11, ref=5,  moving=13, scale=-1.0, offset=180.0,
+                             label="L Hip Flex/Ext"),
+    "rightHipFlexion":  dict(vertex=12, ref=6,  moving=14, scale=-1.0, offset=180.0,
+                             label="R Hip Flex/Ext"),
+    # Frontal plane (thigh vs pelvis line). 0 deg at neutral; positive values are
+    # abduction, negative values are adduction.
+    "leftHipAbduction":  dict(vertex=11, ref=12, moving=13, scale=1.0, offset=-90.0,
+                              label="L Hip Abd/Add"),
+    "rightHipAbduction": dict(vertex=12, ref=11, moving=14, scale=1.0, offset=-90.0,
+                              label="R Hip Abd/Add"),
 }
 
-# Two distinct planes per hip, useful as a default overlay (avoids drawing the
-# duplicate flexion/extension and abduction/adduction arcs, which share geometry).
-DEFAULT_ROM_MOVEMENTS = [
-    "leftHipFlexion", "rightHipFlexion",
-    "leftHipAbduction", "rightHipAbduction",
-]
+# All four measurements: two planes per hip. Every entry in ROM_DEFINITIONS is
+# geometrically distinct, so the default overlay draws all of them.
+DEFAULT_ROM_MOVEMENTS = list(ROM_DEFINITIONS)
 
 # Distinct, clear colors (BGR), one per ROM movement, shared by the angle-panel
 # rows and the skeleton arcs so each case is the same color in both places.
@@ -80,9 +89,12 @@ def compute_rom_angles(keypoints, movements=None, conf_threshold=0.3):
     returned (all three involved keypoints must clear ``conf_threshold``).
 
     Args:
-        keypoints (list[dict]): One frame's keypoints as ``{"id", "x", "y",
-            "confidence"}`` dicts, COCO-17 (shoulders ``5``/``6``, hips ``11``/``12``,
-            knees ``13``/``14``).
+        keypoints (Keypoints | Instance | Result | list[dict]): One subject's COCO-17 keypoints (shoulders ``5``/``6``, hips
+            ``11``/``12``, knees ``13``/``14``), given as a
+            [`Keypoints`][physiotrack.Keypoints] collection, an
+            [`Instance`][physiotrack.Instance], a single-instance
+            [`Result`][physiotrack.Result], or a list of ``{"id", "x", "y",
+            "confidence"}`` dicts.
         movements (list[str], optional): Movement names from ``ROM_DEFINITIONS`` (e.g.
             ``"leftHipFlexion"``, ``"rightHipAbduction"``). Defaults to ``None`` (all
             movements in ``ROM_DEFINITIONS``).
@@ -91,7 +103,11 @@ def compute_rom_angles(keypoints, movements=None, conf_threshold=0.3):
 
     Returns:
         dict[str, float]: Movement name -> angle in degrees, for the confidently
-            measured movements only. Empty if ``keypoints`` is empty/falsy.
+            measured movements only. Empty if ``keypoints`` is empty.
+
+    Raises:
+        ValueError: If a multi-instance ``Result`` is passed, since the subject would be
+            implicit. Index it (``result[0]``) to choose.
 
     Example:
         ```python
@@ -99,14 +115,14 @@ def compute_rom_angles(keypoints, movements=None, conf_threshold=0.3):
         from physiotrack.signals import compute_rom_angles
 
         result = pt.Pose.Person().predict(frame)
-        kps = result.to_dict()["detections"][0]["keypoints"]
-        rom = compute_rom_angles(kps, movements=["leftHipFlexion", "rightHipFlexion"])
+        rom = compute_rom_angles(result[0], movements=["leftHipFlexion", "rightHipFlexion"])
         ```
 
     See Also:
         [`joint_angles`][physiotrack.signals.joint_angles]: interior anatomical angles.
         [`JointAnglePlotter`][physiotrack.signals.JointAnglePlotter]: renders ROM as an overlay.
     """
+    keypoints = as_keypoint_dicts(keypoints)
     if not keypoints:
         return {}
     if movements is None:
@@ -120,10 +136,10 @@ def compute_rom_angles(keypoints, movements=None, conf_threshold=0.3):
             continue
         if min(v["confidence"], r["confidence"], m["confidence"]) < conf_threshold:
             continue
-        rad = compute_joint_angle_2d((r["x"], r["y"]), (v["x"], v["y"]), (m["x"], m["y"]))
-        if rad is None or np.isnan(rad):
+        raw_deg = compute_joint_angle_2d((r["x"], r["y"]), (v["x"], v["y"]), (m["x"], m["y"]))
+        if raw_deg is None or np.isnan(raw_deg):
             continue
-        out[name] = spec["scale"] * float(np.degrees(rad)) + spec["offset"]
+        out[name] = spec["scale"] * raw_deg + spec["offset"]
     return out
 
 
@@ -137,8 +153,11 @@ def joint_angles(keypoints, joints=None, conf_threshold=0.3):
     ``leftElbow``, ``rightElbow``, ``leftHip``, ``rightHip``, ``leftKnee``, ``rightKnee``.
 
     Args:
-        keypoints (list[dict]): One frame's keypoints as ``{"id", "x", "y",
-            "confidence"}`` dicts (COCO-17).
+        keypoints (Keypoints | Instance | Result | list[dict]): One subject's COCO-17 keypoints, given as a
+            [`Keypoints`][physiotrack.Keypoints] collection, an
+            [`Instance`][physiotrack.Instance], a single-instance
+            [`Result`][physiotrack.Result], or a list of ``{"id", "x", "y",
+            "confidence"}`` dicts.
         joints (list[str], optional): Subset of ``JOINT_ANGLE_TRIPLETS`` keys. Defaults
             to ``None`` (all eight joints).
         conf_threshold (float, optional): Minimum confidence in ``[0, 1]`` required for
@@ -146,7 +165,11 @@ def joint_angles(keypoints, joints=None, conf_threshold=0.3):
 
     Returns:
         dict[str, float]: ``{joint_name: degrees}`` for the confidently measured joints
-            only. Empty if ``keypoints`` is empty/falsy.
+            only. Empty if ``keypoints`` is empty.
+
+    Raises:
+        ValueError: If a multi-instance ``Result`` is passed, since the subject would be
+            implicit. Index it (``result[0]``) to choose.
 
     Example:
         ```python
@@ -154,8 +177,7 @@ def joint_angles(keypoints, joints=None, conf_threshold=0.3):
         from physiotrack.signals import joint_angles
 
         result = pt.Pose.Person().predict(frame)
-        kps = result.to_dict()["detections"][0]["keypoints"]
-        angles = joint_angles(kps, joints=["leftElbow", "rightElbow"])
+        angles = joint_angles(result[0], joints=["leftElbow", "rightElbow"])
         ```
 
     See Also:
@@ -163,6 +185,7 @@ def joint_angles(keypoints, joints=None, conf_threshold=0.3):
         [`compute_all_joint_angles`][physiotrack.signals.compute_all_joint_angles]:
             angles over a whole DataFrame sequence.
     """
+    keypoints = as_keypoint_dicts(keypoints)
     if not keypoints:
         return {}
     if joints is None:
@@ -176,9 +199,9 @@ def joint_angles(keypoints, joints=None, conf_threshold=0.3):
             continue
         if min(a["confidence"], b["confidence"], c["confidence"]) < conf_threshold:
             continue
-        rad = compute_joint_angle_2d((a["x"], a["y"]), (b["x"], b["y"]), (c["x"], c["y"]))
-        if rad is not None and not np.isnan(rad):
-            out[joint] = float(np.degrees(rad))
+        angle_deg = compute_joint_angle_2d((a["x"], a["y"]), (b["x"], b["y"]), (c["x"], c["y"]))
+        if angle_deg is not None and not np.isnan(angle_deg):
+            out[joint] = angle_deg
     return out
 
 
@@ -277,57 +300,68 @@ def compute_acceleration(rel_df):
 
 
 def compute_joint_angle_2d(A, B, C):
-    """
-    Computes the joint angle at point B given three 2D keypoints A, B, and C using the cosine rule.
+    """Interior angle at ``B`` for three 2D points, via the cosine rule.
+
     Args:
-        A, B, C: Array-like or tuple with two elements (x, y) representing the coordinates.
+        A (Sequence[float]): First point as ``(x, y)``.
+        B (Sequence[float]): Vertex point as ``(x, y)``; the angle is measured here.
+        C (Sequence[float]): Third point as ``(x, y)``.
+
     Returns:
-        float: The angle in radians at point B.
+        float: The angle at ``B`` in **degrees**, in ``[0, 180]``. ``NaN`` when either
+            segment has zero length.
+
+    Note:
+        Every angle in this module is expressed in degrees, matching clinical
+        goniometry. Callers must not convert again.
     """
-    A = np.array(A)
-    B = np.array(B)
-    C = np.array(C)
-    BA = A - B
-    BC = C - B
-    dot_product = np.dot(BA, BC)
-    norm_BA = np.linalg.norm(BA)
-    norm_BC = np.linalg.norm(BC)
-    
-    # Avoid division by zero
-    if norm_BA == 0 or norm_BC == 0:
-        return np.nan
-    
-    cosine_angle = dot_product / (norm_BA * norm_BC)
-    cosine_angle = np.clip(cosine_angle, -1, 1)  # Clip for numerical stability
-    angle = np.arccos(cosine_angle)
-    return angle
+    return _interior_angle_degrees(A, B, C)
 
 
 def compute_joint_angle_3d(A, B, C):
-    """
-    Computes the joint angle at point B given three 3D keypoints A, B, and C using the cosine rule.
+    """Interior angle at ``B`` for three 3D points, via the cosine rule.
+
     Args:
-        A, B, C: Array-like or tuple with three elements (x, y, z) representing the coordinates.
+        A (Sequence[float]): First point as ``(x, y, z)``.
+        B (Sequence[float]): Vertex point as ``(x, y, z)``; the angle is measured here.
+        C (Sequence[float]): Third point as ``(x, y, z)``.
+
     Returns:
-        float: The angle in radians at point B.
+        float: The angle at ``B`` in **degrees**, in ``[0, 180]``. ``NaN`` when either
+            segment has zero length.
+
+    Note:
+        Every angle in this module is expressed in degrees, matching clinical
+        goniometry. Callers must not convert again.
     """
-    A = np.array(A)
-    B = np.array(B)
-    C = np.array(C)
-    BA = A - B
-    BC = C - B
-    dot_product = np.dot(BA, BC)
+    return _interior_angle_degrees(A, B, C)
+
+
+def _interior_angle_degrees(A, B, C):
+    """Cosine-rule interior angle at ``B``, in degrees, for 2D or 3D points.
+
+    Shared by :func:`compute_joint_angle_2d` and :func:`compute_joint_angle_3d`; the
+    arithmetic is identical and dimension-agnostic, so it lives in one place to keep
+    the two from drifting.
+
+    Args:
+        A (Sequence[float]): First point.
+        B (Sequence[float]): Vertex point.
+        C (Sequence[float]): Third point.
+
+    Returns:
+        float: Angle at ``B`` in degrees, or ``NaN`` if either segment is degenerate.
+    """
+    BA = np.asarray(A, dtype=float) - np.asarray(B, dtype=float)
+    BC = np.asarray(C, dtype=float) - np.asarray(B, dtype=float)
+
     norm_BA = np.linalg.norm(BA)
     norm_BC = np.linalg.norm(BC)
-    
-    # Avoid division by zero
     if norm_BA == 0 or norm_BC == 0:
         return np.nan
-    
-    cosine_angle = dot_product / (norm_BA * norm_BC)
-    cosine_angle = np.clip(cosine_angle, -1, 1)  # Clip for numerical stability
-    angle = np.arccos(cosine_angle)
-    return angle
+
+    cosine_angle = np.clip(np.dot(BA, BC) / (norm_BA * norm_BC), -1.0, 1.0)
+    return float(np.degrees(np.arccos(cosine_angle)))
 
 
 def compute_all_joint_angles(rel_df):
@@ -337,7 +371,9 @@ def compute_all_joint_angles(rel_df):
     [`joint_angles`][physiotrack.signals.joint_angles]) row by row to a wide keypoint
     DataFrame, for every joint in ``JOINT_ANGLE_TRIPLETS``. 2D and 3D angles are
     computed independently, each only if the corresponding coordinate columns exist.
-    Angles are returned in **radians** (from ``compute_joint_angle_2d/3d``); rows with
+    Angles are returned in **degrees**, the same unit as
+    [`joint_angles`][physiotrack.signals.joint_angles] and
+    [`compute_rom_angles`][physiotrack.signals.compute_rom_angles]; rows with
     missing/NaN coordinates yield ``NaN``.
 
     The eight COCO-17 triplets (A, vertex B, C) are:
@@ -356,7 +392,7 @@ def compute_all_joint_angles(rel_df):
 
     Returns:
         pandas.DataFrame: New DataFrame (same index) with one column per joint present:
-            ``"ang_2d_{joint}"`` and/or ``"ang_3d_{joint}"``, values in radians.
+            ``"ang_2d_{joint}"`` and/or ``"ang_3d_{joint}"``, values in degrees.
 
     See Also:
         [`compute_all_motion_features`][physiotrack.signals.compute_all_motion_features]:
@@ -625,7 +661,8 @@ def get_keypoint_features(motion_df, keypoint_id_2d, keypoint_id_3d=None):
     return features_2d, features_3d
 
 
-def select_feature_data(keypoint_id_2d, keypoint_id_3d, feature_type='coordinates'):
+def select_feature_data(keypoint_id_2d, keypoint_id_3d, feature_type='coordinates',
+                        joints=None):
     """Build the 2D/3D column names for a given feature type of one keypoint.
 
     A naming helper: returns the exact motion-feature column names to read for the
@@ -637,14 +674,20 @@ def select_feature_data(keypoint_id_2d, keypoint_id_3d, feature_type='coordinate
         keypoint_id_2d (int): 2D keypoint id (COCO-WholeBody).
         keypoint_id_3d (int): 3D keypoint id (Human3.6M).
         feature_type (str, optional): One of ``"coordinates"``, ``"velocity"``,
-            ``"acceleration"`` or ``"angles"``. Defaults to ``"coordinates"``. For
-            ``"angles"`` the returned names are the fixed elbow-angle columns
-            (``ang_2d_leftElbow``/``ang_2d_rightElbow`` and the 3D equivalents), not
-            keypoint-specific.
+            ``"acceleration"`` or ``"angles"``. Defaults to ``"coordinates"``.
+        joints (list[str], optional): Only used when ``feature_type`` is ``"angles"``.
+            Joint-angle columns are keyed by joint name rather than keypoint id, so
+            the two ``keypoint_id_*`` arguments do not apply to them; name the joints
+            explicitly instead. Must be keys of ``JOINT_ANGLE_TRIPLETS``. Defaults to
+            ``None`` (all eight joints).
 
     Returns:
         dict[str, list[str]]: ``{"2d_features": [...], "3d_features": [...]}`` column
-            names. Returns ``None`` if ``feature_type`` is not recognized.
+            names.
+
+    Raises:
+        ValueError: If ``feature_type`` is not one of the four supported values, or if
+            ``joints`` names a joint that has no angle definition.
 
     Example:
         ```python
@@ -652,6 +695,9 @@ def select_feature_data(keypoint_id_2d, keypoint_id_3d, feature_type='coordinate
 
         sel = select_feature_data(9, 9, feature_type="velocity")
         vx = keypoint_df_2d[sel["2d_features"][0]]
+
+        elbows = select_feature_data(9, 9, feature_type="angles",
+                                     joints=["leftElbow", "rightElbow"])
         ```
     """
 
@@ -671,10 +717,21 @@ def select_feature_data(keypoint_id_2d, keypoint_id_3d, feature_type='coordinate
             '3d_features': [f'acc_3d_{keypoint_id_3d}_x', f'acc_3d_{keypoint_id_3d}_y', f'acc_3d_{keypoint_id_3d}_z']
         }
     elif feature_type == 'angles':
+        selected = list(JOINT_ANGLE_TRIPLETS) if joints is None else list(joints)
+        unknown = [j for j in selected if j not in JOINT_ANGLE_TRIPLETS]
+        if unknown:
+            raise ValueError(
+                f"Unknown joint(s) {unknown}. Valid joints are: "
+                f"{', '.join(JOINT_ANGLE_TRIPLETS)}."
+            )
         return {
-            '2d_features': ['ang_2d_leftElbow', 'ang_2d_rightElbow'],
-            '3d_features': ['ang_3d_leftElbow', 'ang_3d_rightElbow']
+            '2d_features': [f'ang_2d_{j}' for j in selected],
+            '3d_features': [f'ang_3d_{j}' for j in selected],
         }
+    raise ValueError(
+        f"Unknown feature_type {feature_type!r}. Expected one of: "
+        f"'coordinates', 'velocity', 'acceleration', 'angles'."
+    )
 
 
 # Default keypoints whose vertical motion tracks breathing: the two shoulders
@@ -698,7 +755,7 @@ def respiration_from_motion(data, original_fps, keypoint_ids=RESPIRATION_MOTION_
 
     Args:
         data (list[dict]): Per-frame pose records with ``"frame_id"``, ``"timestamp"``
-            and ``"detections"`` (each ``{"id", "keypoints": [{"id","x","y",...}]}``),
+            and ``"instances"`` (each ``{"id", "keypoints": [{"id","x","y",...}]}``),
             as produced by the ``Video`` pipeline / ``Result.to_dict()``.
         original_fps (float): Source frame rate in Hz; the ``y`` signal is resampled to
             this rate before spectral analysis.
@@ -736,11 +793,12 @@ def respiration_from_motion(data, original_fps, keypoint_ids=RESPIRATION_MOTION_
 
     ids = set(keypoint_ids)
     rows = []
+    data = as_frame_records(data)
     for frame_info in data:
         t = frame_info.get("timestamp")
         if t is None:
             t = frame_info.get("frame_id")
-        for det in frame_info.get("detections", []):
+        for det in frame_info.get("instances", []):
             if detection_id is not None and det.get("id") != detection_id:
                 continue
             ys = [kp.get("y") for kp in det.get("keypoints", [])

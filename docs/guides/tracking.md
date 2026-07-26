@@ -115,7 +115,7 @@ track_result = tracker.track(frame, detections)
 
 !!! tip "A Tracker is stateful — one instance per video stream"
     The tracker holds Kalman state, track history, id counters and (optionally)
-    the locked student track between calls. Create **one**
+    the locked subject between calls. Create **one**
     [`Tracker`][physiotrack.Tracker] per video and feed it frames in order. Reusing
     a tracker across unrelated clips will carry stale state; construct a fresh one
     for each stream.
@@ -141,7 +141,7 @@ data = track_result.to_dict()            # {"task": "track", "tracks": [...]} �
 ```
 
 `plot()` with no argument returns the tracker's own `rendered` overlay (boxes,
-labels, trails, student box). Pass a `frame` to draw simple `ID <n>` boxes on a
+labels, trails, locked-subject box). Pass a `frame` to draw simple `ID <n>` boxes on a
 copy of your own frame instead: `track_result.plot(frame, color=(0, 255, 0))`. See
 [Result objects](../api/results.md) for the full result API.
 
@@ -154,8 +154,8 @@ for every field and default.
 | Group | Representative fields | What it controls |
 | --- | --- | --- |
 | General | `tracker_type`, `classes`, `device`, `trail_length` | Backend choice, which classes to track, compute device, history length. |
-| Overlay / trails | `show_detection_boxes`, `show_original_tracks`, `show_student_track`, `show_tracking_tail`, `show_all_trails`, `tail_opacity`, `colors` | Which boxes/labels/trails the built-in overlay draws and in what colours. |
-| Student tracking | `enable_student_tracking`, `required_consecutive_frames`, `inconsistent_motion_threshold`, `student_reinit_iou_threshold` | The single-subject isolation heuristic (see below). |
+| Overlay / trails | `show_detection_boxes`, `show_original_tracks`, `show_locked_subject`, `show_tracking_tail`, `show_all_trails`, `tail_opacity`, `colors` | Which boxes/labels/trails the built-in overlay draws and in what colours. |
+| Subject lock | `enable_subject_lock`, `required_consecutive_frames`, `inconsistent_motion_threshold`, `subject_reinit_iou_threshold` | The single-subject isolation heuristic (see below). |
 | ByteTrack | `bytetrack_track_thresh`, `bytetrack_match_thresh`, `bytetrack_track_buffer`, `bytetrack_frame_rate` | ByteTrack association thresholds and buffering. |
 | StrongSORT | `strongsort_reid_weights`, `strongsort_max_dist`, `strongsort_max_age`, `strongsort_ema_alpha`, … | ReID weights + motion/appearance matching. |
 | OC-SORT | `ocsort_det_thresh`, `ocsort_max_age`, `ocsort_min_hits`, `ocsort_iou_thresh`, `ocsort_inertia`, `ocsort_use_byte`, … | OC-SORT association and lifetime. |
@@ -167,19 +167,19 @@ may be mixed); an unknown keyword raises `TypeError`, guarding against typos:
 ```python
 cfg = pt.TrackerConfig(tracker="ocsort", classes=[0])  # constructor kwargs
 cfg.debug_mode = True                                   # attribute assignment
-cfg.print()                                             # inspect resolved settings
+print(cfg)                                              # inspect resolved settings
 ```
 
-??? note "Student tracking — isolating a single subject"
-    With `enable_student_tracking=True` the tracker locks onto one stable subject
-    (the "student") using a stability + IOU heuristic: a track must persist for
+??? note "Subject lock — following a single subject"
+    With `enable_subject_lock=True` the tracker locks onto one stable subject
+    using a stability + IOU heuristic: a track must persist for
     `required_consecutive_frames` frames to be promoted, is re-matched by IOU
-    against `student_reinit_iou_threshold`, and is dropped after
+    against `subject_reinit_iou_threshold`, and is dropped after
     `inconsistent_motion_threshold` consecutive low-IOU frames (or after enough
-    misses). When active, the overlay draws the student in blue with a movement
-    trail (`show_student_track` / `show_tracking_tail`, both on by default), and
-    the current student box is exposed as `tracker.student_track_id` /
-    `tracker.last_known_bbox`. This is what the `examples/tracker_aided_pose_video.py`
+    misses). When active, the overlay draws the locked subject in blue with a movement
+    trail (`show_locked_subject` / `show_tracking_tail`, both on by default), and
+    the locked subject is exposed as `tracker.locked_subject_id` /
+    `tracker.locked_subject_box`. This is what the `examples/tracker_aided_pose_video.py`
     demo enables so pose is run only on the isolated subject.
 
 ## See also
