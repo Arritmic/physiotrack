@@ -30,6 +30,7 @@ from physiotrack.signals.ppg.peaks import bvp_to_rri
 from physiotrack.signals.ppg.artifacts import correct_rr_artifacts
 from physiotrack.signals.ppg.hrv import compute_hrv
 from physiotrack.signals.ppg.respiration import respiration_from_pulse, respiration_from_rri
+import warnings
 
 
 class HeartRateEstimator:
@@ -278,8 +279,11 @@ class HeartRateEstimator:
             return
         try:
             bvp = bandpass_filter(bvp, self.hr_band[0], self.hr_band[1], self.fps)
-        except Exception:
-            pass
+        except ValueError:
+            # The window is still too short to filter zero-phase. Publishing an HR
+            # from the unfiltered trace would read the DC/respiratory components as a
+            # pulse, so leave the previous values in place and wait for more frames.
+            return
         self.bvp = bvp
         hr, _ = bvp_to_hr(bvp, self.fps, win_sec=self.window_sec, step_sec=self.window_sec,
                           lo_hz=self.hr_band[0], hi_hz=self.hr_band[1])
@@ -300,7 +304,7 @@ class HeartRateEstimator:
         return {"hr": self.hr, "snr": self.snr, "method": self.method_name}
 
     # ------------------------------------------------------------ RR / HRV / RR
-    def rri(self, correct: bool = False):
+    def rri(self, correct: bool = True):
         """RR-interval (inter-beat) series from the current BVP window.
 
         Detects systolic peaks in the latest band-passed :attr:`bvp` and returns the
@@ -309,7 +313,12 @@ class HeartRateEstimator:
 
         Args:
             correct (bool, optional): Clean the series with the Lipponen-Tarvainen
-                artefact corrector before returning. Defaults to ``False``.
+                artefact corrector before returning. Defaults to ``True``, matching
+                [`hrv`][physiotrack.signals.HeartRateEstimator.hrv]: a single missed
+                or spurious peak produces a doubled or halved interval that dominates
+                any interval-based statistic, so every downstream consumer -- HRV and
+                the RSA respiration route alike -- should see the corrected series.
+                Pass ``False`` only to inspect the raw detections.
 
         Returns:
             tuple[np.ndarray, np.ndarray]: ``(rri_ms, t_sec)`` inter-beat intervals in
@@ -352,7 +361,31 @@ class HeartRateEstimator:
         rri_ms, t_sec = self.rri(correct=correct)
         if rri_ms.size < 3:
             return {}
-        return compute_hrv(rri_ms, t_sec, domains=domains)
+        indices = compute_hrv(rri_ms, t_sec, domains=domains)
+
+        # Consistency guard. The heart rate comes from the Welch spectral peak, while
+        # every HRV index comes from detected peaks; the two are independent estimates of
+        # the same beat rate and must agree. When they do not, the peak detector has
+        # missed or double-counted beats -- a doubled detection halves MeanNN and
+        # inflates RMSSD, SDNN and pNN50 into physiologically impossible values that
+        # still look like plausible numbers. Warn rather than return them silently.
+        mean_nn = indices.get("MeanNN")
+        if self.hr and mean_nn and np.isfinite(mean_nn) and mean_nn > 0:
+            beat_hr = 60000.0 / mean_nn
+            ratio = beat_hr / float(self.hr)
+            if not 0.8 <= ratio <= 1.25:
+                warnings.warn(
+                    f"HRV is inconsistent with the spectral heart rate: peak detection "
+                    f"implies {beat_hr:.0f} bpm (MeanNN {mean_nn:.0f} ms) while the "
+                    f"spectrum reports {self.hr:.0f} bpm. The beat detections are "
+                    f"unreliable, so these HRV indices should not be interpreted. This "
+                    f"usually means a noisy pulse or too short a window "
+                    f"(window_sec={self.window_sec:g}); HRV needs a clean signal and, for "
+                    f"frequency-domain indices, at least 60 s.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+        return indices
 
     def respiration_rate(self, source: str = "pulse"):
         """Respiration rate (breaths/min) from the current BVP window.

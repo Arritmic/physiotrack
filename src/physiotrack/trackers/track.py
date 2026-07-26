@@ -1,3 +1,4 @@
+import copy
 import time
 from collections import deque, defaultdict
 import numpy as np
@@ -5,6 +6,10 @@ import cv2
 from .config import TrackerConfig
 from ..results import TrackResult, Instance
 from ..core.overlay import draw_label
+
+from .._logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class Tracker:
@@ -25,9 +30,9 @@ class Tracker:
     - ``"boosttrack"`` — [BoostTrack][physiotrack.Tracker], IOU/Mahalanobis/shape
       similarity with detection-confidence boosting.
 
-    On top of raw tracking it can optionally isolate a single subject (the
-    "student") via a stability + IOU heuristic and draw a rich overlay (per-track
-    boxes, the student box, and movement trails), all controlled by the config.
+    On top of raw tracking it can optionally isolate a single subject via a
+    stability + IOU heuristic and draw a rich overlay (per-track
+    boxes, the locked-subject box, and movement trails), all controlled by the config.
 
     Detections are expected as rows ``[x1, y1, x2, y2, conf, cls]``; only rows whose
     ``cls`` is in :attr:`TrackerConfig.classes` are tracked.
@@ -35,8 +40,8 @@ class Tracker:
     Attributes:
         config (TrackerConfig): The active configuration.
         frame_ID (int): Frame counter (informational).
-        student_track_id (int | None): Id of the currently locked student track, or
-            ``None`` when no student is being tracked.
+        locked_subject_id (int | None): Id of the currently locked subject, or
+            ``None`` when no subject is locked.
         track_history (dict[int, collections.deque]): Recent center/box history per
             track id, used for trail drawing.
 
@@ -46,7 +51,7 @@ class Tracker:
         import physiotrack as pt
 
         det = pt.Detection.Person()
-        tracker = pt.Tracker(pt.TrackerConfig(tracker="ocsort", classes=[0]))
+        tracker = pt.Tracker(pt.TrackerConfig(tracker_type="ocsort", classes=[0]))
 
         for frame in frames:                     # BGR frames, e.g. from OpenCV
             res = det.predict(frame)
@@ -86,32 +91,36 @@ class Tracker:
             ValueError: If ``config.tracker_type`` is not one of ``"bytetrack"``,
                 ``"strongsort"``, ``"ocsort"``, or ``"boosttrack"``.
         """
-        self.config = config if config is not None else TrackerConfig()
+        # Copy rather than alias: a caller reusing one TrackerConfig across several
+        # trackers (or mutating it afterwards) must not silently reconfigure a running
+        # tracker.
+        self.config = copy.deepcopy(config) if config is not None else TrackerConfig()
         self.frame_ID = 0
         self.id_list = []
-        self.avg_fps = deque(maxlen=100)
 
         # FPS monitoring
         self.inference_times = deque(maxlen=100)
         
         # Track history storage
-        self.student_track_history = defaultdict(lambda: deque(maxlen=self.config.trail_length))
+        self.locked_subject_history = defaultdict(lambda: deque(maxlen=self.config.trail_length))
         self.track_history = defaultdict(lambda: deque(maxlen=self.config.trail_length))
-        self.COLORS = np.random.randint(0, 255, size=(100, 3)).tolist()
+        # Seeded so overlay colours are reproducible across runs, matching the palette
+        # in Result.plot(); unseeded colours made two renders of the same video differ.
+        self.COLORS = np.random.default_rng(0).integers(0, 255, size=(256, 3)).tolist()
         
         # Initialize tracker
         tracker_type = self.config.tracker_type.lower()
         self.tracker = self._initialize_tracker(tracker_type)
         self.track_ids = []
         
-        # Student tracking state
-        self.student_track_id = None
+        # Subject-lock state
+        self.locked_subject_id = None
         self.consecutive_appearances = defaultdict(int)
         self.consecutive_misses = defaultdict(int)
-        self.last_known_bbox = None
+        self.locked_subject_box = None
         self.consecutive_inconsistent_motion = defaultdict(int)
-        self.student_trail_points = deque(maxlen=self.config.trail_length)
-        self.debug_mode = False
+        self.locked_subject_trail = deque(maxlen=self.config.trail_length)
+        self.debug_mode = self.config.debug_mode
     
     def _initialize_tracker(self, tracker_type):
         """Initialize the appropriate tracker based on configuration."""
@@ -162,7 +171,7 @@ class Tracker:
                 use_duo_boost=self.config.boosttrack_use_duo_boost,
                 max_age=self.config.boosttrack_max_age
             )
-        # === Initialize new student track ===
+        # === Initialize a new locked subject ===
         else:
             supported_trackers = ['OCSort', 'BYTETrack', 'StrongSORT', 'BoostTrack']
             raise ValueError(f'Undefined Tracker. Please use one of: {", ".join(supported_trackers)}')
@@ -199,56 +208,55 @@ class Tracker:
         area2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
         return intersection / (area1 + area2 - intersection + 1e-6)
     
-    # ===== Student Tracking Logic =====
-    def update_student_track(self, online_targets):
-        """Update student tracking state based on current detections."""
-        if not self.config.enable_student_tracking or len(online_targets) == 0:
+    # ===== Subject-lock logic =====
+    def update_locked_subject(self, online_targets):
+        """Update the locked-subject state from the current frame's tracks."""
+        if not self.config.enable_subject_lock or len(online_targets) == 0:
             return
         
         targets_array = np.array(online_targets)
         track_ids = targets_array[:, 4].astype(int)
         bboxes = targets_array[:, :4]
         
-        # === Check existing student track ===
-        if self.student_track_id is not None:
-            student_mask = track_ids == self.student_track_id
+        # === Check the existing locked subject ===
+        if self.locked_subject_id is not None:
+            locked_mask = track_ids == self.locked_subject_id
             
-            if np.any(student_mask):
-                student_idx = np.where(student_mask)[0][0]
-                current_bbox = bboxes[student_idx]
+            if np.any(locked_mask):
+                locked_idx = np.where(locked_mask)[0][0]
+                current_bbox = bboxes[locked_idx]
                 
-                if self.last_known_bbox is not None:
-                    iou = self.calculate_iou(current_bbox, self.last_known_bbox)
+                if self.locked_subject_box is not None:
+                    iou = self.calculate_iou(current_bbox, self.locked_subject_box)
                     
-                    if iou < self.config.student_reinit_iou_threshold:
-                        self.consecutive_inconsistent_motion[self.student_track_id] += 1
+                    if iou < self.config.subject_reinit_iou_threshold:
+                        self.consecutive_inconsistent_motion[self.locked_subject_id] += 1
                         
                         if self.debug_mode:
-                            print(f"Inconsistent motion for track {self.student_track_id} (IOU: {iou:.2f}) | CB: {current_bbox} LKB: {self.last_known_bbox}")
-                        
-                        if self.consecutive_inconsistent_motion[self.student_track_id] >= self.config.inconsistent_motion_threshold:
+                            logger.debug(f"Inconsistent motion for track {self.locked_subject_id} (IOU: {iou:.2f}) | CB: {current_bbox} LKB: {self.locked_subject_box}")
+                        if self.consecutive_inconsistent_motion[self.locked_subject_id] >= self.config.inconsistent_motion_threshold:
                             if self.debug_mode:
-                                print(f"Lost student track {self.student_track_id} due to consistent inconsistent motion")
-                            self.student_track_id = None
-                            self.student_trail_points.clear()
+                                logger.debug("Released the subject lock on %s after sustained inconsistent motion", self.locked_subject_id)
+                            self.locked_subject_id = None
+                            self.locked_subject_trail.clear()
                             return
                     else:
-                        self.consecutive_inconsistent_motion[self.student_track_id] = 0
-                        self.last_known_bbox = current_bbox.copy()
-                        self.student_track_history[self.student_track_id].append(current_bbox)
+                        self.consecutive_inconsistent_motion[self.locked_subject_id] = 0
+                        self.locked_subject_box = current_bbox.copy()
+                        self.locked_subject_history[self.locked_subject_id].append(current_bbox)
                         
                         bottom_middle = ((current_bbox[0] + current_bbox[2]) / 2, current_bbox[3])
-                        self.student_trail_points.append(bottom_middle)
+                        self.locked_subject_trail.append(bottom_middle)
                 
-                self.consecutive_misses[self.student_track_id] = 0
+                self.consecutive_misses[self.locked_subject_id] = 0
             else:
-                self.consecutive_misses[self.student_track_id] += 1
+                self.consecutive_misses[self.locked_subject_id] += 1
                 
-                if self.consecutive_misses[self.student_track_id] >= self.config.required_consecutive_frames:
+                if self.consecutive_misses[self.locked_subject_id] >= self.config.required_consecutive_frames:
                     if self.debug_mode:
-                        print(f"Lost student track {self.student_track_id} due to missing frames")
-                    self.student_track_id = None
-                    self.student_trail_points.clear()
+                        logger.debug("Released the subject lock on %s after too many missed frames", self.locked_subject_id)
+                    self.locked_subject_id = None
+                    self.locked_subject_trail.clear()
         
         else:
             current_track_set = set(track_ids)
@@ -264,53 +272,51 @@ class Tracker:
                            if count >= self.config.required_consecutive_frames]
             
             if stable_tracks:
-                if self.last_known_bbox is not None:
+                if self.locked_subject_box is not None:
                     stable_mask = np.isin(track_ids, stable_tracks)
                     stable_bboxes = bboxes[stable_mask]
                     stable_ids = track_ids[stable_mask]
                     
                     ious = self.calculate_iou_vectorized(
-                        np.array([self.last_known_bbox]), 
+                        np.array([self.locked_subject_box]), 
                         stable_bboxes
                     ).flatten()
                     
                     # Find best matching candidate based on IOU
-                    valid_matches = ious >= self.config.student_reinit_iou_threshold
+                    valid_matches = ious >= self.config.subject_reinit_iou_threshold
                     if np.any(valid_matches):
                         best_idx = np.argmax(ious)
-                        self.student_track_id = stable_ids[best_idx]
-                        self.last_known_bbox = stable_bboxes[best_idx].copy()
-                        self.consecutive_misses[self.student_track_id] = 0
+                        self.locked_subject_id = stable_ids[best_idx]
+                        self.locked_subject_box = stable_bboxes[best_idx].copy()
+                        self.consecutive_misses[self.locked_subject_id] = 0
                         
                         if self.debug_mode:
-                            print(f"Initialized student track {self.student_track_id} with IOU {ious[best_idx]:.2f}")
-                        
+                            logger.debug("Locked onto subject %s (IOU %.2f)", self.locked_subject_id, ious[best_idx])
                         self.consecutive_appearances.clear()
                 else:
                     first_stable_idx = np.where(np.isin(track_ids, stable_tracks[0]))[0][0]
-                    self.student_track_id = stable_tracks[0]
-                    self.last_known_bbox = bboxes[first_stable_idx].copy()
-                    self.consecutive_misses[self.student_track_id] = 0
+                    self.locked_subject_id = stable_tracks[0]
+                    self.locked_subject_box = bboxes[first_stable_idx].copy()
+                    self.consecutive_misses[self.locked_subject_id] = 0
                     
                     if self.debug_mode:
-                        print(f"Initialized first student track {self.student_track_id}")
-                    
+                        logger.debug("Locked onto subject %s (first stable track)", self.locked_subject_id)
                     self.consecutive_appearances.clear()
     
-    def select_best_detection(self, detections, student_bbox):
+    def select_best_detection(self, detections, subject_box):
         if len(detections) <= 1:
             return detections
         best_detection = None
         max_iou = 0
         
         for detection in detections:
-            iou = self.calculate_iou(detection[:4], student_bbox)
+            iou = self.calculate_iou(detection[:4], subject_box)
             if iou > max_iou:
                 max_iou = iou
                 best_detection = detection
         filtered = np.array([best_detection]) if best_detection is not None else detections
         if self.debug_mode:
-            print(f"Multiple student boxes filtered. {len(detections)} --> {len(filtered)}")
+            logger.debug("Filtered candidate boxes for the locked subject: %d -> %d", len(detections), len(filtered))
         return filtered
     
     # ===== Drawing Methods =====
@@ -331,7 +337,7 @@ class Tracker:
                 x1, y1, x2, y2 = map(int, target[:4])
                 track_id = int(target[4])
                 
-                if self.config.enable_student_tracking and track_id == self.student_track_id:
+                if self.config.enable_subject_lock and track_id == self.locked_subject_id:
                     continue
                     
                 cv2.rectangle(frame, (x1, y1), (x2, y2), self.config.colors['green'], 2)
@@ -347,16 +353,16 @@ class Tracker:
                         cv2.polylines(frame, [np.array(points, dtype=np.int32)], 
                                     False, color, 2)
         
-        # === 3. Draw student track and tail (BLUE) ===
-        if self.config.enable_student_tracking and self.student_track_id is not None:
-            if self.config.show_student_track and self.last_known_bbox is not None:
-                x1, y1, x2, y2 = map(int, self.last_known_bbox)
+        # === 3. Draw the locked subject and its trail (BLUE) ===
+        if self.config.enable_subject_lock and self.locked_subject_id is not None:
+            if self.config.show_locked_subject and self.locked_subject_box is not None:
+                x1, y1, x2, y2 = map(int, self.locked_subject_box)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), self.config.colors['blue'], 3)
-                draw_label(frame, (x1, y1 - 28), f'Student:{self.student_track_id}', size=24,
+                draw_label(frame, (x1, y1 - 28), f'Subject:{self.locked_subject_id}', size=24,
                            color=self.config.colors['blue'], bold=True)
             
-            if self.config.show_tracking_tail and len(self.student_trail_points) > 1:
-                points = np.array(list(self.student_trail_points), dtype=np.int32)
+            if self.config.show_tracking_tail and len(self.locked_subject_trail) > 1:
+                points = np.array(list(self.locked_subject_trail), dtype=np.int32)
                 cv2.polylines(frame, [points], False, self.config.colors['blue'], 3)
         
         return frame
@@ -381,7 +387,7 @@ class Tracker:
         """Advance the tracker by one frame and return the current tracks.
 
         Filters ``detections`` to the configured classes, updates the selected
-        backend, refreshes trail history, optionally updates the student track, and
+        backend, refreshes trail history, optionally updates the locked subject, and
         renders the overlay. Call this once per frame, in order, for the life of a
         video stream.
 
@@ -408,7 +414,7 @@ class Tracker:
             import physiotrack as pt
 
             det = pt.Detection.Person()
-            tracker = pt.Tracker(pt.TrackerConfig(tracker="ocsort", classes=[0]))
+            tracker = pt.Tracker(pt.TrackerConfig(tracker_type="ocsort", classes=[0]))
 
             res = det.predict(frame)
             detections = np.array(
@@ -430,8 +436,8 @@ class Tracker:
 
         self.update_track_history(online_targets)
 
-        if self.config.enable_student_tracking:
-            self.update_student_track(online_targets)
+        if self.config.enable_subject_lock:
+            self.update_locked_subject(online_targets)
 
         rendered = self.draw_tracks(frame, online_targets, detected_items)
 

@@ -3,8 +3,9 @@
 Turns a blood-volume-pulse (BVP) signal into a heart rate (HR) and scores it
 against a reference. The definitions follow the standard rPPG-evaluation
 conventions used across the literature (Welch power-spectral-density peak for HR;
-the de~Haan signal-to-noise ratio): the band is 0.65--4.0 Hz (39--240 bpm), HR is
-the spectral peak in that band, and the SNR contrasts the power around the HR
+the de~Haan signal-to-noise ratio): the band is
+[`HR_BAND`][physiotrack.signals.ppg.constants.HR_BAND], 0.75--4.0 Hz (45--240 bpm),
+HR is the spectral peak in that band, and the SNR contrasts the power around the HR
 fundamental and its first harmonic with the rest of the band. The implementation
 here is original.
 """
@@ -210,8 +211,12 @@ def benchmark_rppg_methods(rgb_trace, fps, ref_hr_bpm=None, hr_band=HR_BAND):
         bvp = np.asarray(cls(fps).apply(trace), dtype=float).ravel()
         try:
             bvp = bandpass_filter(bvp, lo, hi, fps)
-        except Exception:
-            pass
+        except ValueError:
+            # Scoring an unfiltered trace here while the other methods are filtered
+            # would make the comparison meaningless, so report this method as
+            # unmeasurable for this segment instead.
+            out[name] = {"hr": np.nan, "snr": np.nan, "AE": np.nan}
+            continue
         hr, _ = bvp_to_hr(bvp, fps, lo_hz=lo, hi_hz=hi)
         hr_val = float(hr[-1]) if hr.size else np.nan
         # SNR is measured about the *reference* HR when one is supplied (de Haan &

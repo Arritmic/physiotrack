@@ -8,6 +8,11 @@ from .common.ddhpose import DDHPose
 import imageio
 from tqdm import tqdm
 
+from ..._checkpoints import strip_data_parallel_prefix
+from ..._logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class DDHPoseInference:
     def __init__(
@@ -80,22 +85,52 @@ class DDHPoseInference:
             model_backbone = model_backbone.to(self.device)
         
         # Load checkpoint
-        print(f'Loading checkpoint: {self.checkpoint_path}')
+        logger.info("Loading DDHPose checkpoint: %s", self.checkpoint_path)
         self.checkpoint = torch.load(self.checkpoint_path, map_location=self.device, weights_only=False)
-        model_backbone.load_state_dict(self.checkpoint['model_pos'], strict=False)
+        # Same DataParallel "module." prefix as MotionBERT. This used to load with
+        # strict=False, which on CPU silently discarded every key and left the model
+        # randomly initialised -- confident nonsense, no error. Normalise, then insist.
+        state = strip_data_parallel_prefix(self.checkpoint['model_pos'])
+        target = model_backbone.module if isinstance(model_backbone, nn.DataParallel) else model_backbone
+        target.load_state_dict(state, strict=True)
         model_backbone.eval()
         
         return model_backbone
 
-    def prepare_input_2d(self, keypoints_2d, vid_path):
-        """Normalize 2D keypoints to [-1, 1] range"""
+    def prepare_input_2d(self, keypoints_2d, vid_path=None, frame_size=None, fps=None):
+        """Normalize 2D keypoints to the ``[-1, 1]`` range the model was trained on.
 
-        vid = imageio.get_reader(vid_path, 'ffmpeg')
-        self.fps_in = vid.get_meta_data()['fps']
-        vid_size = vid.get_meta_data()['size']
-        width, height = vid_size
-        keypoints_2d = normalize_screen_coordinates(keypoints_2d, w=width, h=height)
-        return keypoints_2d
+        Args:
+            keypoints_2d (np.ndarray): ``(N, 17, 2)`` pixel keypoints in H3.6M order.
+            vid_path (str, optional): Source video, opened only to recover the frame
+                size and frame rate when they are not supplied directly.
+            frame_size (tuple[int, int], optional): ``(width, height)`` in pixels.
+            fps (float, optional): Source frame rate.
+
+        Returns:
+            np.ndarray: Normalized keypoints of the same shape.
+
+        Raises:
+            ValueError: If no frame size is available, since pixel coordinates cannot
+                be normalized without knowing the image dimensions.
+        """
+        # Only open the video if something is missing: lifting an array should not
+        # require the original file to still exist.
+        if (frame_size is None or fps is None) and vid_path is not None:
+            vid = imageio.get_reader(vid_path, 'ffmpeg')
+            meta = vid.get_meta_data()
+            fps = fps if fps is not None else meta['fps']
+            frame_size = frame_size if frame_size is not None else meta['size']
+
+        if frame_size is None:
+            raise ValueError(
+                "Normalizing 2D keypoints needs the source frame size. Pass "
+                "frame_size=(width, height), or a vid_path to read it from."
+            )
+
+        self.fps_in = fps
+        width, height = frame_size
+        return normalize_screen_coordinates(keypoints_2d, w=width, h=height)
 
 
     def eval_data_prepare(self, receptive_field, inputs_2d):
@@ -131,13 +166,26 @@ class DDHPoseInference:
             output = predictions.reshape(original_length, 17, 3)
         return output
 
-    def infer(self, keypoints_2d, vid_path, batch_size=64):
+    def infer(self, keypoints_2d, vid_path=None, batch_size=64, fps=None,
+              frame_size=None):
+        """Lift a 2D keypoint sequence to 3D.
+
+        Args:
+            keypoints_2d (np.ndarray): ``(N, 17, 2)`` pixel keypoints in H3.6M order.
+            vid_path (str, optional): Source video, read only to recover fps/frame size.
+            batch_size (int): Sampling batch size.
+            fps (float, optional): Source frame rate, when already known.
+            frame_size (tuple[int, int], optional): ``(width, height)``, when known.
+
+        Returns:
+            np.ndarray: ``(N, 17, 3)`` poses in Human3.6M joint order.
+        """
         kps_left = [4, 5, 6, 11, 12, 13]
         kps_right = [1, 2, 3, 14, 15, 16]
-        
+
         original_length = keypoints_2d.shape[0]
         # Normalize 2D keypoints
-        keypoints_2d = self.prepare_input_2d(keypoints_2d, vid_path)
+        keypoints_2d = self.prepare_input_2d(keypoints_2d, vid_path, frame_size, fps)
         
     
         # Prepare input
@@ -185,17 +233,3 @@ class DDHPoseInference:
         # Reconstruct full sequence
         output_3d = self.reconstruct_poses(all_predictions, receptive_field, original_length)
         return output_3d
-
-
-if __name__ == "__main__":
-    pose_inference = DDHPoseInference(num_proposals=5, sampling_timesteps=5)
-    from physiotrack.pose.utils import coco2h36m
-    input_2d = 'BV_S17_cut1_result.json',
-    keypoints_2d = coco2h36m(input_2d)
-    # Run inference
-    results = pose_inference.infer(
-        input_2d=keypoints_2d,
-        out_path='output/',
-        render_video=True,
-        save_npy=True
-    )

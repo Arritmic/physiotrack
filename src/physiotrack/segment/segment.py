@@ -1,10 +1,18 @@
-from . import Segmentor, SapiensSegmentation, draw_segmentation_map, Models
+import logging
+
+from ..models import Models
+from ..modules import Segmentor, SapiensSegmentation, draw_segmentation_map
 from ..results import Result, Instance
 import os
 import numpy as np
 
+from .._logging import get_logger
+from ..core.predictor import PredictorMixin
 
-class SegmentationBase:
+logger = get_logger(__name__)
+
+
+class SegmentationBase(PredictorMixin):
     """Shared implementation for the segmentation presets.
 
     Selects a backend (``YOLO``, ``Sapiens`` or ``SegFace``) from the model
@@ -60,18 +68,22 @@ class SegmentationBase:
         """
         if model is None:
             if self.default_model is None:
-                raise ValueError("Model must be provided either as parameter or class attribute")
+                raise ValueError(
+                    f"{type(self).__name__} needs a model: pass model=<a "
+                    f"Models.Segmentation member>, or use a preset such as "
+                    f"Segmentation.Person() that supplies one. Browse the options with "
+                    f"Models.list(task='Segmentation')."
+                )
             model = self.default_model
 
         Models.validate_seg_model(model)
 
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'modules', 'model_data', model.value)
-        if not os.path.isfile(model_path):
-            Models.download_model(model)
+        model_path = Models.resolve(model)
 
         self.minfo = Models._get_model_info(model)
         self.segmentation_framework = self.minfo['backend']
-        print(f'Initiating {self.segmentation_framework} {model.name} for Segmentation')
+        logger.log(logging.INFO if verbose else logging.DEBUG,
+                   'Initiating %s %s for segmentation', self.segmentation_framework, model.name)
 
         if self.segmentation_framework == 'YOLO':
             self.segmentor = Segmentor(model, device, conf, iou, classes,
@@ -82,7 +94,11 @@ class SegmentationBase:
             from ..modules import SegFaceInference
             self.segmentor = SegFaceInference(model_path, input_resolution=512, device=device)
         else:
-            raise ValueError("Invalid model type. Please check the configuration")
+            raise ValueError(
+                f"No segmentation backend for {model.name!r} "
+                f"(backend {self.segmentation_framework!r}). Supported backends are: "
+                f"YOLO, Sapiens, SegFace."
+            )
 
         self.model = model
         self.device = device
@@ -147,7 +163,9 @@ class SegmentationBase:
         See Also:
             [`Result`][physiotrack.Result]: the returned segmentation container.
         """
-        if isinstance(source, (list, tuple)):
+        frames, was_batch = self._as_frames(source)
+        source = frames if was_batch else frames[0]
+        if was_batch:
             return [self._predict_one(frame, boxes) for frame in source]
         return self._predict_one(source, boxes)
 
@@ -157,22 +175,6 @@ class SegmentationBase:
             segmentation_map = self._filter_by_boxes(segmentation_map, boxes)
         return Result(orig_img=frame, instances=[], task="segment",
                       seg_map=segmentation_map)
-
-    def __call__(self, source, boxes=None):
-        """Alias for [`predict`][physiotrack.Segmentation].
-
-        Lets a segmenter instance be called directly, e.g. ``seg(frame)``.
-
-        Args:
-            source (np.ndarray | list[np.ndarray]): A single BGR frame ``(H, W, 3)``
-                or a list of frames.
-            boxes (list | np.ndarray, optional): See
-                [`predict`][physiotrack.Segmentation]. Defaults to ``None``.
-
-        Returns:
-            Result | list[Result]: See [`predict`][physiotrack.Segmentation].
-        """
-        return self.predict(source, boxes)
 
     def get_avg_inference_time(self):
         """Get average inference time in milliseconds."""
@@ -221,6 +223,22 @@ class Segmentation:
     See Also:
         [`Detection`][physiotrack.Detection]: box-based prediction.
     """
+
+    def __new__(cls, *args, **kwargs):
+        """Refuse direct instantiation of the preset namespace.
+
+        Raises:
+            TypeError: Always. ``Segmentation`` groups the presets; it is not itself a
+                predictor, and instantiating it used to return an object with no
+                model attached, which failed later with a confusing error.
+        """
+        presets = [n for n in vars(cls) if not n.startswith("_")
+                   and isinstance(vars(cls)[n], type)]
+        raise TypeError(
+            f"Segmentation is a namespace of presets, not a predictor. Use one of: "
+            f"{', '.join(f'Segmentation.{p}()' for p in presets)} "
+            f"— for example Segmentation.Person()."
+        )
 
     class Custom(SegmentationBase):
         """Segmenter backed by any user-specified validated segmentation model.

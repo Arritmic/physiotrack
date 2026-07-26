@@ -4,6 +4,7 @@ Demonstrates how to use DepthAnythingV2 for monocular depth estimation.
 """
 
 from physiotrack import Depth, Models
+from physiotrack.capture import open_video_writer
 import cv2
 import argparse
 import numpy as np
@@ -146,8 +147,7 @@ def run_video_depth_estimation(video_path: str, device: int = 0, show: bool = Tr
     output_path = os.path.join(output_dir, f"{base_name}_depth.mp4")
 
     # Initialize video writer
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
+    out = open_video_writer(output_path, fps, (w, h))
 
     print(f"\nProcessing video: {video_path}")
     print(f"Output will be saved to: {output_path}")

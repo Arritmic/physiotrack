@@ -352,7 +352,7 @@ import physiotrack as pt
 from physiotrack.signals import joint_angles, compute_rom_angles
 
 result = pt.Pose.Person().predict(frame)
-kps = result.to_dict()["detections"][0]["keypoints"]   # [{"id", "x", "y", "confidence"}, ...]
+kps = result[0]            # an Instance; a Keypoints collection or a dict list also works
 
 joint_angles(kps)                                       # {'leftElbow': 152.3, 'leftKnee': 174.1, ...}  degrees
 joint_angles(kps, joints=["leftElbow", "rightElbow"])   # subset
@@ -417,10 +417,10 @@ the live value in degrees, a 0–180° gauge and a sparkline. The definitions ar
         ok, frame = cap.read()
         if not ok:
             break
-        pose_results = pose.predict(frame).to_dict()["detections"]
+        pose_results = pose.predict(frame).to_dict()["instances"]
         t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
         plotter.update(pose_results, frame_time=t)
-        frame = plotter.attach_panels(frame, position="top_left")  # joint + ROM grids
+        frame = plotter.attach_to_frame(frame, position="top_left")  # joint + ROM grids
         cv2.imshow("joint angles", frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
@@ -434,12 +434,15 @@ See `examples/joint_angle_overlay.py` for both paths.
 ## Filters & Normalization
 
 DSP helpers for pre- and post-processing extracted signals. The band-pass used throughout the
-rPPG pipeline is [`bandpass_filter`][physiotrack.signals.bandpass_filter] (a forward-only
-Butterworth IIR taking the two cutoffs in Hz); [`band_pass_filter`][physiotrack.signals.band_pass_filter]
-is the same design taking the band as a pair. For zero-phase results use the `filtfilt`-based
-[`highpass_filter`][physiotrack.signals.highpass_filter] /
-[`lowpass_filter`][physiotrack.signals.lowpass_filter], and remove mains hum with
-[`notch_filter`][physiotrack.signals.notch_filter].
+rPPG pipeline is [`bandpass_filter`][physiotrack.signals.bandpass_filter]: a Butterworth IIR
+design taking the two cutoffs in Hz, applied **zero-phase** (`sosfiltfilt`) so that pulse-peak
+timing — and therefore every R-R interval and HRV index derived from it — is preserved. It
+raises rather than returning a phase-distorted result if the segment is too short to filter
+zero-phase.
+
+Also available: [`highpass_filter`][physiotrack.signals.highpass_filter] /
+[`lowpass_filter`][physiotrack.signals.lowpass_filter] for one-sided bands, and
+[`notch_filter`][physiotrack.signals.notch_filter] to remove mains hum.
 
 ```python
 from physiotrack.signals import bandpass_filter, z_score_normalize

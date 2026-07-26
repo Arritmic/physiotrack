@@ -7,6 +7,7 @@ from pathlib import Path
 from collections import deque
 from .classes_and_palettes import COLORS
 import sys
+from ..._paths import weights_dir
 main_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(main_dir))
 
@@ -14,7 +15,7 @@ sys.path.append(str(main_dir))
 class Detector:
     def __init__(self, model, device, OBJECTNESS_CONFIDENCE, NMS_THRESHOLD, classes,
                  render_labels=False, render_box_detections=False, verbose=False, **kwargs):
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+        model_path = str(weights_dir())
         self.model = YOLO(os.path.join(model_path, model.value))
         self.device = device
         self.conf = OBJECTNESS_CONFIDENCE

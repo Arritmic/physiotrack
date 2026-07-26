@@ -1,4 +1,5 @@
 import os 
+from .._paths import weights_dir
 
 
 class TrackerConfig:
@@ -6,17 +7,18 @@ class TrackerConfig:
 
     Bundles every knob for the multi-object tracker: which backend to run, which
     detection classes to follow, per-backend hyper-parameters, the optional
-    "student" (single-subject) tracking heuristic, and the on-frame overlay style.
+    single-subject lock heuristic, and the on-frame overlay style.
     Every field has a sensible default, so ``TrackerConfig()`` is a valid,
     ready-to-use configuration.
 
     Settings can be provided two ways, and both may be mixed::
 
-        cfg = TrackerConfig(tracker="ocsort", classes=[0])   # via constructor kwargs
+        cfg = TrackerConfig(tracker_type="ocsort", classes=[0])   # via constructor kwargs
         cfg.debug_mode = True                                # via attribute assignment
 
-    ``tracker=`` is a friendly alias for :attr:`tracker_type`. Any keyword that is
-    not a known field raises ``TypeError``, which guards against silent typos.
+    Any keyword that is not a known field raises ``TypeError``, which guards against
+    silent typos — including at construction time, so a misspelled setting is never
+    accepted and then ignored.
 
     Only the fields relevant to the selected :attr:`tracker_type` are used at
     runtime; the other backends' hyper-parameters are ignored but remain settable.
@@ -35,36 +37,36 @@ class TrackerConfig:
             detections. Defaults to ``False``.
         show_original_tracks (bool): Draw green boxes and ``ID:<n>`` labels for
             every multi-object track. Defaults to ``False``.
-        show_student_track (bool): Draw the blue box and ``Student:<id>`` label for
-            the isolated student track (requires :attr:`enable_student_tracking`).
+        show_locked_subject (bool): Draw the blue box and ``Subject:<id>`` label for
+            the locked subject (requires :attr:`enable_subject_lock`).
             Defaults to ``True``.
-        show_tracking_tail (bool): Draw the blue movement trail for the student
-            track. Defaults to ``True``.
+        show_tracking_tail (bool): Draw the blue movement trail for the locked
+            subject. Defaults to ``True``.
         show_all_trails (bool): Draw movement trails for every track, not just the
-            student. Defaults to ``False``.
+            locked subject. Defaults to ``False``.
         tail_opacity (float): Opacity of the tracking tail overlay in ``[0.0, 1.0]``.
             Defaults to ``0.7``.
-        debug_mode (bool): Print verbose student-tracking diagnostics (track
-            init/loss, IOU values). Defaults to ``False``.
+        debug_mode (bool): Log subject-lock diagnostics (track init/loss, IOU
+            values) at ``DEBUG`` level. Defaults to ``False``.
         tracker_type (str): Which backend to use. One of ``"bytetrack"``,
             ``"strongsort"``, ``"ocsort"``, ``"boosttrack"`` (case-insensitive).
-            Defaults to ``"ocsort"``. Alias: pass ``tracker=`` to the constructor.
+            Defaults to ``"ocsort"``.
         classes (list[int]): Detection class ids to keep and track; detections of
             other classes are dropped before tracking. Defaults to ``[0]`` (COCO
             "person").
         trail_length (int): Maximum number of points/boxes retained per track for
             trail drawing and history (``deque`` maxlen). Defaults to ``30``.
-        enable_student_tracking (bool): Enable the single-subject ("student")
-            isolation heuristic that locks onto one stable track. Defaults to
+        enable_subject_lock (bool): Enable the single-subject lock heuristic, which
+            follows one stable track and ignores the rest. Defaults to
             ``False``.
         required_consecutive_frames (int): Frames a track must persist to be
-            promoted to the student track, and the miss count that drops it.
+            promoted to the locked subject, and the miss count that drops it.
             Defaults to ``30``.
         inconsistent_motion_threshold (int): Number of consecutive low-IOU
-            (inconsistent) frames tolerated before the student track is discarded.
+            (inconsistent) frames tolerated before the lock is released.
             Defaults to ``5``.
-        student_reinit_iou_threshold (float): Minimum IOU in ``[0.0, 1.0]`` between
-            the last known student box and a candidate box to accept a match /
+        subject_reinit_iou_threshold (float): Minimum IOU in ``[0.0, 1.0]`` between
+            the last known subject box and a candidate box to accept a match /
             re-initialization. Defaults to ``0.3``.
         bytetrack_track_thresh (float): ByteTrack detection-confidence threshold for
             the high-score association step, in ``[0.0, 1.0]``. Defaults to ``0.25``.
@@ -133,13 +135,13 @@ class TrackerConfig:
         ```python
         import physiotrack as pt
 
-        # OC-SORT, tracking only the person class, with the student overlay on.
+        # OC-SORT, tracking only the person class, with the subject overlay on.
         cfg = pt.TrackerConfig(
-            tracker="ocsort",
+            tracker_type="ocsort",
             classes=[0],
-            enable_student_tracking=True,
+            enable_subject_lock=True,
         )
-        cfg.print()                 # inspect the resolved settings
+        print(cfg)                  # inspect the resolved settings
         tracker = pt.Tracker(cfg)
         ```
 
@@ -161,9 +163,9 @@ class TrackerConfig:
         # Overlay options
         self.show_detection_boxes = False  # Red boxes for raw detections
         self.show_original_tracks = False   # Green boxes for all MOT tracks
-        self.show_student_track = True     # Blue box for isolated student track
-        self.show_tracking_tail = True     # Blue trail for student movement
-        self.show_all_trails = False       # Show trails for all tracks (not just student)
+        self.show_locked_subject = True     # Blue box for the locked subject
+        self.show_tracking_tail = True     # Blue trail for the locked subject's movement
+        self.show_all_trails = False       # Show trails for all tracks, not just the locked one
         self.tail_opacity = 0.7           # Opacity of tracking tail
         self.debug_mode = False
         
@@ -172,11 +174,11 @@ class TrackerConfig:
         self.classes = [0]  # Classes to track
         self.trail_length = 30
         
-        # Student tracking settings
-        self.enable_student_tracking = False
+        # Subject-lock settings
+        self.enable_subject_lock = False
         self.required_consecutive_frames = 30
         self.inconsistent_motion_threshold = 5
-        self.student_reinit_iou_threshold = 0.3
+        self.subject_reinit_iou_threshold = 0.3
         
         # ByteTrack settings
         self.bytetrack_track_thresh = 0.25
@@ -185,7 +187,7 @@ class TrackerConfig:
         self.bytetrack_frame_rate = 30
         
         # StrongSORT settings
-        model_dir = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+        model_dir = str(weights_dir())
         self.strongsort_reid_weights = os.path.join(model_dir, 'osnet_x0_25_msmt17.pt')
         self.strongsort_max_dist = 0.2
         self.strongsort_max_iou_dist = 0.7
@@ -216,40 +218,51 @@ class TrackerConfig:
         self.boosttrack_use_duo_boost = True
         self.boosttrack_max_age = 30
 
-        # Apply keyword overrides. `tracker` is an alias for `tracker_type`.
-        if 'tracker' in kwargs:
-            kwargs['tracker_type'] = kwargs.pop('tracker')
         for key, value in kwargs.items():
             if not hasattr(self, key):
                 raise TypeError(f"Unknown TrackerConfig setting: {key!r}")
             setattr(self, key, value)
 
-    def print(self):
-        """Print all configuration settings in an organized format."""
-        print("\n" + "="*60)
-        print(" TRACKER CONFIGURATION ")
-        print("="*60)
-        
-        # Group configs by category
+    def __str__(self):
+        """Return the configuration grouped by category, for display.
+
+        Implemented as ``__str__`` rather than a ``print()`` method so the object
+        follows the usual Python convention — ``print(config)`` works, and the same text
+        can be logged, written to a file, or embedded in a report instead of only going
+        to stdout. A method named ``print`` also shadowed the builtin inside the class
+        body.
+
+        Returns:
+            str: A multi-line summary. Only the settings relevant to the selected
+                :attr:`tracker_type` are used at runtime, but all are listed.
+
+        Example:
+            ```python
+            import physiotrack as pt
+
+            config = pt.TrackerConfig(tracker_type="ocsort")
+            print(config)
+            ```
+        """
         categories = {
             "General Settings": ["device", "text_size", "tracker_type", "classes", "trail_length"],
-            "Student Tracking": ["enable_student_tracking", "required_consecutive_frames", 
-                               "inconsistent_motion_threshold", "student_reinit_iou_threshold"],
-            "Overlay Options": ["show_detection_boxes", "show_original_tracks", "show_student_track",
-                              "show_tracking_tail", "show_all_trails", "tail_opacity"],
+            "Subject Lock": ["enable_subject_lock", "required_consecutive_frames",
+                                 "inconsistent_motion_threshold", "subject_reinit_iou_threshold"],
+            "Overlay Options": ["show_detection_boxes", "show_original_tracks", "show_locked_subject",
+                                "show_tracking_tail", "show_all_trails", "tail_opacity"],
             "ByteTrack": [k for k in vars(self) if k.startswith("bytetrack_")],
             "StrongSORT": [k for k in vars(self) if k.startswith("strongsort_")],
             "OCSort": [k for k in vars(self) if k.startswith("ocsort_")],
-            "BoostTrack": [k for k in vars(self) if k.startswith("boosttrack_")]
+            "BoostTrack": [k for k in vars(self) if k.startswith("boosttrack_")],
         }
-        
+
+        rule = "=" * 60
+        lines = [rule, " TRACKER CONFIGURATION ", rule]
         for category, keys in categories.items():
-            print(f"\n{category}:")
+            lines.append(f"\n{category}:")
             for key in keys:
                 if hasattr(self, key):
-                    value = getattr(self, key)
-                    # Format the key name for display
                     display_key = key.replace("_", " ").title()
-                    print(f"  {display_key:<35} : {value}")
-        
-        print("\n" + "="*60 + "\n")
+                    lines.append(f"  {display_key:<35} : {getattr(self, key)}")
+        lines.append(rule)
+        return "\n".join(lines)

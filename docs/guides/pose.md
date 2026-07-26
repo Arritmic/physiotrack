@@ -164,7 +164,7 @@ container API.
 ### WholeBody-133 keypoint index ranges
 
 For WholeBody models the ids/names come from the COCO-WholeBody layout (ids
-`0`–`134`, i.e. 133 detected points plus two derived centroids):
+`0`–`135`, i.e. 133 detected points plus three derived centroids):
 
 | Region | Ids | Count | Notes |
 | --- | --- | --- | --- |
@@ -172,7 +172,7 @@ For WholeBody models the ids/names come from the COCO-WholeBody layout (ids
 | Feet | `17`–`22` | 6 | Left/right big toe, small toe, heel. |
 | Face | `23`–`90` | 68 | Jaw `23`–`39`, eyebrows `40`–`49`, nose `50`–`58`, eyes `59`–`70`, mouth `71`–`90`. |
 | Hands | `91`–`132` | 42 | 21 points per hand — left `91`–`111`, right `112`–`132`. |
-| Derived | `133`, `134` | 2 | `head_centroid`, `body_centroid`. |
+| Derived | `133`–`135` | 3 | `head_centroid`, `body_centroid`, `pelvic_centroid` — added by [`add_head_centroid`][physiotrack.signals.add_head_centroid], [`add_body_centroid`][physiotrack.signals.add_body_centroid] and [`add_pelvic_centroid`][physiotrack.signals.add_pelvic_centroid]. `135` is the default `reference_point_id` for pelvis-relative coordinates. |
 
 COCO-17 models expose only ids `0`–`16` (the body block above).
 
@@ -189,7 +189,8 @@ COCO-17 models expose only ids `0`–`16` (the body block above).
 
 !!! warning "First run downloads weights"
     The first time a validated model is used, its weights auto-download to the
-    package's `model_data` directory. Subsequent runs load from disk.
+    per-user cache (see [Model Zoo](../model-zoo.md#where-weights-are-cached)).
+    Subsequent runs load from disk.
 
 ## See also
 

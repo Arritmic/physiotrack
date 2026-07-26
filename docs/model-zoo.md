@@ -41,14 +41,51 @@ A few groups differ from the strict four-level shape: the `Pose3D` backends
 ### Downloading weights
 
 Selecting a member downloads nothing. Pass it to
-[`download_model`][physiotrack.Models.download_model] to fetch and cache the
-weights (the high-level predictors do this for you on first use):
+[`Models.resolve`][physiotrack.Models.resolve] to get its local path, fetching it
+only if it is not already cached (the high-level predictors do this for you):
 
 ```python
 from physiotrack import Models
 
-path = Models.download_model(Models.Pose.Sapiens.WholeBody.B03_TS_COCOHB)
+path = Models.resolve(Models.Pose.Sapiens.WholeBody.B03_TS_COCOHB)
 ```
+
+`resolve` is the only place in the library that knows where weights live, so every
+predictor and backend loader agrees on one location. Use
+[`download_model`][physiotrack.Models.download_model] directly only to force a fetch
+into a specific directory.
+
+### Where weights are cached
+
+Checkpoints are cached **outside** the installed package. Writing multi-gigabyte files
+into `site-packages` breaks read-only and containerised installs, defeats Docker layer
+caching, and stops two environments sharing one download.
+
+| Condition | Cache location |
+|---|---|
+| `$PHYSIOTRACK_HOME` set | `$PHYSIOTRACK_HOME/weights` |
+| `$XDG_CACHE_HOME` set | `$XDG_CACHE_HOME/physiotrack/weights` |
+| Linux (default) | `~/.cache/physiotrack/weights` |
+| macOS | `~/Library/Caches/physiotrack/weights` |
+| Windows | `%LOCALAPPDATA%\physiotrack\weights` |
+
+Set `PHYSIOTRACK_HOME` to share one cache between environments, images, or CI jobs:
+
+```bash
+export PHYSIOTRACK_HOME=/shared/physiotrack
+```
+
+!!! note "Upgrading from before 1.1"
+
+    Older releases downloaded into the package's `modules/model_data` directory.
+    [`migrate_weight_cache`][physiotrack.migrate_weight_cache] moves existing
+    checkpoints into the cache so they are not fetched again:
+
+    ```python
+    import physiotrack
+    physiotrack.migrate_weight_cache(dry_run=True)   # preview
+    physiotrack.migrate_weight_cache()               # move them
+    ```
 
 Where a checkpoint comes from depends on the backend:
 
@@ -176,7 +213,7 @@ result = pose.predict(frame)
 | `Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byCam` | Canonicalizer | `best_model_3DPCNetTC48_byCam.pth` | 3DPCNet, TotalCapture 48-cam, camera-disjoint split |
 | `Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byAction` | Canonicalizer | `best_model_3DPCNetTC48_byAction.pth` | 3DPCNet, TotalCapture 48-cam, action-disjoint split |
 
-`Pose3D.Canonicalizer.View` is a plain string enum of canonical viewpoints (not
+`pt.CanonicalView` is a plain string enum of canonical viewpoints (not
 weights): `FRONT` (`"front"`), `BACK` (`"back"`), `LEFT_SIDE` (`"left_side"`),
 `RIGHT_SIDE` (`"right_side"`).
 

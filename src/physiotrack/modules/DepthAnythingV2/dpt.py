@@ -214,8 +214,12 @@ class DepthAnythingV2(nn.Module):
         
         image = transform({'image': image})['image']
         image = torch.from_numpy(image).unsqueeze(0)
-        
-        DEVICE = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
-        image = image.to(DEVICE)
-        
+
+        # Follow the model's own device rather than picking one from hardware
+        # availability: choosing 'cuda' just because a GPU exists put the input on the
+        # GPU while a CPU-loaded model stayed on the host, raising
+        # "Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor)
+        # should be the same" for every device='cpu' caller on a CUDA machine.
+        image = image.to(next(self.parameters()).device)
+
         return image, (h, w)

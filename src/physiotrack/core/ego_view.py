@@ -7,12 +7,22 @@ import cv2
 from typing import Optional, Tuple
 
 from physiotrack.core.overlay import OverlayCanvas, alpha_composite
+from .panel import PanelMixin
 
 
-class EgoVideoView:
+class EgoVideoView(PanelMixin):
     """
     Ego video view for displaying synchronized ego-centric video overlay.
     """
+
+    # Placement and compositing come from PanelMixin; these are this panel's
+    # own defaults, preserved exactly as they were before the consolidation.
+    PANEL_POSITION = 'bottom_right'
+    PANEL_MARGIN = 10
+    PANEL_BACKDROP = True
+    PANEL_BACKDROP_PAD = 3
+    PANEL_BACKDROP_ALPHA = 0.3
+
 
     def __init__(self,
                  ego_video_path: str,
@@ -94,6 +104,10 @@ class EgoVideoView:
         frame_id = int(timestamp * self.ego_fps)
         return self.read_frame(frame_id)
 
+    def panel_visible(self) -> bool:
+        """Nothing is drawn until an ego frame has been read."""
+        return bool(self.enabled) and self.current_frame is not None
+
     def render(self) -> np.ndarray:
         """
         Render the ego video canvas.
@@ -122,67 +136,6 @@ class EgoVideoView:
             alpha_composite(canvas, ov.render(), 0, 0)
 
         return canvas
-
-    def attach_to_frame(self, frame: np.ndarray, position: str = 'bottom_right',
-                        margin: int = 10, above_element_height: int = 0) -> np.ndarray:
-        """
-        Attach ego video view to a video frame.
-
-        Args:
-            frame: Video frame to attach ego view to
-            position: Position on frame ('bottom_right', 'bottom_left', 'top_right', 'top_left')
-            margin: Margin from frame edge in pixels
-            above_element_height: Height of element below this one to stack above it
-
-        Returns:
-            Frame with ego view attached
-        """
-        if not self.enabled or self.current_frame is None:
-            return frame
-
-        canvas = self.render()
-        h, w = frame.shape[:2]
-        canvas_h, canvas_w = canvas.shape[:2]
-
-        # Calculate position based on specified location
-        if position == 'bottom_right':
-            y1 = h - canvas_h - margin - above_element_height - (margin if above_element_height > 0 else 0)
-            y2 = y1 + canvas_h
-            x1 = w - canvas_w - margin
-            x2 = w - margin
-        elif position == 'bottom_left':
-            y1 = h - canvas_h - margin - above_element_height - (margin if above_element_height > 0 else 0)
-            y2 = y1 + canvas_h
-            x1 = margin
-            x2 = margin + canvas_w
-        elif position == 'top_right':
-            y1 = margin + above_element_height + (margin if above_element_height > 0 else 0)
-            y2 = y1 + canvas_h
-            x1 = w - canvas_w - margin
-            x2 = w - margin
-        elif position == 'top_left':
-            y1 = margin + above_element_height + (margin if above_element_height > 0 else 0)
-            y2 = y1 + canvas_h
-            x1 = margin
-            x2 = margin + canvas_w
-        else:
-            raise ValueError(f"Invalid position: {position}")
-
-        # Ensure coordinates are valid
-        if y1 < 0 or x1 < 0 or y2 > h or x2 > w:
-            return frame
-
-        result_frame = frame.copy()
-
-        # Add semi-transparent background
-        overlay = result_frame.copy()
-        cv2.rectangle(overlay, (x1 - 3, y1 - 3), (x2 + 3, y2 + 3), (0, 0, 0), -1)
-        result_frame = cv2.addWeighted(result_frame, 0.7, overlay, 0.3, 0)
-
-        # Overlay ego view
-        result_frame[y1:y2, x1:x2] = canvas
-
-        return result_frame
 
     def get_canvas_height(self) -> int:
         """Get the current canvas height for stacking calculations."""

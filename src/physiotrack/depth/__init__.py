@@ -1,2 +1,5 @@
-from physiotrack import DepthAnythingV2Inference, ZipDepthInference, Models
+"""Monocular relative-depth estimation."""
+
 from .depth import Depth
+
+__all__ = ["Depth"]

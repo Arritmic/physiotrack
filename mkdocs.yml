@@ -83,7 +83,13 @@ markdown_extensions:
       pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        # Without this, ```mermaid blocks render as plain code, so the docs site
+        # would silently lose every diagram.
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.details
   - pymdownx.tabbed:
       alternate_style: true
@@ -180,6 +186,8 @@ nav:
       - Tracking: api/tracking.md
       - Model Registry: api/models.md
       - Pose Post-processing: api/pose-postprocessing.md
+      - Overlay Views: api/core.md
+      - Utilities: api/utils.md
       - Signals:
           - api/signals/index.md
           - rPPG / Heart Rate: api/signals/rppg.md

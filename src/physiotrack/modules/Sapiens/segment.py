@@ -8,6 +8,11 @@ from .common import create_preprocessor
 import torch.nn.functional as F
 from .classes_and_palettes import SEGMENTATION_CLASSES
 
+from ..._logging import get_logger
+from ..._paths import weights_dir
+
+logger = get_logger(__name__)
+
 
 random = np.random.RandomState(11)
 colors = random.randint(0, 255, (len(SEGMENTATION_CLASSES) - 1, 3))
@@ -21,7 +26,7 @@ class SapiensSegmentation():
                  dtype: torch.dtype = torch.float32):
         self.device = device
         self.dtype = dtype
-        model_folder = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+        model_folder = str(weights_dir())
         model_path = os.path.join(model_folder, model.value)
         self.model = torch.jit.load(model_path).eval().to(self.device).to(dtype)
         self.preprocessor = create_preprocessor(input_size=(1024, 768))
@@ -113,7 +118,7 @@ if __name__ == "__main__":
         img = cv2.imread(img_path)
         start = time.perf_counter()
         segmentations = estimator(img)
-        print(f"Time taken: {time.perf_counter() - start:.4f} seconds")
+        logger.debug("Sapiens segmentation inference took %.4f s", time.perf_counter() - start)
 
         segmentation_img = draw_segmentation_map(segmentations)
         combined = cv2.addWeighted(img, 0.5, segmentation_img, 0.5, 0)

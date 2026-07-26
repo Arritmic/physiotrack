@@ -7,6 +7,7 @@ from pathlib import Path
 from collections import deque
 import sys
 from .classes_and_palettes import COLORS
+from ..._paths import weights_dir
 main_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(main_dir))
 
@@ -14,7 +15,7 @@ sys.path.append(str(main_dir))
 class Segmentor:
     def __init__(self, model, device, OBJECTNESS_CONFIDENCE, NMS_THRESHOLD, classes,
                  render_segmenttion_map=False, verbose=False, **kwargs):
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+        model_path = str(weights_dir())
         self.model = YOLO(os.path.join(model_path, model.value))
         self.names = self.model.names
         self.COLORS = COLORS

@@ -11,6 +11,10 @@ from typing import Optional, Tuple, Dict, Any, Union
 from pathlib import Path
 from .models.model import create_pose_canonicalization_model
 
+from ..._logging import get_logger
+
+logger = get_logger(__name__)
+
 
 # Cache for loaded model
 _MODEL_CACHE = {
@@ -99,9 +103,16 @@ def load_3dpcnet_model(checkpoint_path: Optional[str] = None,
         checkpoint = torch.load(checkpoint_path, map_location=device_obj, weights_only=False)
         state_dict = checkpoint.get('model_state_dict', checkpoint)
         model.load_state_dict(state_dict)
-        print(f"Loaded 3DPCNet model from {checkpoint_path}")
+        logger.info("Loaded 3DPCNet weights from %s", checkpoint_path)
     else:
-        print(f"Warning: Checkpoint not found at {checkpoint_path}, using random weights")
+        # Randomly initialised weights produce plausible-looking but meaningless
+        # canonicalisations, so this must not pass as an informational message.
+        raise FileNotFoundError(
+            f"3DPCNet checkpoint not found at {checkpoint_path}. Running with randomly "
+            f"initialised weights would return meaningless canonicalised poses. Download "
+            f"the weights with Models.download_model(...), or select the training-free "
+            f"Models.Pose3D.Canonicalizer.Models.GEOMETRIC method instead."
+        )
     
     model.eval()
     

@@ -1,6 +1,8 @@
 import cv2
+import sys
 import json
 import time
+import warnings
 import numpy as np
 from pathlib import Path
 from typing import Optional, Union, List, Dict, Any, Tuple
@@ -16,6 +18,14 @@ from physiotrack.signals.plotting.angle_plotter import JointAnglePlotter
 from physiotrack.capture.orientation import resolve_rotation, apply_rotation
 from physiotrack.signals.motion.features import DEFAULT_ROM_MOVEMENTS, ROM_DEFINITIONS
 from physiotrack.utils import get_screen_size, resize_frame_for_display
+
+from ..core.panel import attach_stack
+from .._logging import get_logger
+from .writer import open_video_writer
+from ..results import (FrameResult, Instance, Result, ResultMeta,
+                       VideoResults)
+
+logger = get_logger(__name__)
 
 
 class Video:
@@ -69,7 +79,7 @@ class Video:
         pose = pt.Pose.VRStudent(verbose=False, device=0)
         video = pt.Video(source="clip.mp4", pose=pose, output_dir="output", verbose=True)
         results = video.run("output/clip_poses.mp4", "output/clip_result.json")
-        print(f"Processed {len(results)} frames")
+        logger.info(f"Processed {len(results)} frames")
         ```
 
     See Also:
@@ -112,6 +122,7 @@ class Video:
                  rppg_method: str = "POS",
                  rppg_roi=None,
                  rppg_window_sec: Optional[float] = None,
+                 device: Union[str, int] = 'cpu',
                  verbose: bool = False,
                  show_fps: bool = False,
                  show: bool = False,
@@ -238,7 +249,8 @@ class Video:
                 object exposing ``skin_mask(frame_bgr) -> mask`` (e.g. a face-neck
                 segmentation model for VR/occluded-face cases) -- returning a boolean
                 ``(H, W)`` mask (or ``None`` to skip that frame). Provide a
-                ``FaceSkinExtractor(device=...)`` here to control its device.
+                ``FaceSkinExtractor(device=...)`` here to override the device the
+                default extractor uses (which is ``device``).
             rppg_window_sec (float, optional): Sliding-window length (seconds) of the
                 rPPG estimator. Longer windows give more stable HR/HRV but a later first
                 reading (the first value appears after ~60% of the window fills).
@@ -369,37 +381,22 @@ class Video:
                 fps=float(video_fps)
             )
 
-        self.cap = cv2.VideoCapture(source)
-        if not self.cap.isOpened():
-            raise ValueError(f"Could not open video: {source}")
-        
-        self._setup_source_info()
-        
         if output_dir:
             self.output_path = Path(output_dir)
             self.output_path.mkdir(parents=True, exist_ok=True)
         else:
             self.output_path = Path.cwd()
-        
-        self.video_fps = int(self.cap.get(cv2.CAP_PROP_FPS))
-        if not self.video_fps > 0:
-            self.video_fps = 30  # Default FPS
-            if self.verbose:
-                print(f'Using default FPS: {self.video_fps}')
-        
-        self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
         # Orientation fix: opt-in, default 0 (none). Phones store display rotation as
         # container metadata rather than baking it into the pixels, so frames can decode
         # sideways/upside down; pass orient=90/180/270 to rotate when a clip needs it.
         # There is no auto/metadata mode (it is unreliable across builds). Applied to
         # every frame in preprocess_frame; 90/270 swaps the effective dimensions.
+        self.device = device
         self._rotation = resolve_rotation(orient)
         if self._rotation:
-            print(f"[orientation] rotating frames {self._rotation} deg (orient).")
-            if self._rotation in (90, 270):
-                self.width, self.height = self.height, self.width
+            logger.info(f"[orientation] rotating frames {self._rotation} deg (orient).")
+        self._open_source(source)
 
         rom_enabled = bool(rom) and rom is not False
         self.rom_movements = []
@@ -414,7 +411,10 @@ class Video:
         if plot_angles or rom_enabled:
             if self.pose_estimator is None:
                 if self.verbose:
-                    print("plot_angles/rom ignored: no pose estimator provided.")
+                    warnings.warn(
+                        "plot_angles/rom were requested but no pose estimator was given, so "
+                        "the angle panel is disabled. Pass pose=... to enable it.",
+                        RuntimeWarning, stacklevel=2)
             else:
                 self.angle_plotter = JointAnglePlotter(
                     joints=angle_joints if plot_angles else [],
@@ -456,7 +456,7 @@ class Video:
                                               RespirationPlotter, FaceSkinExtractor)
             # Default skin ROI = SegFace segmentation; a custom provider overrides it.
             if self.rppg_roi is None:
-                self._skin_extractor = FaceSkinExtractor(device=0)
+                self._skin_extractor = FaceSkinExtractor(device=self.device)
                 self.rppg_roi = self._skin_extractor
             window_sec = (float(rppg_window_sec) if rppg_window_sec is not None
                           else (60.0 if hrv else 15.0))
@@ -482,8 +482,10 @@ class Video:
         if respiration and respiration_source == "motion":
             if self.pose_estimator is None:
                 if self.verbose:
-                    print("motion respiration ignored: no pose estimator provided "
-                          "(motion-based respiration needs pose keypoints).")
+                    warnings.warn(
+                        "respiration_source='motion' was requested but no pose estimator was "
+                        "given, so motion-based respiration is disabled. Pass pose=... to enable it.",
+                        RuntimeWarning, stacklevel=2)
             else:
                 from collections import deque
                 from physiotrack.signals import RespirationPlotter
@@ -493,30 +495,177 @@ class Video:
                 self._resp_records = deque(maxlen=max(64, int(self.video_fps * 45)))
 
         if self.verbose:
-            print(f"Video properties: {self.width}x{self.height}, {self.video_fps} FPS")
-            print(f"Source: {self.source_identifier}")
-            print(f"Batch size: {self.batch_size}")
-    
+            logger.info(f"Video properties: {self.width}x{self.height}, {self.video_fps} FPS")
+            logger.info(f"Source: {self.source_identifier}")
+            logger.info(f"Batch size: {self.batch_size}")
+    def _collect_performance(self, frame_count, total_time, avg_fps, frames_read=None):
+        """Gather end-to-end and per-stage throughput for the run just finished.
+
+        Args:
+            frame_count (int): Frames that went through the models.
+            total_time (float): Wall-clock seconds for the whole run.
+            avg_fps (float): Overall pipeline frames per second, over processed frames.
+            frames_read (int, optional): Frames decoded from the source, including any
+                skipped by ``fps=`` subsampling. Defaults to ``None`` (same as
+                ``frame_count``).
+
+        Returns:
+            dict: ``{"batch_size", "frames", "seconds", "fps", "stages"}`` where
+                ``stages`` maps a stage name (e.g. ``"detector[0]"``, ``"pose"``,
+                ``"tracker"``) to ``{"fps": float, "ms_per_frame": float}``. Stages that
+                were not configured are absent.
+
+        Note:
+            Also stored as :attr:`performance` after each
+            [`run`][physiotrack.Video.run], so throughput can be reported or compared
+            programmatically rather than read off the console.
+        """
+        stages = {}
+
+        def record(name, component):
+            if component is not None and hasattr(component, 'get_avg_fps'):
+                stages[name] = {
+                    "fps": component.get_avg_fps(),
+                    "ms_per_frame": component.get_avg_inference_time(),
+                }
+
+        for idx, detector in enumerate(self.detectors):
+            record(f"detector[{idx}]", detector)
+        record("pose", getattr(self.pose_estimator, 'pose_estimator', None))
+        record("tracker", self.tracker)
+        for idx, segmentor in enumerate(self.segmentators):
+            record(f"segmentor[{idx}]", segmentor)
+        record("face_detector", self.face_detector)
+        record("face_orientation", self.face_orientation)
+        record("depth", self.depth_estimator)
+
+        return {
+            "batch_size": self.batch_size,
+            "frames": frame_count,
+            "frames_read": frame_count if frames_read is None else frames_read,
+            "seconds": total_time,
+            "fps": avg_fps,
+            "stages": stages,
+        }
+
+    @staticmethod
+    def _format_performance(metrics):
+        """Render :meth:`_collect_performance` output as a readable report.
+
+        Args:
+            metrics (dict): The mapping returned by :meth:`_collect_performance`.
+
+        Returns:
+            str: A multi-line report, emitted as a single log record so it cannot be
+                interleaved with other output.
+        """
+        rule = "=" * 60
+        lines = [
+            rule,
+            "PERFORMANCE METRICS",
+            rule,
+            f"Batch size:              {metrics['batch_size']}",
+            f"Overall pipeline FPS:    {metrics['fps']:.2f}",
+            f"Total frames processed:  {metrics['frames']}",
+            f"Frames decoded:          {metrics.get('frames_read', metrics['frames'])}",
+            f"Total time:              {metrics['seconds']:.2f}s",
+            "-" * 60,
+        ]
+        for name, stage in metrics["stages"].items():
+            lines.append(f"{name:<24} {stage['fps']:8.2f} FPS "
+                         f"({stage['ms_per_frame']:.2f} ms/frame)")
+        lines.append(rule)
+        return "\n".join(lines)
+
+    @staticmethod
+    def _attach_track_ids(pose_results_batch, track_ids_batch):
+        """Stamp persistent track ids onto pose detections, in place.
+
+        The pose backends label their detections with the positional index of the box
+        they came from, which is only meaningful within a single frame. Tracking runs
+        first and supplies one id per box, in the same order, so this replaces each
+        positional index with the subject's persistent id.
+
+        That identity is what makes any cross-frame analysis valid: without it, the
+        per-frame tables built by
+        [`extract_keypoints_sequence`][physiotrack.signals.extract_keypoints_sequence]
+        interleave subjects, and the finite differences behind velocity and
+        acceleration end up subtracting one person's position from another's.
+
+        Args:
+            pose_results_batch (list): One per-frame ``detections`` list (as produced by
+                [`process_batch_pose`][physiotrack.Video.process_batch_pose]). Modified
+                in place.
+            track_ids_batch (list): Per-frame list of track ids aligned with the boxes
+                pose was given, or ``None`` for frames that were not tracked.
+        """
+        for detections, track_ids in zip(pose_results_batch, track_ids_batch):
+            if not track_ids or not detections:
+                continue
+            for position, detection in enumerate(detections):
+                if isinstance(detection, dict) and position < len(track_ids):
+                    detection['id'] = track_ids[position]
+
+    def _open_source(self, source):
+        """Point the pipeline at a source and read its stream properties.
+
+        Opens ``source`` as the active capture and refreshes everything derived from
+        it: the source identifier and frame count, the frame rate, and the frame
+        dimensions (swapped when ``orient`` requests a 90/270 degree rotation). Any
+        capture already open is released first.
+
+        This is called by ``__init__`` and again by
+        [`batch_run`][physiotrack.Video.batch_run] for each input, so a single
+        configured pipeline can be pointed at successive clips without the two paths
+        drifting apart.
+
+        Args:
+            source (str | int): Video file path, ``rtsp://`` URL, or camera index.
+
+        Raises:
+            ValueError: If the source cannot be opened.
+        """
+        previous = getattr(self, "cap", None)
+        if previous is not None:
+            previous.release()
+
+        self.video_path = source
+        self.cap = cv2.VideoCapture(source)
+        if not self.cap.isOpened():
+            raise ValueError(f"Could not open video: {source}")
+
+        self._setup_source_info()
+
+        self.video_fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+        if not self.video_fps > 0:
+            self.video_fps = 30  # Default FPS
+            if self.verbose:
+                logger.info(f'Using default FPS: {self.video_fps}')
+        self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        if self._rotation in (90, 270):
+            self.width, self.height = self.height, self.width
+
     def _setup_source_info(self):
         """Setup source identifier and total frames based on video path type."""
         if isinstance(self.video_path, str):
             path_prefix = ''.join(letter for letter in str(self.video_path).split(':')[0] if letter.isalnum())
             if path_prefix == 'rtsp':
                 if self.verbose:
-                    print(f'Start processing RTSP stream {self.video_path}')
+                    logger.info(f'Start processing RTSP stream {self.video_path}')
                 source_name = ".".join(self.video_path.split('@')[-1].split('.')[:-1]).replace(':', '-').replace('/', '_')
                 self.source_identifier = f'{source_name}'
                 self.total_frames = None
             else:
                 if self.verbose:
-                    print(f'Start processing video {self.video_path}')
+                    logger.info(f'Start processing video {self.video_path}')
                 source_name = Path(self.video_path).stem
                 self.source_identifier = f'{source_name}'
                 frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
                 self.total_frames = frame_count if frame_count > 0 else None
         elif isinstance(self.video_path, int):
             if self.verbose:
-                print(f'Start processing camera device {self.video_path}')
+                logger.info(f'Start processing camera device {self.video_path}')
             self.source_identifier = f'CAM_device_{self.video_path}'
             self.total_frames = None
         else:
@@ -683,7 +832,7 @@ class Video:
         # Pose predict() accepts a list and returns one Result per frame.
         results = self.pose_estimator.predict(frames_batch, boxes_batch)
         for frame, result in zip(frames_batch, results):
-            pose_results = result.to_dict()['detections']
+            pose_results = result.to_dict()['instances']
             # Draw keypoints onto the (detection-annotated) frame.
             result_frame = result.plot(boxes=False, labels=False, keypoints=True)
             batch_results.append((result_frame, pose_results))
@@ -827,7 +976,7 @@ class Video:
         Returns:
             list[tuple[np.ndarray, list[dict]]]: One ``(result_frame,
                 face_orientation_results)`` tuple per frame. Each result dict holds
-                a ``"bbox"`` (``x1, y1, x2, y2``) and a ``"pose"`` mapping with
+                a ``"box"`` (``x1, y1, x2, y2``) and an ``"orientation"`` mapping with
                 ``"yaw"``, ``"pitch"`` and ``"roll"`` angles.
         """
         if self.face_detector is None or self.face_orientation is None:
@@ -845,22 +994,24 @@ class Video:
         face_orientation_results_batch = []
         if any(len(bboxes) > 0 for bboxes in face_bboxes_batch):
             # Use batch inference for frames with faces (returns one Result per frame)
-            orientation_batch_results = self.face_orientation.predict_batch(frames_batch, face_bboxes_batch)
+            # A list source means batch inference; predict() dispatches on that.
+            orientation_batch_results = self.face_orientation.predict(
+                frames_batch, face_bboxes_batch)
             for result in orientation_batch_results:
-                face_orientation_results_batch.append(result.to_dict()['detections'])
+                face_orientation_results_batch.append(result.to_dict()['instances'])
         else:
             face_orientation_results_batch = [[] for _ in frames_batch]
 
         # Visualize face orientation on frames
-        # Reset batch_results to avoid mixing with predict_batch outputs
+        # Reset batch_results to avoid mixing with the batch predict() outputs
         batch_results = []
         from physiotrack.face import draw_axis
         for frame, face_bboxes, orientation_results in zip(frames_batch, face_bboxes_batch, face_orientation_results_batch):
             vis_frame = frame.copy()
             if len(orientation_results) > 0:
                 for detection in orientation_results:
-                    pose = detection['pose']
-                    bbox = detection['bbox']
+                    pose = detection['orientation']
+                    bbox = detection['box']
 
                     x1, y1, x2, y2 = bbox
                     face_center_x = int((x1 + x2) / 2)
@@ -966,11 +1117,15 @@ class Video:
                 Defaults to ``None``.
 
         Returns:
-            list[dict]: One dict per processed frame. Each always has ``frame_id``
-                (int) and ``timestamp`` (float seconds), plus, when the relevant
-                stage is enabled: ``detections`` (per-person pose results),
-                ``track_box`` (the tracked subject box), and ``face_orientation``
-                (list of head-pose dicts).
+            VideoResults: One [`FrameResult`][physiotrack.FrameResult] per processed
+                frame. Each exposes its subjects as
+                [`Instance`][physiotrack.Instance] objects with named keypoints — so the
+                object model survives video processing — plus ``meta`` (frame index,
+                timestamp, source fps) and, when the relevant stage is enabled,
+                ``vitals``, ``face_orientation`` and ``track_box``. The sequence
+                serializes with
+                [`to_json`][physiotrack.VideoResults.to_json] and is accepted directly by
+                the ``physiotrack.signals`` sequence functions.
 
         Raises:
             ValueError: If a custom ``detector`` is configured alongside a pose
@@ -982,6 +1137,11 @@ class Video:
             pose = pt.Pose.VRStudent(device=0)
             video = pt.Video(source="clip.mp4", pose=pose, output_dir="output")
             results = video.run("output/clip.mp4", "output/clip.json")
+
+            for frame in results:
+                print(frame.meta.timestamp, len(frame))
+                for person in frame:
+                    print(person.id, person.keypoints.by_name("nose"))
             ```
 
         Note:
@@ -1005,15 +1165,13 @@ class Video:
 
             effective_fps = self.required_fps if self.required_fps else self.video_fps
 
-            # Use avc1 codec for MP4 output
-            fourcc = cv2.VideoWriter_fourcc(*'avc1')
-            out_writer = cv2.VideoWriter(str(output_video), fourcc, effective_fps,
-                                       (output_width, output_height))
-
-            if self.verbose:
-                print(f"Using H.264 (avc1) codec for video encoding")
+            # Shared with the examples so there is one implementation of "open a writer
+            # that actually works": OpenCV does not raise when an encoder is missing, it
+            # just silently discards every frame.
+            out_writer = open_video_writer(output_video, effective_fps,
+                                           (output_width, output_height))
         
-        all_detection_data = []
+        all_detection_data = VideoResults()
         frame_count = 0
         frame_filter_count = 1
         start_time = time.time()
@@ -1051,7 +1209,7 @@ class Video:
                 # Extract floor area from first frame if needed
                 if extract_floor_from_first_frame and frame_count == 0:
                     if self.verbose:
-                        print("Extracting floor area from first frame and transforming to top-down view...")
+                        logger.info("Extracting floor area from first frame and transforming to top-down view...")
                     self.radar_view.set_background_from_frame(frame)
                     extract_floor_from_first_frame = False  # Only do this once
                 
@@ -1081,50 +1239,74 @@ class Video:
                 frames_with_detections = [r[0] for r in detection_results]
                 all_detections_batch = [r[1] for r in detection_results]
                 
-                # Step 2: Extract boxes for pose estimation
+                # Step 2: Tracking, frame by frame (the tracker has no batch path).
+                #
+                # This runs *before* pose so that the boxes pose receives are the
+                # tracked ones and each pose instance can inherit its subject's
+                # persistent track id. With pose first, its instance ids were merely
+                # per-frame enumeration indices — meaningless across frames — and the
+                # subject-lock filter below mutated the box list after pose had already
+                # consumed it, so the filter did nothing at all.
+                frames_with_tracking = []
+                online_targets_batch = []
                 boxes_batch = []
-                for all_detections in all_detections_batch:
+                track_ids_batch = []
+
+                for frame, all_detections in zip(frames_with_detections, all_detections_batch):
+                    boxes, track_ids, online_targets = None, None, []
+
                     if len(all_detections) > 0:
                         detections = np.vstack(all_detections)
-                        boxes = detections[:, :-2].astype(int)
-                        boxes_batch.append(boxes)
-                    else:
-                        boxes_batch.append(None)
-                
+
+                        if self.tracker is not None:
+                            track_result = self.tracker.track(frame, detections)
+                            frame = track_result.rendered
+                            online_targets = track_result.raw
+
+                            tracked = [(inst.box, inst.id) for inst in track_result.instances
+                                       if inst.box is not None]
+                            if (self.tracker.locked_subject_id is not None
+                                    and self.tracker.locked_subject_box is not None):
+                                # Subject lock: pose only the locked subject.
+                                locked_box = np.asarray(
+                                    self.tracker.locked_subject_box, dtype=float).reshape(-1)[:4]
+                                tracked = [(locked_box, self.tracker.locked_subject_id)]
+
+                            if tracked:
+                                boxes = np.array([t[0] for t in tracked], dtype=int)
+                                track_ids = [t[1] for t in tracked]
+                        else:
+                            # No tracker: pose every detection, but there are no
+                            # persistent ids to attach.
+                            boxes = detections[:, :-2].astype(int)
+
+                    frames_with_tracking.append(frame)
+                    online_targets_batch.append(online_targets)
+                    boxes_batch.append(boxes)
+                    track_ids_batch.append(track_ids)
+
                 # Step 3: Batch pose estimation (if applicable)
                 pose_results_batch = []
                 if self.pose_estimator:
                     if self.pose_estimator.__class__.__name__ != "Custom" and len(self.detectors) > 0:
                         raise ValueError("Please use Pose.Custom class if you want to use a custom detector with the Video class.")
-                    
-                    pose_batch_results = self.process_batch_pose(frames_with_detections, boxes_batch)
+
+                    pose_batch_results = self.process_batch_pose(frames_with_tracking, boxes_batch)
                     frames_with_pose = [r[0] for r in pose_batch_results]
                     pose_results_batch = [r[1] for r in pose_batch_results]
                 else:
-                    frames_with_pose = frames_with_detections
+                    frames_with_pose = frames_with_tracking
                     pose_results_batch = [[] for _ in frame_batch]
-                
-                # Step 4: Process tracking frame-by-frame (tracker doesn't support batch)
-                frames_with_tracking = []
-                online_targets_batch = []
-                
-                for idx, (frame, all_detections, metadata) in enumerate(zip(frames_with_pose, all_detections_batch, frame_batch_metadata)):
-                    if self.tracker is not None and len(all_detections) > 0:
-                        detections = np.vstack(all_detections)
-                        track_result = self.tracker.track(frame, detections)
-                        frame = track_result.rendered
-                        online_targets = track_result.raw
 
-                        # Filter boxes based on student track
-                        if self.tracker.student_track_id is not None and self.tracker.last_known_bbox is not None:
-                            # Update boxes for this frame
-                            boxes_batch[idx] = np.array(self.tracker.last_known_bbox, dtype=int).reshape(1, -1)
-                    else:
-                        online_targets = []
-                    
-                    frames_with_tracking.append(frame)
-                    online_targets_batch.append(online_targets)
-                
+                # Step 4: Replace each pose instance's positional index with its
+                # subject's persistent track id. The pose backends return detections in
+                # the same order as the boxes they were given, so position maps to
+                # track id.
+                if self.tracker is not None:
+                    self._attach_track_ids(pose_results_batch, track_ids_batch)
+
+                frames_with_tracking = frames_with_pose
+
                 # Step 5: Batch segmentation
                 # Inference uses clean frames; overlay uses frames_with_tracking to keep pose drawings
                 if len(self.segmentators) > 0:
@@ -1153,22 +1335,16 @@ class Video:
                 for idx, (result_frame, metadata, pose_results, online_targets, face_orientation_results, depth_map) in enumerate(
                         zip(frames_with_face_orientation, frame_batch_metadata, pose_results_batch, online_targets_batch, face_orientation_results_batch, depth_maps_batch)):
                     
-                    # Update and attach motion plotter (top right corner)
+                    # Top-right stack (top -> bottom): motion plot, then the rPPG vitals
+                    # panels, then motion-derived respiration. Update each panel's data
+                    # first; attach_stack renders them once and handles the offsets.
                     if self.motion_plotter and self.pose_estimator is not None:
                         self.motion_plotter.update(pose_results, metadata['timestamp'])
-                        result_frame = self.motion_plotter.attach_to_frame(result_frame, position='top_right')
 
-                    # rPPG vitals stack (top-right, below the motion plot if present).
                     # Skin is sampled from the CLEAN frame (frame_batch[idx]), never the
                     # overlaid result_frame, so the pulse signal is not corrupted.
-                    stack_h = (self.motion_plotter.canvas_height + 10) if self.motion_plotter else 0
                     if self.rppg_estimator is not None:
                         self._update_rppg(frame_batch[idx])
-                        for panel in self.rppg_panels:
-                            result_frame = panel.attach_to_frame(
-                                result_frame, position='top_right',
-                                above_element_height=stack_h)
-                            stack_h += panel.canvas_height + 10
 
                     # Motion-based respiration: reuse the pose keypoints already computed
                     # this frame (no extra inference), buffer them, and recompute the
@@ -1176,49 +1352,38 @@ class Video:
                     if self._resp_motion_panel is not None:
                         self._resp_records.append(
                             {'timestamp': metadata['timestamp'],
-                             'detections': pose_results or []})
+                             'instances': pose_results or []})
                         panel = self._resp_motion_panel
                         panel._frames += 1
                         if panel._frames % self._resp_recompute_every == 0:
                             from physiotrack.signals import respiration_from_motion
                             panel.resp_wave, panel.rate = respiration_from_motion(
                                 list(self._resp_records), float(self.video_fps))
-                        result_frame = panel.attach_to_frame(
-                            result_frame, position='top_right',
-                            above_element_height=stack_h)
-                        stack_h += panel.canvas_height + 10
+
+                    top_right = []
+                    if self.motion_plotter and self.pose_estimator is not None:
+                        top_right.append(self.motion_plotter)
+                    if self.rppg_estimator is not None:
+                        top_right.extend(self.rppg_panels)
+                    top_right.append(self._resp_motion_panel)   # None is skipped
+                    result_frame = attach_stack(result_frame, top_right, 'top_right', 10)
 
                     # (Left-side kinematics stack -- joint-angle grid, ROM grid,
                     #  skeleton -- is composited together after the right-side views.)
 
-                    # Update and attach radar view (bottom right)
-                    radar_view_height = 0
+                    # Bottom-right stack (bottom -> up): radar, depth, ego video.
+                    bottom_right = []
                     if self.radar_view and self.tracker is not None and self.pose_estimator is not None:
                         self.radar_view.update(online_targets, pose_results)
-                        result_frame = self.radar_view.attach_to_frame(result_frame)
-                        radar_view_height = self.radar_view.canvas_size[1] + 10  # height + margin
-
-                    # Update and attach depth view (above radar view on bottom right)
-                    depth_view_height = 0
+                        bottom_right.append(self.radar_view)
                     if self.depth_view and depth_map is not None:
                         self.depth_view.update(depth_map)
-                        result_frame = self.depth_view.attach_to_frame(
-                            result_frame,
-                            position='bottom_right',
-                            margin=10,
-                            above_element_height=radar_view_height
-                        )
-                        depth_view_height = self.depth_view.get_canvas_height() + 10  # height + margin
-
-                    # Update and attach ego video view (above depth view or radar view on bottom right)
+                        bottom_right.append(self.depth_view)
                     if self.ego_view is not None:
                         self.ego_view.read_frame(metadata['frame_id'])
-                        result_frame = self.ego_view.attach_to_frame(
-                            result_frame,
-                            position='bottom_right',
-                            margin=10,
-                            above_element_height=radar_view_height + depth_view_height
-                        )
+                        bottom_right.append(self.ego_view)
+                    result_frame = attach_stack(result_frame, bottom_right,
+                                                'bottom_right', 10)
 
                     # Left-side kinematics stack (top -> bottom): joint-angle grid,
                     # ROM grid (both transparent 2-column L|R panels), then the white
@@ -1235,43 +1400,45 @@ class Video:
                         else:
                             grid_w = self.angle_plotter.canvas_width if self.angle_plotter else 320
 
-                        left_y = 0
-                        if self.angle_plotter is not None and self.angle_plotter.joints:
-                            jg = self.angle_plotter.render_grid('joint', grid_w)
-                            if jg is not None:
-                                result_frame = self.angle_plotter.attach_canvas(
-                                    result_frame, jg, 'top_left', 10, left_y)
-                                left_y += jg.shape[0] + 10
-                        if self.angle_plotter is not None and self.angle_plotter.rom_movements:
-                            rg = self.angle_plotter.render_grid('rom', grid_w)
-                            if rg is not None:
-                                result_frame = self.angle_plotter.attach_canvas(
-                                    result_frame, rg, 'top_left', 10, left_y)
-                                left_y += rg.shape[0] + 10
-                        if self.rom_skeleton_view is not None:
-                            result_frame = self.rom_skeleton_view.attach_to_frame(
-                                result_frame, position='top_left', margin=10,
-                                above_element_height=left_y)
+                        # The angle plotter fuses its joint and ROM grids into one
+                        # canvas, so the stack is just [grids, skeleton].
+                        if self.angle_plotter is not None:
+                            self.angle_plotter.canvas_width = grid_w
+                        result_frame = attach_stack(
+                            result_frame,
+                            [self.angle_plotter, self.rom_skeleton_view],
+                            'top_left', 10)
 
                     # Store frame data
-                    frame_data = {
-                        'frame_id': metadata['frame_id'],
-                        'timestamp': metadata['timestamp'],
-                    }
-                    
-                    # Add tracking box if tracker is available
-                    if self.tracker is not None and hasattr(self.tracker, 'last_known_bbox') and self.tracker.last_known_bbox is not None:
-                        frame_data['track_box'] = self.tracker.last_known_bbox.tolist()
-                    
-                    # Add pose results if available
-                    if self.pose_estimator is not None:
-                        frame_data['detections'] = pose_results
-                    
-                    # Add face orientation results if available
-                    if self.face_orientation is not None and len(face_orientation_results) > 0:
-                        frame_data['face_orientation'] = face_orientation_results
+                    track_box = None
+                    if (self.tracker is not None
+                            and getattr(self.tracker, 'locked_subject_box', None) is not None):
+                        track_box = self.tracker.locked_subject_box.tolist()
+
+                    face_orientation_data = (
+                        face_orientation_results
+                        if (self.face_orientation is not None
+                            and len(face_orientation_results) > 0)
+                        else None
+                    )
+
+                    # Instances come back from the pose backend as serialized dicts, so
+                    # rebuild them into the object model: the frame result must expose
+                    # Instance/Keypoints objects, not raw dicts.
+                    architecture = getattr(self.pose_estimator, 'architecture', None)
+                    frame_instances = [
+                        Instance.from_dict(det, architecture or "WHOLEBODY")
+                        for det in (pose_results or [])
+                    ] if self.pose_estimator is not None else []
+
+                    frame_meta = ResultMeta(
+                        frame_index=metadata['frame_id'],
+                        timestamp=metadata['timestamp'],
+                        fps=float(self.video_fps),
+                    )
 
                     # Add rPPG-derived vitals if enabled (nan -> None for clean JSON).
+                    vitals = None
                     if self.rppg_estimator is not None or self._resp_motion_panel is not None:
                         def _clean(v):
                             return None if v is None or (isinstance(v, float) and not np.isfinite(v)) else v
@@ -1286,9 +1453,20 @@ class Video:
                             vitals['respiration'] = _clean(self._resp_panel.rate)
                         elif self._resp_motion_panel is not None:
                             vitals['respiration'] = _clean(self._resp_motion_panel.rate)
-                        frame_data['vitals'] = vitals
 
-                    all_detection_data.append(frame_data)
+                    all_detection_data.append(FrameResult(
+                        result=Result(
+                            orig_img=result_frame,
+                            instances=frame_instances,
+                            task='pose' if self.pose_estimator is not None else 'detect',
+                            architecture=architecture,
+                            meta=frame_meta,
+                        ),
+                        meta=frame_meta,
+                        vitals=vitals,
+                        face_orientation=face_orientation_data,
+                        track_box=track_box,
+                    ))
                     
                     if out_writer:
                         out_writer.write(result_frame)
@@ -1299,7 +1477,7 @@ class Video:
                         cv2.imshow('PhysioTrack - Full Inference', display_frame)
                         # Wait 1ms and check if user pressed 'q' to quit
                         if cv2.waitKey(1) & 0xFF == ord('q'):
-                            print("\nUser interrupted processing (pressed 'q')")
+                            logger.info("\nUser interrupted processing (pressed 'q')")
                             break
 
                     if progress_callback:
@@ -1354,10 +1532,13 @@ class Video:
                             # Update progress bar with FPS info
                             pbar.set_postfix(fps_dict)
                         else:
-                            # Print FPS on same line if no progress bar
+                            # A self-overwriting terminal status line, deliberately not
+                            # logged: it relies on a carriage return, which a log handler
+                            # would turn into one new line per refresh.
                             fps_parts = [f"{k}: {v}" for k, v in fps_dict.items()]
                             fps_display = " | ".join(fps_parts)
-                            print(f"\r{fps_display}", end='', flush=True)
+                            sys.stdout.write("\r" + fps_display)
+                            sys.stdout.flush()
                         
                         last_fps_print_time = current_time
             
@@ -1381,62 +1562,19 @@ class Video:
             cv2.destroyAllWindows()
 
         total_time = time.time() - start_time
-        avg_fps = frame_count / total_time if total_time > 0 else 0
+        frames_processed = len(all_detection_data)
+        # Throughput must be measured over the frames that actually went through the
+        # models; `frame_count` includes the ones the fps= subsampler skipped, which
+        # would report the decode rate instead.
+        avg_fps = frames_processed / total_time if total_time > 0 else 0
 
-        # Print detailed FPS statistics
+        # Timings are collected unconditionally and kept on the instance, so a caller can
+        # read them (e.g. to tabulate throughput) instead of scraping stdout.
+        self.performance = self._collect_performance(frames_processed, total_time, avg_fps,
+                                                    frames_read=frame_count)
         if self.show_fps:
-            print("\n\n" + "="*60)  # Extra newline to clear real-time FPS line
-            print("PERFORMANCE METRICS")
-            print("="*60)
-            print(f"Batch Size: {self.batch_size}")
-            print(f"Overall Pipeline FPS: {avg_fps:.2f}")
-            print(f"Total frames processed: {frame_count}")
-            print(f"Total time: {total_time:.2f}s")
-            print("-"*60)
+            logger.info("\n%s", self._format_performance(self.performance))
 
-            # Component-level FPS
-            if len(self.detectors) > 0:
-                for idx, detector in enumerate(self.detectors):
-                    if hasattr(detector, 'get_avg_fps'):
-                        det_fps = detector.get_avg_fps()
-                        det_time = detector.get_avg_inference_time()
-                        print(f"Detector[{idx}] FPS: {det_fps:.2f} ({det_time:.2f}ms per frame)")
-
-            if self.pose_estimator and hasattr(self.pose_estimator, 'pose_estimator'):
-                if hasattr(self.pose_estimator.pose_estimator, 'get_avg_fps'):
-                    pose_fps = self.pose_estimator.pose_estimator.get_avg_fps()
-                    pose_time = self.pose_estimator.pose_estimator.get_avg_inference_time()
-                    print(f"Pose Estimator FPS: {pose_fps:.2f} ({pose_time:.2f}ms per frame)")
-
-            if self.tracker and hasattr(self.tracker, 'get_avg_fps'):
-                tracker_fps = self.tracker.get_avg_fps()
-                tracker_time = self.tracker.get_avg_inference_time()
-                print(f"Tracker FPS: {tracker_fps:.2f} ({tracker_time:.2f}ms per frame)")
-
-            if len(self.segmentators) > 0:
-                for idx, segmentor in enumerate(self.segmentators):
-                    if hasattr(segmentor, 'get_avg_fps'):
-                        seg_fps = segmentor.get_avg_fps()
-                        seg_time = segmentor.get_avg_inference_time()
-                        print(f"Segmentor[{idx}] FPS: {seg_fps:.2f} ({seg_time:.2f}ms per frame)")
-
-            if self.face_detector and hasattr(self.face_detector, 'get_avg_fps'):
-                face_det_fps = self.face_detector.get_avg_fps()
-                face_det_time = self.face_detector.get_avg_inference_time()
-                print(f"Face Detector FPS: {face_det_fps:.2f} ({face_det_time:.2f}ms per frame)")
-
-            if self.face_orientation and hasattr(self.face_orientation, 'get_avg_fps'):
-                face_orient_fps = self.face_orientation.get_avg_fps()
-                face_orient_time = self.face_orientation.get_avg_inference_time()
-                print(f"Face Orientation FPS: {face_orient_fps:.2f} ({face_orient_time:.2f}ms per frame)")
-
-            if self.depth_estimator and hasattr(self.depth_estimator, 'get_avg_fps'):
-                depth_fps = self.depth_estimator.get_avg_fps()
-                depth_time = self.depth_estimator.get_avg_inference_time()
-                print(f"Depth Estimator FPS: {depth_fps:.2f} ({depth_time:.2f}ms per frame)")
-
-            print("="*60)
-                  
         if output_json:
             self._save_json_data(all_detection_data, output_json)
         
@@ -1462,39 +1600,53 @@ class Video:
                 Defaults to ``True``.
 
         Returns:
-            dict[str, list[dict]]: Maps each input's file stem to its per-frame
+            dict[str, VideoResults]: Maps each input's file stem to its per-frame
                 results (the return value of [`run`][physiotrack.Video.run]).
 
-        Warning:
-            The pipeline is configured for the single ``source`` passed to the
-            constructor. This method reuses that same ``Video`` instance (and its
-            already-opened capture) for every path, so it is best suited to reusing
-            the model configuration rather than re-seeking multiple distinct clips.
+        Raises:
+            ValueError: If one of ``input_paths`` cannot be opened.
+
+        Note:
+            The loaded models and all overlay settings are shared across the batch;
+            only the video source changes. Each clip's own frame rate and dimensions
+            are re-read, so inputs may differ in resolution and frame rate.
         """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         results = {}
-        
+
         for input_path in input_paths:
             input_path = Path(input_path)
             video_name = input_path.stem
-            
+
             if self.verbose:
-                print(f"Processing video: {input_path}")
-            
+                logger.info(f"Processing video: {input_path}")
+            # Re-point the pipeline at this clip. `run` releases the capture when it
+            # finishes, so without this every input after the first would read from an
+            # exhausted, already-released capture and return no frames.
+            self._open_source(str(input_path))
+
             video_output_path = output_dir / f"{video_name}_processed.mp4" if save_videos else None
             json_output_path = output_dir / f"{video_name}_result.json" if save_json else None
-            
+
             detection_data = self.run(video_output_path, json_output_path)
             results[video_name] = detection_data
-            
+
         return results
     
-    def _save_json_data(self, detection_data: List[Dict[str, Any]], output_path: Union[str, Path]):
-        """Save detection data to JSON file."""
-        with open(output_path, 'w') as f:
-            json.dump(detection_data, f, indent=2)
-        
+    def _save_json_data(self, results: "VideoResults", output_path: Union[str, Path]):
+        """Write the per-frame results to a JSON file.
+
+        Args:
+            results (VideoResults): The frames to serialize.
+            output_path (str | Path): Destination ``.json`` file.
+
+        Note:
+            Delegates to [`VideoResults.to_json`][physiotrack.VideoResults.to_json], so
+            the file format is defined in one place and can be read back with
+            ``VideoResults.from_dict_list``.
+        """
+        results.to_json(output_path)
         if self.verbose:
-            print(f"JSON data saved to: {output_path}")
+            logger.info("JSON data saved to: %s", output_path)

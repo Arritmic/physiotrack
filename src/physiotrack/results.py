@@ -12,6 +12,8 @@ See ``docs/API_REDESIGN.md`` for the full contract.
 
 from __future__ import annotations
 
+import warnings
+from dataclasses import asdict, dataclass, fields
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -26,10 +28,70 @@ __all__ = [
     "Keypoint",
     "Keypoints",
     "Instance",
+    "ResultMeta",
     "Result",
     "DepthResult",
     "TrackResult",
+    "FrameResult",
+    "VideoResults",
 ]
+
+
+@dataclass(frozen=True)
+class ResultMeta:
+    """Provenance for a result: where it came from and how it was produced.
+
+    Without this, a saved prediction is un-citable — there is no record of which frame
+    it came from, which checkpoint produced it, or what the values are measured in. That
+    matters most for the physiological and kinematic outputs, where "angle" and
+    "velocity" are ambiguous without units.
+
+    Every field is optional, so a predictor can fill in what it knows.
+
+    Attributes:
+        frame_index (int | None): Zero-based frame number within the source.
+        timestamp (float | None): Seconds from the start of the source.
+        fps (float | None): Frame rate of the source, needed to interpret any
+            time-derivative computed from a sequence of these results.
+        model (str | None): Checkpoint that produced it, ideally the registry path
+            (e.g. ``"Pose.ViTPose.COCO.s_coco"``).
+        device (str | None): Device it ran on, e.g. ``"cpu"`` or ``"cuda:0"``.
+        speed_ms (dict | None): Per-stage timings in milliseconds.
+        units (dict | None): Unit for each measured quantity, e.g.
+            ``{"keypoints": "pixels", "angles": "degrees"}``.
+    """
+
+    frame_index: Optional[int] = None
+    timestamp: Optional[float] = None
+    fps: Optional[float] = None
+    model: Optional[str] = None
+    device: Optional[str] = None
+    speed_ms: Optional[dict] = None
+    units: Optional[dict] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return the populated fields only.
+
+        Returns:
+            dict: The non-``None`` fields, so an unannotated result serializes to ``{}``
+                rather than a wall of nulls.
+        """
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "ResultMeta":
+        """Rebuild from :meth:`to_dict` output, ignoring unknown keys.
+
+        Args:
+            data (dict | None): Serialized metadata, or ``None``.
+
+        Returns:
+            ResultMeta: The reconstructed metadata; empty when ``data`` is falsy.
+        """
+        if not data:
+            return cls()
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in data.items() if k in known})
 
 
 # COCO-17 skeleton edges (used when drawing body keypoints).
@@ -333,6 +395,76 @@ class Instance:
         self.mask = mask
         self.orientation = orientation
 
+    def to_dict(self, include_arrays: bool = False) -> Dict[str, Any]:
+        """Serialize the instance to a JSON-friendly dict.
+
+        Keys match the attribute names, so the serialized form and the object model use
+        one vocabulary: ``box`` (not ``bbox``) and ``orientation`` (not ``pose``). Only
+        populated fields are emitted.
+
+        Args:
+            include_arrays (bool, optional): Include :attr:`mask` as a nested list.
+                Defaults to ``False``, since a per-instance mask is megabytes of JSON.
+
+        Returns:
+            dict: Any of ``id``, ``box`` (``[x1, y1, x2, y2]``), ``confidence``, ``cls``,
+                ``cls_name``, ``keypoints`` (list of ``{"id", "x", "y", "confidence",
+                "z"?}``), ``orientation`` (``{"yaw", "pitch", "roll"}``), and ``mask``
+                when requested. ``has_mask`` is always present when a mask exists, so a
+                consumer can tell an omitted mask from an absent one.
+        """
+        out: Dict[str, Any] = {}
+        if self.id is not None:
+            out["id"] = self.id
+        if self.box is not None:
+            out["box"] = np.asarray(self.box).tolist()
+        if self.confidence is not None:
+            out["confidence"] = float(self.confidence)
+        if self.cls is not None:
+            out["cls"] = int(self.cls)
+        if self.cls_name is not None:
+            out["cls_name"] = self.cls_name
+        if self.keypoints is not None:
+            out["keypoints"] = [
+                {"id": k.id, "x": k.x, "y": k.y, "confidence": k.confidence,
+                 **({"z": k.z} if k.z is not None else {})}
+                for k in self.keypoints
+            ]
+        if self.orientation is not None:
+            out["orientation"] = self.orientation
+        if self.mask is not None:
+            out["has_mask"] = True
+            if include_arrays:
+                out["mask"] = np.asarray(self.mask).tolist()
+        return out
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any], architecture: str = "WHOLEBODY") -> "Instance":
+        """Rebuild an instance from :meth:`to_dict` output.
+
+        Args:
+            data (dict): A serialized instance.
+            architecture (str, optional): Skeleton naming for the keypoints, so their
+                ``name`` fields are restored. Defaults to ``"WHOLEBODY"``.
+
+        Returns:
+            Instance: The reconstructed instance. A mask is restored only if the dict
+                carries the array (see ``include_arrays``).
+        """
+        box = data.get("box")
+        mask = data.get("mask")
+        keypoints = data.get("keypoints")
+        return cls(
+            id=data.get("id"),
+            box=(np.asarray(box, dtype=np.float32) if box is not None else None),
+            confidence=data.get("confidence"),
+            cls=data.get("cls"),
+            cls_name=data.get("cls_name"),
+            keypoints=(Keypoints(keypoints, architecture) if keypoints else None),
+            mask=(np.asarray(mask) if mask is not None else None),
+            orientation=data.get("orientation"),
+        )
+
     def __repr__(self) -> str:
         parts = [f"id={self.id}"]
         if self.box is not None:
@@ -398,7 +530,8 @@ class Result:
                  task: str, architecture: Optional[str] = None,
                  seg_map: Optional[np.ndarray] = None,
                  names: Optional[Dict[int, str]] = None,
-                 palette: Optional[np.ndarray] = None):
+                 palette: Optional[np.ndarray] = None,
+                 meta: Optional["ResultMeta"] = None):
         """Construct a per-frame result (all fields keyword-only).
 
         Args:
@@ -414,6 +547,9 @@ class Result:
                 ``None``.
             palette (np.ndarray, optional): ``(K, 3)`` RGB palette for colorizing
                 ``seg_map``. Defaults to ``None`` (default palette).
+            meta (ResultMeta, optional): Provenance — where in the video this came
+                from, which model produced it, on what device, and how long it took.
+                Defaults to an empty [`ResultMeta`][physiotrack.ResultMeta].
         """
         self.orig_img = orig_img
         self.instances = instances
@@ -424,6 +560,7 @@ class Result:
         # Optional (K, 3) RGB palette for colorizing ``seg_map`` (e.g. face parsing).
         # When None, the default segmentation palette is used.
         self.palette = palette
+        self.meta = meta if meta is not None else ResultMeta()
 
     # -- container protocol -------------------------------------------------- #
     def __iter__(self):
@@ -481,51 +618,129 @@ class Result:
         return [i.keypoints for i in self.instances if i.keypoints is not None]
 
     # -- serialization ------------------------------------------------------- #
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, include_arrays: bool = False) -> Dict[str, Any]:
         """Serialize the result to a plain, JSON-friendly dict.
 
-        Only populated instance fields are emitted. Boxes are written under the
-        ``"bbox"`` key and orientation under ``"pose"``.
+        The subjects are under ``"instances"`` — the same name as the
+        :attr:`instances` attribute — and each one uses the attribute names rather than
+        aliases, so the object model and the serialized form share one vocabulary. Pair
+        with [`from_dict`][physiotrack.Result.from_dict] to round-trip.
+
+        Args:
+            include_arrays (bool, optional): Include the large arrays: per-instance
+                masks and the frame-level ``seg_map``. Defaults to ``False``, which
+                keeps the output small enough for JSON while still recording that a
+                mask or map exists.
 
         Returns:
-            dict: A dict with ``"task"`` (str) and ``"detections"`` (list of
-                per-instance dicts). Each detection may contain ``"id"`` (int),
-                ``"bbox"`` (``[x1, y1, x2, y2]``), ``"confidence"`` (float),
-                ``"cls"`` (int), ``"keypoints"`` (list of ``{"id", "x", "y",
-                "confidence", "z"?}``), and ``"pose"`` (``{"yaw", "pitch",
-                "roll"}``). The key ``"architecture"`` is added when set.
+            dict: ``"task"`` (str) and ``"instances"`` (list of
+                [`Instance.to_dict`][physiotrack.Instance.to_dict] outputs), plus
+                ``"architecture"``, ``"names"``, ``"has_seg_map"`` and ``"seg_map"``
+                when applicable.
 
         Example:
             ```python
             import physiotrack as pt
             data = pt.Pose.Person().predict(frame).to_dict()
-            data["task"], len(data["detections"])
+            data["task"], len(data["instances"])
+
+            restored = pt.Result.from_dict(data)
             ```
         """
-        detections = []
-        for inst in self.instances:
-            det: Dict[str, Any] = {}
-            if inst.id is not None:
-                det["id"] = inst.id
-            if inst.box is not None:
-                det["bbox"] = np.asarray(inst.box).tolist()
-            if inst.confidence is not None:
-                det["confidence"] = float(inst.confidence)
-            if inst.cls is not None:
-                det["cls"] = int(inst.cls)
-            if inst.keypoints is not None:
-                det["keypoints"] = [
-                    {"id": k.id, "x": k.x, "y": k.y, "confidence": k.confidence,
-                     **({"z": k.z} if k.z is not None else {})}
-                    for k in inst.keypoints
-                ]
-            if inst.orientation is not None:
-                det["pose"] = inst.orientation
-            detections.append(det)
-        out: Dict[str, Any] = {"task": self.task, "detections": detections}
+        out: Dict[str, Any] = {
+            "task": self.task,
+            "instances": [i.to_dict(include_arrays=include_arrays) for i in self.instances],
+        }
         if self.architecture is not None:
             out["architecture"] = self.architecture
+        if self.names is not None:
+            out["names"] = self.names
+        if self.seg_map is not None:
+            out["has_seg_map"] = True
+            if include_arrays:
+                out["seg_map"] = np.asarray(self.seg_map).tolist()
+        meta = self.meta.to_dict()
+        if meta:
+            out["meta"] = meta
         return out
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any],
+                  orig_img: Optional[np.ndarray] = None) -> "Result":
+        """Rebuild a result from :meth:`to_dict` output.
+
+        Lets serialized predictions be reloaded into the object model — so a JSON file
+        written by an earlier run can be re-analysed, plotted, or fed to the signals
+        functions without hand-parsing it.
+
+        Args:
+            data (dict): A serialized result.
+            orig_img (np.ndarray, optional): Source frame to attach, since the pixels are
+                not serialized. Required for [`plot`][physiotrack.Result.plot]; defaults
+                to ``None``.
+
+        Returns:
+            Result: The reconstructed result. Arrays absent from ``data`` (a mask or
+                ``seg_map`` omitted by ``include_arrays=False``) stay ``None``.
+
+        Raises:
+            KeyError: If ``data`` has no ``"task"`` key.
+        """
+        if "task" not in data:
+            raise KeyError(
+                "Serialized result is missing the 'task' key; expected the output of "
+                "Result.to_dict()."
+            )
+        architecture = data.get("architecture", "WHOLEBODY")
+        seg_map = data.get("seg_map")
+        return cls(
+            orig_img=orig_img,
+            instances=[Instance.from_dict(d, architecture)
+                       for d in data.get("instances", [])],
+            task=data["task"],
+            architecture=data.get("architecture"),
+            seg_map=(np.asarray(seg_map) if seg_map is not None else None),
+            names=data.get("names"),
+            meta=ResultMeta.from_dict(data.get("meta")),
+        )
+
+    def to_json(self, path=None, *, include_arrays: bool = False, indent: int = 2):
+        """Serialize to JSON, optionally writing it to a file.
+
+        Args:
+            path (str | os.PathLike, optional): Destination file. Defaults to ``None``,
+                which returns the JSON string instead of writing.
+            include_arrays (bool, optional): Include masks and ``seg_map``. Defaults to
+                ``False``.
+            indent (int, optional): JSON indentation. Defaults to ``2``.
+
+        Returns:
+            str | None: The JSON string when ``path`` is ``None``, otherwise ``None``.
+        """
+        import json
+
+        payload = json.dumps(self.to_dict(include_arrays=include_arrays), indent=indent)
+        if path is None:
+            return payload
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+        return None
+
+    def save(self, path, **plot_kwargs) -> None:
+        """Render the overlay and write it to an image file.
+
+        Args:
+            path (str | os.PathLike): Destination image path; the extension selects the
+                format.
+            **plot_kwargs (Any): Forwarded to [`plot`][physiotrack.Result.plot].
+
+        Raises:
+            RuntimeError: If OpenCV is unavailable, or the file could not be written.
+        """
+        if cv2 is None:  # pragma: no cover - cv2 is a hard dependency
+            raise RuntimeError("Saving an overlay requires OpenCV (cv2).")
+        if not cv2.imwrite(str(path), self.plot(**plot_kwargs)):
+            raise RuntimeError(f"Could not write the annotated image to {path!r}.")
 
     # -- rendering ----------------------------------------------------------- #
     def plot(self, *, boxes: bool = True, labels: bool = True,
@@ -644,8 +859,16 @@ class Result:
                     if color_map.shape[:2] != img.shape[:2]:
                         color_map = cv2.resize(color_map, (img.shape[1], img.shape[0]))
                     img = cv2.addWeighted(color_map, 0.5, img, 0.5, 0)
-            except Exception:
-                pass
+            except Exception as exc:
+                # Never let an overlay failure abort a caller's render loop, but do
+                # not hide it either: a silently mask-less plot is indistinguishable
+                # from a backend that produced no segmentation.
+                warnings.warn(
+                    f"Could not draw the segmentation overlay: {exc!r}. "
+                    f"The returned image has no masks drawn.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
         # Per-instance binary masks (if a backend provides them).
         rng = np.random.default_rng(0)
         for inst in self.instances:
@@ -762,14 +985,214 @@ class DepthResult:
         cmap = getattr(cv2, self._COLORMAPS.get(colormap, "COLORMAP_INFERNO"))
         return cv2.applyColorMap(norm, cmap)
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize a lightweight summary of the depth result.
+    def to_dict(self, include_arrays: bool = False) -> Dict[str, Any]:
+        """Serialize the depth result.
+
+        Args:
+            include_arrays (bool, optional): Include the raw depth map as a nested list.
+                Defaults to ``False``, because a full-resolution depth map is tens of
+                megabytes of JSON. When omitted, ``shape`` still records what was
+                produced, so the result can be round-tripped structurally.
 
         Returns:
-            dict: ``{"task": "depth", "shape": [H, W]}``. The raw depth array is
-                not included.
+            dict: ``"task"`` (``"depth"``), ``"shape"`` (``[H, W]``), ``"relative"``
+                (always ``True`` — see the note), and ``"depth"`` when requested.
+
+        Note:
+            The values are **relative** depth, not metres: larger means nearer, and the
+            scale is arbitrary and not comparable between frames. This is recorded in the
+            output so a downstream consumer cannot mistake it for a metric map.
         """
-        return {"task": "depth", "shape": list(self.depth.shape)}
+        out: Dict[str, Any] = {
+            "task": "depth",
+            "shape": list(self.depth.shape),
+            "relative": True,
+        }
+        if include_arrays:
+            out["depth"] = np.asarray(self.depth).tolist()
+        return out
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any],
+                  orig_img: Optional[np.ndarray] = None) -> "DepthResult":
+        """Rebuild a depth result from :meth:`to_dict` output.
+
+        Args:
+            data (dict): A serialized depth result.
+            orig_img (np.ndarray, optional): Source frame to attach. Defaults to ``None``.
+
+        Returns:
+            DepthResult: The reconstructed result.
+
+        Raises:
+            KeyError: If ``data`` carries no ``"depth"`` array, which happens when it was
+                serialized with ``include_arrays=False``. The map cannot be recovered from
+                the shape alone.
+        """
+        if "depth" not in data:
+            raise KeyError(
+                "Serialized depth result has no 'depth' array (it was written with "
+                "include_arrays=False), so the map cannot be restored. Re-serialize with "
+                "include_arrays=True to round-trip."
+            )
+        return cls(orig_img=orig_img, depth=np.asarray(data["depth"], dtype=float))
+
+
+# --------------------------------------------------------------------------- #
+# Pose3DResult
+# --------------------------------------------------------------------------- #
+class Pose3DResult:
+    """Lifted 3D pose sequence: ``(N, 17, 3)`` joints in Human3.6M order.
+
+    Returned by [`Pose3D.predict`][physiotrack.Pose3D]. Unlike the per-frame result
+    objects, this one is inherently **sequence-level**: a temporal lifter needs a window
+    of 2D frames to produce each 3D frame, so a single frame cannot be lifted in
+    isolation. Indexing and iteration therefore walk *frames*, yielding ``(17, 3)``
+    arrays.
+
+    Coordinates are **root-relative** and in an arbitrary scale unless the backend was
+    run in pixel mode — they are not metric, and not comparable between videos. This is
+    recorded in :meth:`to_dict` so a consumer cannot mistake them for millimetres.
+
+    Attributes:
+        poses (np.ndarray): ``(N, 17, 3)`` joint positions in Human3.6M order.
+        fps (float | None): Frame rate of the source sequence, when known.
+        view (CanonicalView | None): The canonical viewpoint the poses were rotated
+            to, or ``None`` if no canonicalization was applied.
+        meta (ResultMeta): Model/device/timing metadata.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        lifter = pt.Pose3D(model=pt.Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite)
+        res = lifter.predict(keypoints_2d, fps=30)
+        res.poses.shape                     # (N, 17, 3)
+        res.by_name("left_wrist").shape     # (N, 3) -- one joint over time
+        res[0].shape                        # (17, 3) -- one frame
+        ```
+
+    See Also:
+        [`canonicalize_pose`][physiotrack.canonicalize_pose]: rotate a sequence to a
+        fixed viewpoint.
+    """
+
+    def __init__(self, *, poses: np.ndarray, fps: Optional[float] = None,
+                 view: Any = None, meta: Optional["ResultMeta"] = None):
+        """Construct a 3D pose sequence (fields keyword-only).
+
+        Args:
+            poses (np.ndarray): ``(N, 17, 3)`` joint positions in Human3.6M order.
+            fps (float, optional): Source frame rate. Defaults to ``None``.
+            view (CanonicalView, optional): Canonical viewpoint applied. Defaults to
+                ``None``.
+            meta (ResultMeta, optional): Model/device metadata. Defaults to ``None``.
+
+        Raises:
+            ValueError: If ``poses`` is not ``(N, 17, 3)``.
+        """
+        arr = np.asarray(poses, dtype=float)
+        if arr.ndim != 3 or arr.shape[1:] != (17, 3):
+            raise ValueError(
+                f"3D poses must have shape (N, 17, 3) in Human3.6M joint order, got "
+                f"{tuple(arr.shape)}."
+            )
+        self.poses = arr
+        self.fps = float(fps) if fps is not None else None
+        self.view = view
+        self.meta = meta if meta is not None else ResultMeta(
+            units={"poses": "relative"})
+
+    def __repr__(self) -> str:
+        view = getattr(self.view, "name", self.view)
+        return (f"Pose3DResult(frames={len(self)}, joints=17, fps={self.fps}, "
+                f"view={view})")
+
+    def __len__(self) -> int:
+        """Number of frames in the sequence."""
+        return int(self.poses.shape[0])
+
+    def __getitem__(self, index):
+        """Return one frame's ``(17, 3)`` joints, or a sub-sequence for a slice."""
+        if isinstance(index, slice):
+            return Pose3DResult(poses=self.poses[index], fps=self.fps,
+                                view=self.view, meta=self.meta)
+        return self.poses[index]
+
+    def __iter__(self):
+        """Iterate frames, yielding ``(17, 3)`` arrays."""
+        return iter(self.poses)
+
+    def by_name(self, name: str) -> np.ndarray:
+        """Return one joint's trajectory over the whole sequence.
+
+        Args:
+            name (str): A Human3.6M joint name, e.g. ``"left_wrist"``, ``"root"``.
+
+        Returns:
+            np.ndarray: ``(N, 3)`` positions of that joint across frames.
+
+        Raises:
+            KeyError: If ``name`` is not a Human3.6M joint. The message lists the
+                valid names.
+        """
+        from .pose.config import HUMAN26M_NAMES
+
+        joint_id = HUMAN26M_NAMES.get(name)
+        if joint_id is None or joint_id >= 17:
+            valid = sorted(k for k, v in HUMAN26M_NAMES.items() if v < 17)
+            raise KeyError(f"{name!r} is not a Human3.6M joint. Valid names: {valid}")
+        return self.poses[:, joint_id, :]
+
+    def to_dict(self, include_arrays: bool = False) -> Dict[str, Any]:
+        """Serialize to a JSON-safe dictionary.
+
+        Args:
+            include_arrays (bool, optional): Include the full ``(N, 17, 3)`` array as
+                nested lists. Defaults to ``False``, since a long sequence is large;
+                ``shape`` still records what was produced.
+
+        Returns:
+            dict: ``"task"`` (``"pose3d"``), ``"shape"``, ``"joint_order"``
+                (``"human36m"``), ``"units"``, ``"fps"``, ``"view"``, ``"meta"``, and
+                ``"poses"`` when requested.
+        """
+        out: Dict[str, Any] = {
+            "task": "pose3d",
+            "shape": list(self.poses.shape),
+            "joint_order": "human36m",
+            "units": self.meta.units if self.meta else {"poses": "relative"},
+            "fps": self.fps,
+            "view": getattr(self.view, "name", self.view),
+            "meta": self.meta.to_dict() if self.meta else None,
+        }
+        if include_arrays:
+            out["poses"] = self.poses.tolist()
+        return out
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Pose3DResult":
+        """Rebuild a 3D pose sequence from :meth:`to_dict` output.
+
+        Args:
+            data (dict): A serialized 3D pose result.
+
+        Returns:
+            Pose3DResult: The reconstructed sequence.
+
+        Raises:
+            KeyError: If ``data`` carries no ``"poses"`` array, which happens when it
+                was serialized with ``include_arrays=False``.
+        """
+        if "poses" not in data:
+            raise KeyError(
+                "Serialized 3D pose result has no 'poses' array (it was written with "
+                "include_arrays=False), so the sequence cannot be restored. "
+                "Re-serialize with include_arrays=True to round-trip."
+            )
+        meta = ResultMeta.from_dict(data["meta"]) if data.get("meta") else None
+        return cls(poses=np.asarray(data["poses"], dtype=float),
+                   fps=data.get("fps"), view=data.get("view"), meta=meta)
 
 
 # --------------------------------------------------------------------------- #
@@ -798,7 +1221,7 @@ class TrackResult:
         import numpy as np
         import physiotrack as pt
         det = pt.Detection.Person()
-        tracker = pt.Tracker(pt.TrackerConfig(tracker="ocsort", classes=[0]))
+        tracker = pt.Tracker(pt.TrackerConfig(tracker_type="ocsort", classes=[0]))
         res = det.predict(frame)
         # Tracker expects an (N, 6) [x1, y1, x2, y2, conf, cls] array:
         detections = np.array([[*i.box, i.confidence, i.cls] for i in res],
@@ -831,7 +1254,7 @@ class TrackResult:
         """
         self.instances = instances
         self.orig_img = orig_img
-        # ``rendered`` is the tracker's own rich overlay (student box, trails, etc.).
+        # ``rendered`` is the tracker's own rich overlay (subject box, trails, etc.).
         self.rendered = rendered
         # ``raw`` is the backend's raw target rows: [x1,y1,x2,y2,id,(cls),(conf)].
         self.raw = raw if raw is not None else []
@@ -920,7 +1343,7 @@ class TrackResult:
             import numpy as np
             import physiotrack as pt
             det = pt.Detection.Person()
-            tracker = pt.Tracker(pt.TrackerConfig(tracker="ocsort", classes=[0]))
+            tracker = pt.Tracker(pt.TrackerConfig(tracker_type="ocsort", classes=[0]))
             res = det.predict(frame)
             detections = np.array([[*i.box, i.confidence, i.cls] for i in res],
                                   dtype=np.float32) if len(res) else np.empty((0, 6), np.float32)
@@ -947,20 +1370,288 @@ class TrackResult:
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
         return img
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, include_arrays: bool = False) -> Dict[str, Any]:
         """Serialize the tracker result to a plain, JSON-friendly dict.
 
+        Uses the same ``"instances"`` key and per-instance keys as
+        [`Result.to_dict`][physiotrack.Result.to_dict], so a consumer does not need a
+        separate code path for tracker output.
+
+        Args:
+            include_arrays (bool, optional): Include per-instance masks. Defaults to
+                ``False``.
+
         Returns:
-            dict: ``{"task": "track", "tracks": [...]}`` where each track is
-                ``{"id": int, "bbox": [x1, y1, x2, y2] | None,
-                "confidence": float | None, "cls": int | None}``.
+            dict: ``"task"`` (``"track"``) and ``"instances"``, each carrying its
+                persistent ``id``.
         """
         return {
             "task": "track",
-            "tracks": [
-                {"id": i.id,
-                 "bbox": (np.asarray(i.box).tolist() if i.box is not None else None),
-                 "confidence": i.confidence, "cls": i.cls}
-                for i in self.instances
-            ],
+            "instances": [i.to_dict(include_arrays=include_arrays) for i in self.instances],
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any],
+                  orig_img: Optional[np.ndarray] = None) -> "TrackResult":
+        """Rebuild a tracker result from :meth:`to_dict` output.
+
+        Args:
+            data (dict): A serialized tracker result.
+            orig_img (np.ndarray, optional): Source frame to attach. Defaults to ``None``.
+
+        Returns:
+            TrackResult: The reconstructed result. The rendered overlay and the backend's
+                raw rows are not serialized, so they are absent.
+        """
+        return cls(
+            instances=[Instance.from_dict(d) for d in data.get("instances", [])],
+            orig_img=orig_img,
+        )
+
+
+# --------------------------------------------------------------------------- #
+# Video output: one FrameResult per frame, collected in a VideoResults sequence
+# --------------------------------------------------------------------------- #
+class FrameResult:
+    """One frame of [`Video`][physiotrack.Video] output.
+
+    A frame carries more than the subjects in it: the physiological signals
+    (:attr:`vitals`) and the head orientations are properties of the *frame*, not of any
+    one instance. ``FrameResult`` wraps the per-frame [`Result`][physiotrack.Result]
+    together with those extras, so :class:`Result` stays a general per-task container
+    rather than accumulating pipeline-specific fields.
+
+    Attributes:
+        result (Result): The subjects detected in this frame, with their keypoints.
+        meta (ResultMeta): Frame index, timestamp and source frame rate.
+        vitals (dict | None): rPPG-derived signals for this frame -- any of ``hr`` (bpm),
+            ``snr`` (dB), ``hrv`` (index name to value) and ``respiration``
+            (breaths/min). ``None`` when no vitals were requested.
+        face_orientation (list | None): Per-face head-pose entries, each with ``box`` and
+            ``orientation`` (``{"yaw", "pitch", "roll"}`` in degrees). Kept separate from
+            ``result.instances`` because faces are detected independently of bodies and
+            the two are not associated.
+        track_box (list | None): The locked subject's box ``[x1, y1, x2, y2]`` when
+            subject-lock tracking is enabled.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        results = pt.Video(source="clip.mp4", pose=pt.Pose.Person(), rppg=True).run()
+        for frame in results:
+            print(frame.meta.timestamp, len(frame), frame.hr)
+        ```
+
+    See Also:
+        [`VideoResults`][physiotrack.VideoResults]: the sequence of these that
+            [`Video.run`][physiotrack.Video.run] returns.
+    """
+
+    __slots__ = ("result", "meta", "vitals", "face_orientation", "track_box")
+
+    def __init__(self, *, result: Result, meta: Optional[ResultMeta] = None,
+                 vitals: Optional[dict] = None,
+                 face_orientation: Optional[list] = None,
+                 track_box: Optional[list] = None):
+        """Construct a frame result (all fields keyword-only).
+
+        Args:
+            result (Result): The per-frame instances.
+            meta (ResultMeta, optional): Frame provenance. Defaults to the ``result``'s
+                own metadata, so the two cannot disagree.
+            vitals (dict, optional): rPPG-derived signals. Defaults to ``None``.
+            face_orientation (list, optional): Per-face head poses. Defaults to ``None``.
+            track_box (list, optional): Locked-subject box. Defaults to ``None``.
+        """
+        self.result = result
+        self.meta = meta if meta is not None else result.meta
+        self.vitals = vitals
+        self.face_orientation = face_orientation
+        self.track_box = track_box
+
+    # -- container protocol: behave like the instances in the frame ------------ #
+    def __iter__(self):
+        """Iterate the frame's instances.
+
+        Yields:
+            Instance: Each subject detected in this frame.
+        """
+        return iter(self.result)
+
+    def __len__(self) -> int:
+        """Return the number of instances in the frame."""
+        return len(self.result)
+
+    def __getitem__(self, index):
+        """Return the instance at ``index``."""
+        return self.result[index]
+
+    # -- convenience accessors ------------------------------------------------- #
+    @property
+    def instances(self) -> List[Instance]:
+        """The frame's instances (shorthand for ``frame.result.instances``)."""
+        return self.result.instances
+
+    @property
+    def hr(self) -> Optional[float]:
+        """Heart rate in bpm for this frame, or ``None`` if unavailable.
+
+        Note:
+            Interpret alongside :attr:`snr`: a heart rate is reported whenever the
+            analysis window is full, regardless of signal quality.
+        """
+        return (self.vitals or {}).get("hr")
+
+    @property
+    def snr(self) -> Optional[float]:
+        """Signal-to-noise ratio in dB of the pulse signal, or ``None``."""
+        return (self.vitals or {}).get("snr")
+
+    def plot(self, **kwargs) -> np.ndarray:
+        """Render the frame's overlay.
+
+        Args:
+            **kwargs (Any): Forwarded to [`Result.plot`][physiotrack.Result.plot].
+
+        Returns:
+            np.ndarray: The annotated BGR frame.
+        """
+        return self.result.plot(**kwargs)
+
+    def to_dict(self, include_arrays: bool = False) -> Dict[str, Any]:
+        """Serialize the frame to the JSON schema the pipeline writes.
+
+        Args:
+            include_arrays (bool, optional): Include masks and segmentation maps.
+                Defaults to ``False``.
+
+        Returns:
+            dict: ``frame_id``, ``timestamp``, ``instances``, and whichever of
+                ``track_box``, ``face_orientation`` and ``vitals`` are present.
+        """
+        out: Dict[str, Any] = {
+            "frame_id": self.meta.frame_index,
+            "timestamp": self.meta.timestamp,
+        }
+        if self.track_box is not None:
+            out["track_box"] = self.track_box
+        out["instances"] = [i.to_dict(include_arrays=include_arrays)
+                            for i in self.result.instances]
+        if self.face_orientation is not None:
+            out["face_orientation"] = self.face_orientation
+        if self.vitals is not None:
+            out["vitals"] = self.vitals
+        return out
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any], *, architecture: str = "WHOLEBODY",
+                  orig_img: Optional[np.ndarray] = None) -> "FrameResult":
+        """Rebuild a frame from :meth:`to_dict` output.
+
+        Args:
+            data (dict): One serialized frame record.
+            architecture (str, optional): Skeleton naming for the keypoints. Defaults to
+                ``"WHOLEBODY"``.
+            orig_img (np.ndarray, optional): Source frame to attach. Defaults to ``None``.
+
+        Returns:
+            FrameResult: The reconstructed frame.
+        """
+        meta = ResultMeta(frame_index=data.get("frame_id"),
+                          timestamp=data.get("timestamp"))
+        result = Result(
+            orig_img=orig_img,
+            instances=[Instance.from_dict(d, architecture)
+                       for d in data.get("instances", [])],
+            task="pose",
+            architecture=architecture,
+            meta=meta,
+        )
+        return cls(result=result, meta=meta, vitals=data.get("vitals"),
+                   face_orientation=data.get("face_orientation"),
+                   track_box=data.get("track_box"))
+
+    def __repr__(self) -> str:
+        parts = [f"frame={self.meta.frame_index}", f"instances={len(self)}"]
+        if self.vitals:
+            parts.append(f"vitals={sorted(self.vitals)}")
+        return f"FrameResult({', '.join(parts)})"
+
+
+class VideoResults(list):
+    """The sequence of [`FrameResult`][physiotrack.FrameResult] a video run produces.
+
+    A ``list`` subclass, so it indexes, slices and iterates like one, while adding the
+    serialization the pipeline needs. Returning this rather than a list of plain dicts is
+    what lets the object model survive video processing: every frame still exposes
+    [`Instance`][physiotrack.Instance] objects with named keypoints.
+
+    Example:
+        ```python
+        import physiotrack as pt
+
+        results = pt.Video(source="clip.mp4", pose=pt.Pose.Person()).run()
+        len(results)                        # number of frames
+        results[0][0].keypoints.by_name("nose")
+        results.to_json("out.json")
+        ```
+
+    See Also:
+        [`Video.run`][physiotrack.Video.run]: produces this.
+    """
+
+    def to_dict_list(self, include_arrays: bool = False) -> List[Dict[str, Any]]:
+        """Serialize every frame.
+
+        Args:
+            include_arrays (bool, optional): Include masks and segmentation maps.
+                Defaults to ``False``.
+
+        Returns:
+            list[dict]: One record per frame -- the schema written to JSON and consumed by
+                the ``physiotrack.signals`` sequence functions.
+        """
+        return [f.to_dict(include_arrays=include_arrays) for f in self]
+
+    def to_json(self, path=None, *, include_arrays: bool = False, indent: int = 2):
+        """Serialize to JSON, optionally writing it to a file.
+
+        Args:
+            path (str | os.PathLike, optional): Destination. Defaults to ``None``, which
+                returns the JSON string.
+            include_arrays (bool, optional): Include masks and segmentation maps.
+                Defaults to ``False``.
+            indent (int, optional): JSON indentation. Defaults to ``2``.
+
+        Returns:
+            str | None: The JSON string when ``path`` is ``None``, else ``None``.
+        """
+        import json
+
+        payload = json.dumps(self.to_dict_list(include_arrays=include_arrays),
+                             indent=indent)
+        if path is None:
+            return payload
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+        return None
+
+    @classmethod
+    def from_dict_list(cls, records, *,
+                       architecture: str = "WHOLEBODY") -> "VideoResults":
+        """Rebuild from serialized frame records.
+
+        Args:
+            records (Iterable[dict]): Frame records, e.g. ``json.load`` of a file written
+                by [`to_json`][physiotrack.VideoResults.to_json].
+            architecture (str, optional): Skeleton naming for the keypoints. Defaults to
+                ``"WHOLEBODY"``.
+
+        Returns:
+            VideoResults: The reconstructed sequence.
+        """
+        return cls(FrameResult.from_dict(r, architecture=architecture) for r in records)
+
+    def __repr__(self) -> str:
+        return f"VideoResults({len(self)} frames)"

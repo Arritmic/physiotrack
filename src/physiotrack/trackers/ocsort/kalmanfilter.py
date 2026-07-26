@@ -397,12 +397,16 @@ class KalmanFilterNew(object):
             indices = np.where(np.array(occur)==0)[0]
             index1 = indices[-2]
             index2 = indices[-1]
-            box1 = new_history[index1]
-            x1, y1, s1, r1 = box1 
+            # Observations are stored as (4, 1) column vectors, so flatten before
+            # unpacking: otherwise each name binds a 1-element array and the scalar
+            # arithmetic below fails on NumPy >= 2, where float() on a size-1 array
+            # is an error rather than a deprecation.
+            box1 = np.asarray(new_history[index1], dtype=float).reshape(-1)[:4]
+            x1, y1, s1, r1 = box1
             w1 = np.sqrt(s1 * r1)
             h1 = np.sqrt(s1 / r1)
-            box2 = new_history[index2]
-            x2, y2, s2, r2 = box2 
+            box2 = np.asarray(new_history[index2], dtype=float).reshape(-1)[:4]
+            x2, y2, s2, r2 = box2
             w2 = np.sqrt(s2 * r2)
             h2 = np.sqrt(s2 / r2)
             time_gap = index2 - index1
@@ -420,8 +424,8 @@ class KalmanFilterNew(object):
                 y = y1 + (i+1) * dy 
                 w = w1 + (i+1) * dw 
                 h = h1 + (i+1) * dh
-                s = w * h 
-                r = w / float(h)
+                s = w * h
+                r = w / h
                 new_box = np.array([x, y, s, r]).reshape((4, 1))
                 """
                     I still use predict-update loop here to refresh the parameters,

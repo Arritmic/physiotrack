@@ -5,7 +5,7 @@
 **Contactless human understanding: turning pixels into interpretable physiological and behavioral signals.**
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-green.svg)](https://www.python.org/downloads/release/python-380/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9-ee4c2c.svg)](https://pytorch.org/)
 ![Status](https://img.shields.io/badge/status-under%20construction-FF0000)
 [![Docs](https://img.shields.io/badge/docs-physiotrack-00897b.svg)](https://tharindu326.github.io/physiotrack/)
@@ -18,6 +18,7 @@
 [Quick start](#quick-start) ·
 [Subsystems](#subsystem-guide) ·
 [Models](#model-registry) ·
+[Limitations](#scope--limitations) ·
 [Citations](#citations)
 
 </div>
@@ -27,7 +28,7 @@
 **Physiotrack** is an open-source Python toolkit for contactless human understanding. It integrates
 state-of-the-art computer-vision models (YOLO11, RT-DETR, ViTPose, Sapiens, Depth-Anything-V2,
 ZipDepth, MotionBERT, 6DRepNet360, SegFace) into a **single, unified API** that extracts actionable, theory-linked
-signals from RGB / RGB-D / thermal video, for healthcare, education, XR, and operator-support
+signals from ordinary **RGB video**, for healthcare, education, XR, and operator-support
 systems. Developed at the **Center for Machine Vision and Signal Processing (CMVS), University of Oulu**.
 
 <div align="center">
@@ -44,20 +45,20 @@ systems. Developed at the **Center for Machine Vision and Signal Processing (CMV
 
 <img src="docs/images/full_inference_overlay.png" width="78%" alt="Full multi-task pipeline overlay" />
 
-<sub>Full pipeline on a single frame: tracked whole-body pose + instance/VR-head segmentation, with live joint-angle &amp; clinical-ROM panels, the ROM skeleton, the wrist-motion plot, and colorized monocular depth.</sub>
+<sub>Full pipeline on one frame of a person in VR walking in a lab: tracked whole-body pose with a persistent id, live joint-angle &amp; clinical-ROM panels, the ROM skeleton, the wrist-motion plot, and colorized <i>relative</i> monocular depth. Respiration here comes from shoulder motion, reusing the pose keypoints.</sub>
 
 <br/><br/>
 
 <img src="docs/images/rppg_heartrate_overlay.png" width="40%" alt="Contactless rPPG heart-rate overlay" />
 
-<sub>Contactless rPPG: a single SegFace pass yields the face parsing and skin ROI that drive the live blood-volume-pulse signal and the derived heart rate.</sub>
+<sub>Contactless rPPG on an RGB face recording: one SegFace pass yields the face parsing and skin ROI that drive the live blood-volume-pulse signal and the derived heart rate (78.0 bpm at &minus;0.1 dB SNR here). Regenerate with <code>examples/evaluation/rppg_figure.py</code>.</sub>
 
 </div>
 
 ## Why Physiotrack?
 
 Foundational models are good at labeling *what* they see. Physiotrack is designed to help systems
-understand *what it means*. It converts RGB / Depth / Thermal streams into interpretable
+understand *what it means*. It converts an ordinary RGB video stream into interpretable
 human-state features: pose and motion patterns, posture symmetry, head orientation and gaze
 stability, and rPPG-derived heart rate, heart-rate variability (HRV) and respiration rate.
 
@@ -76,6 +77,7 @@ human *states* instead of processing raw video.
 - [Subsystem Guide](#subsystem-guide)
 - [Model Registry](#model-registry)
 - [Result Objects](#result-objects)
+- [Scope & Limitations](#scope--limitations)
 - [Project Layout](#project-layout)
 - [Citations](#citations)
 - [Contributing](#contributing)
@@ -103,17 +105,17 @@ flowchart TB
         I1["Video file<br/>MP4 / AVI / …"]
         I2["RTSP stream"]
         I3["Live camera<br/>device index"]
-        I4["Single image<br/>(or depth / thermal<br/>frame as image)"]
+        I4["Single image"]
     end
 
-    CAP["🎞️ <b>Video orchestrator</b> · capture.Video<br/><i>frame loop · resize · rotate · FPS subsample · batching</i><br/><i>8-stage per-frame pipeline · sync ego-video</i>"]
+    CAP["🎞️ <b>Video orchestrator</b> · capture.Video<br/><i>frame loop · resize · rotate · FPS subsample · batching</i><br/><i>per-frame pipeline: 6 model stages · sync ego-video</i>"]
 
     %% ====== TIER 1: enabling tools (general-purpose CV) ======
     subgraph TOOLS["🧰 General-purpose perception · enabling tools"]
         direction LR
         DET["🔍 <b>Detection</b> → boxes<br/><i>Person · Face · VR · VRStudent · Custom</i><br/>YOLO11 · RT-DETR"]
         TRK["🎯 <b>Tracking</b> → persistent IDs<br/>OC-SORT · ByteTrack<br/>StrongSORT · BoostTrack"]
-        SEG["🎭 <b>Segmentation</b> → masks / class map<br/>YOLO11-seg · Sapiens-Goliath (28)<br/>VR-head"]
+        SEG["🎭 <b>Segmentation</b> → masks / class map<br/>YOLO11-seg · Sapiens-Goliath<br/>VR-head"]
         DEP["🌊 <b>Depth</b> · monocular<br/>Depth-Anything-V2 (S/B/L) · ZipDepth<br/><i>relative depth</i>"]
         FDET["😊 <b>Face detection</b> → boxes<br/>YOLO11-face · YOLO12-face (VR)"]
     end
@@ -123,7 +125,7 @@ flowchart TB
         direction LR
         POSE["🦴 <b>2D Pose</b> · top-down<br/>ViTPose (s/b/l/h) · Sapiens · YOLO11-pose<br/><i>COCO-17 · WholeBody-133</i>"]
         P3D["🧊 <b>3D Pose</b> · offline lift<br/>MotionBERT · DDHPose<br/><i>→ H36M-17</i>"]
-        CAN["📐 <b>Canonicalization</b> · viewpoint-invariant<br/>3DPCNet (S2/S3/TC48) · GEOMETRIC<br/><i>front · back · left · right</i>"]
+        CAN["📐 <b>Canonicalization</b> · viewpoint-invariant<br/>3DPCNet (S2/S3/TC48) · GEOMETRIC<br/><i>front · back · left_side · right_side</i>"]
         FSEG["🧩 <b>Face parsing</b><br/>SegFace · Swin-Base<br/><i>19 CelebAMask-HQ classes</i>"]
     end
 
@@ -140,14 +142,14 @@ flowchart TB
     %% ------------- Outputs -------------
     subgraph OUT["📤 Results &amp; visualization"]
         direction LR
-        RES["<b>Result family</b><br/>Result · DepthResult · TrackResult<br/>Instance · Keypoints<br/>.plot() · .to_dict()"]
+        RES["<b>Result family</b><br/>Result · DepthResult · TrackResult · Pose3DResult<br/>Instance · Keypoints · FrameResult / VideoResults<br/>.plot() · .to_dict()"]
         VID["Annotated<br/>video"]
         JSON["JSON<br/>time-series"]
         RTP["Real-time<br/>plots"]
     end
 
     %% ------------- Model registry -------------
-    REG[["🗂️ <b>Models registry</b> · Models.&lt;Task&gt;.&lt;Backend&gt;.&lt;Variant&gt;<br/>YOLO11/12 · RT-DETR · ViTPose · Sapiens · SegFace<br/>Depth-Anything-V2 · ZipDepth · MotionBERT · DDHPose · 3DPCNet · 6DRepNet360<br/><i>51 pretrained variants · auto-download from Hugging Face</i>"]]
+    REG[["🗂️ <b>Models registry</b> · Models.&lt;Task&gt;.&lt;Backend&gt;.&lt;Variant&gt;<br/>YOLO11/12 · RT-DETR · ViTPose · Sapiens · SegFace<br/>Depth-Anything-V2 · ZipDepth · MotionBERT · DDHPose · 3DPCNet · 6DRepNet360<br/><i>51 pretrained variants (52 selectable) · auto-download from Hugging Face</i>"]]
 
     %% ---------------- Flow ----------------
     I1 --> CAP
@@ -217,8 +219,9 @@ options/variants (italics = key options or output format), selected through the
 [`Models` registry](#model-registry). Solid arrows are per-frame data flow; dotted arrows show
 detection boxes feeding pose/segmentation, skin regions feeding rPPG, canonical pose feeding the
 angles, and weights from the registry. Every module also works standalone. Inputs are **monocular
-RGB** (BGR frames) via OpenCV; depth is *estimated* monocularly rather than sensed, and depth/thermal
-frames can be analyzed by the per-frame predictors when supplied as image streams.
+RGB** (BGR frames) via OpenCV. Depth is *estimated* monocularly rather than sensed: there is no
+RGB-D, infrared or thermal capture path. Where a clip comes from an RGB-D camera, only its colour
+stream is used.
 
 ---
 
@@ -239,38 +242,84 @@ frames can be analyzed by the per-frame predictors when supplied as image stream
 | **Joint angles & ROM** | 8 anatomical joint angles + clinical range-of-motion (flexion/extension/abduction/adduction) as rows in the left-side angle panel, plus a clean full-room **skeleton canvas** | goniometry from pose |
 | **Views** | Bird's-eye floor map, ego-video, depth & angle/ROM overlays | n/a |
 
-**Inputs:** monocular RGB video — files, RTSP streams, live cameras, or single images (colorized depth
-or thermal frames can also be analyzed as images). **Hardware:** CPU or CUDA GPU (acceleration
+**Inputs:** monocular RGB video — files, RTSP streams, live cameras, or single images. **Hardware:** CPU or CUDA GPU (acceleration
 recommended for real-time use).
 
 ---
 
 ## Installation
 
+**Requires Python 3.10 or newer.** Install the PyTorch build that matches your platform
+first, then the package:
+
 ```bash
 git clone https://github.com/tharindu326/physiotrack.git
 cd physiotrack
+
+# CPU-only
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# ...or CUDA 12.8
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
 pip install -e .
 ```
 
-> **PyTorch:** install the build that matches your platform/CUDA first. `requirements.txt` pins a
-> CUDA 12.8 build (`torch==2.9.1`); adjust the index URL for your setup or for CPU-only.
+Everything else resolves from `pyproject.toml`. Optional extras:
+
+```bash
+pip install -e ".[test]"     # test suite, including the NeuroKit2 reference implementation
+pip install -e ".[docs]"     # MkDocs toolchain
+pip install -e ".[pose3d]"   # smplx, for 3D mesh rendering in Pose3D
+```
+
+| | Supported |
+| --- | --- |
+| Python | 3.10, 3.11, 3.12 |
+| OS | Linux, macOS, Windows |
+| Hardware | CPU, or CUDA GPU (recommended for real-time use) |
 
 Model weights are **not** bundled; they download automatically on first use through the
 [`Models` registry](#model-registry) (Ultralytics weights via `ultralytics`, everything else from
 Hugging Face).
 
-### Testing
+#### Where weights are cached
 
-The signals subsystem (rPPG, HRV, respiration, filters, motion) ships with a `pytest`
-suite that validates the biomedical DSP against closed-form references and synthetic
-signals with known ground truth (and cross-checks against NeuroKit2 when it is
-installed):
+Checkpoints are cached **outside** the installed package, so a read-only or containerised
+install works, Docker layer caching is not defeated by a multi-gigabyte write into
+`site-packages`, and several environments can share one download:
+
+| | Location |
+| --- | --- |
+| `$PHYSIOTRACK_HOME` set | `$PHYSIOTRACK_HOME/weights` |
+| `$XDG_CACHE_HOME` set | `$XDG_CACHE_HOME/physiotrack/weights` |
+| Linux (default) | `~/.cache/physiotrack/weights` |
+| macOS | `~/Library/Caches/physiotrack/weights` |
+| Windows | `%LOCALAPPDATA%\physiotrack\weights` |
 
 ```bash
-pip install -e .[test]
-pytest            # runs tests/
+export PHYSIOTRACK_HOME=/shared/physiotrack   # share one cache across envs or containers
 ```
+
+> **Upgrading from before 1.1?** Older versions downloaded into the package directory. Run
+> `python -c "import physiotrack; physiotrack.migrate_weight_cache()"` once to move existing
+> checkpoints into the cache instead of re-downloading them. Add `dry_run=True` to preview.
+
+> **Windows / H.264:** OpenCV wheels often ship without an H.264 encoder. PhysioTrack detects
+> this and falls back to MPEG-4 with a warning, so exports never fail silently — but for H.264
+> output run `python install_openh264.py` once to place the OpenH264 runtime library.
+
+### Testing
+
+```bash
+pip install -e ".[test]"
+pytest
+```
+
+The suite validates the biomedical DSP against closed-form definitions and synthetic signals
+with known ground truth, and cross-checks the HRV, artefact-correction and pulse-peak paths
+against NeuroKit2 as an independent reference implementation. It must pass with **zero
+skips**: `neurokit2` is part of the `test` extra precisely so those cross-checks cannot skip
+silently and leave the strongest correctness claim unverified.
 
 ---
 
@@ -280,7 +329,7 @@ pytest            # runs tests/
 import cv2
 import physiotrack as pt
 
-frame = cv2.imread("frame.png")
+frame = cv2.imread("examples/IMG_0121.mp4")  # or any BGR frame you have
 
 # Detect people
 det    = pt.Detection.Person(conf=0.25, device=0)
@@ -391,19 +440,27 @@ pose = Pose.Custom(model=Models.Pose.ViTPose.WholeBody.l_wholebody)
 <summary><b>Pose 3D &amp; canonicalization</b></summary>
 
 ```python
-from physiotrack import Pose3D, canonicalize_pose, Models
+from physiotrack import Models, Pose, Pose3D, Video, canonicalize_pose
+
+results = Video(source="clip.mp4", pose=Pose.Person()).run()   # 2D pass
 
 p3d = Pose3D(model=Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite, device="cpu")
-frames_data, poses_3d = p3d.predict(pose_json, video_path)   # operates on 2D-pose JSON + video
+poses = p3d.predict(results, fps=30)        # -> Pose3DResult, (N, 17, 3) H3.6M order
+poses.by_name("left_wrist")                 # (N, 3) trajectory of one joint
 
 # Viewpoint-invariant canonical form
-canonical = canonicalize_pose(poses_3d, view="front")          # geometric (training-free) default
+canonical = canonicalize_pose(poses.poses, view="front")        # geometric (training-free) default
 canonical = canonicalize_pose(                                 # learned 3DPCNet (recommended)
-    poses_3d,
+    poses.poses,
     model=Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byCam,
     view="front",
 )
+
+# Or canonicalize during lifting, and use predict_json() for the file-based workflow.
 ```
+
+> Lifting is **sequence-level** (a temporal model needs a window of 2D frames per 3D frame)
+> and single-subject. Coordinates are root-relative, not metric.
 </details>
 
 <details>
@@ -422,7 +479,7 @@ result = parse.predict(image)                  # -> Result(task="segment")
 seg_map = result.seg_map                       # (H, W) face-part class map
 annotated = result.plot()                      # overlay with the 19-class palette
 
-depth = Depth.DepthAnythingV2Base()            # or Depth.ZipDepth() — lightweight, ~6M params
+depth = Depth.DepthAnythingV2Base()            # or Depth.ZipDepth() — lightweight, 6.8M params
 d = depth.predict(image)
 raw, colored = d.depth, d.plot(colormap="inferno")
 
@@ -446,7 +503,8 @@ from physiotrack.signals import FaceSkinExtractor, HeartRateEstimator
 # Low level: one rPPG method on an RGB skin trace, shape (3, N) with rows R, G, B
 bvp   = POS(fps=30).apply(rgb_trace)            # blood-volume-pulse candidate
 clean = bandpass_filter(bvp, 0.75, 4.0, 30)
-hr, _ = bvp_to_hr(clean, fps=30)                # HR (bpm) via the Welch-PSD peak
+hr_bpm, times = bvp_to_hr(clean, fps=30)        # per-window HR (bpm) + window-centre times
+latest = hr_bpm[-1]                             # a series, not a single number
 
 # High level: SegFace face parsing -> rPPG on the skin (no plotter)
 fs  = FaceSkinExtractor()                        # SegFace (detects faces itself)
@@ -461,9 +519,11 @@ print(est.respiration_rate())                    # breaths/min (RIAV; use "rsa" 
 
 # Or step through the pulse-analysis chain explicitly:
 from physiotrack.signals import bvp_to_rri, correct_rr_artifacts, compute_hrv
-rri_ms, t   = bvp_to_rri(clean, fps=30)          # RR / inter-beat intervals (ms)
+rri_ms, _   = bvp_to_rri(clean, fps=30)          # RR / inter-beat intervals (ms)
 rri_ms, _   = correct_rr_artifacts(rri_ms)       # Lipponen-Tarvainen (2019) beat correction
-hrv         = compute_hrv(rri_ms, t)             # time + frequency + non-linear HRV
+hrv         = compute_hrv(rri_ms)                # time + frequency + non-linear HRV
+# Note: correction re-derives the series from the corrected beats, so its length can
+# change. Let compute_hrv rebuild the timestamps rather than reusing the originals.
 ```
 (`update` also accepts a face `box` as a lightweight fallback when you don't run segmentation.)
 
@@ -473,7 +533,8 @@ For on-frame overlays, wrap a (shared) estimator with `RPPGPlotter` (BVP pulse),
 [`examples/rppg_vitals.py`](examples/rppg_vitals.py) (all panels together); or enable them in the
 pipeline with `Video(..., rppg=True, hrv=True, respiration=True)`. Respiration also has a pose-based route
 (`respiration_from_motion`) that cross-validates the rPPG estimate. All HRV / artefact-correction
-formulas are numerically cross-checked against NeuroKit2. Also includes motion features,
+formulas are validated against closed-form definitions, and the HRV, artefact-correction and
+pulse-peak paths are additionally cross-checked against NeuroKit2 as a reference implementation. Also includes motion features,
 filters/normalizers, and signal-agreement metrics (`compute_rmse`,
 `calculate_pearson_correlation`, `calculate_dtw_distance`, `hrv_errors`, …).
 </details>
@@ -498,15 +559,15 @@ The measurement is **plotter-free** — run it straight on pose keypoints:
 import physiotrack as pt
 from physiotrack.signals import joint_angles, compute_rom_angles, JointAnglePlotter
 
-det = pt.Pose.Person().predict(frame).to_dict()["detections"]
+det = pt.Pose.Person().predict(frame).to_dict()["instances"]
 kps = det[0]["keypoints"]   # list of {"id", "x", "y", "confidence"} for one person
 joint_angles(kps)        # {'leftElbow': 152, 'leftKnee': 174, ...}   interior angles
 compute_rom_angles(kps)  # {'leftHipFlexion': 12, 'leftHipAbduction': 34, ...}  clinical ROM
 
 # Optional overlay (wraps the same functions): joint-angle grid + ROM grid (2-col L|R)
 plotter = JointAnglePlotter(rom=True)
-plotter.update(result.to_dict()["detections"], frame_time=t)
-frame = plotter.attach_panels(frame, position="top_left")
+plotter.update(result.to_dict()["instances"], frame_time=t)
+frame = plotter.attach_to_frame(frame, position="top_left")
 ```
 
 In the `Video` pipeline (see below): `plot_angles=True` shows the interior joint-angle grid;
@@ -553,7 +614,7 @@ Video(
     detector=Detection.Person(),
     pose=Pose.Person(),
     plot_angles=True,                 # interior joint-angle panel (left)
-    rom=True,                         # hip flexion + abduction → ROM skeleton panel (right)
+    rom=True,                         # hip flexion + abduction → ROM skeleton panel (left)
 ).run(output_video="out.mp4", output_json="out.json")
 ```
 </details>
@@ -612,13 +673,67 @@ The pose canonicalizer maps an arbitrary-viewpoint 3D pose to a **viewpoint-inva
 
 | Task | Returns | Key attributes |
 |------|---------|----------------|
-| detect / pose / segment / face | `Result` | `.boxes`, `.instances`, `.keypoints`, `.seg_map`, `.architecture`, `.plot()`, `.to_dict()` |
+| detect / pose / segment / face | `Result` | `.boxes`, `.instances`, `.keypoints`, `.seg_map`, `.architecture`, `.meta`, `.plot()`, `.to_dict()`, `.from_dict()` |
 | depth | `DepthResult` | `.depth`, `.normalized()`, `.plot(colormap=...)` |
 | track | `TrackResult` | `.instances`, `.ids`, `.boxes`, `.plot(frame)` |
+| 3D lift (`Pose3D`) | `Pose3DResult` | `.poses` `(N,17,3)`, `.by_name(joint)`, `.fps`, `.view`, indexable/iterable by frame |
+| `Video.run()` | `VideoResults` of `FrameResult` | per frame: `.meta`, `.vitals`, `.hr`, `.snr`, iterates its `Instance`s; `.to_json()` |
 
 Each `Instance` exposes `.id`, `.box`, `.confidence`, `.cls` / `.cls_name`, `.keypoints`
 (a `Keypoints` collection with `.by_name()` / `.by_id()`), `.mask`, and `.orientation` as
 applicable. `Keypoints` also offers the array views `.xy`, `.xyz`, and `.conf`.
+
+Every result carries a `.meta` ([`ResultMeta`](#result-objects)) recording where it came
+from — frame index, timestamp, source frame rate, model, device — and `to_dict()` /
+`from_dict()` round-trip, so a saved JSON can be reloaded into the object model rather than
+hand-parsed.
+
+---
+
+## Scope & Limitations
+
+**PhysioTrack is research software. It is not a medical device**, has not been evaluated by
+any regulatory body, and must not be used for diagnosis, screening, triage, or treatment
+decisions. Read the following before relying on any number it produces.
+
+**Input.** Monocular **RGB** video only. There is no RGB-D, infrared, or thermal capture
+path; depth is *estimated* from colour frames, not sensed.
+
+**Heart rate (rPPG).** Requires adequate, stable lighting, visible facial skin, and limited
+subject motion. Accuracy degrades with motion, illumination change, video compression, and
+low frame rate, and rPPG is known to be sensitive to skin tone. Always interpret a heart
+rate alongside its `snr` — a value is reported whenever the analysis window is full,
+regardless of signal quality.
+
+**HRV is not validated.** Heart-rate variability is far more demanding than heart rate: the
+heart rate is a spectral peak and tolerates a mis-detected beat, whereas every HRV index is
+built from the intervals *between* beats, so one missed or spurious beat distorts it. The
+frequency-domain indices need **at least 60 s** of clean pulse. PhysioTrack computes HRV and
+warns when the beat-derived rate disagrees with the spectral rate, but **we make no accuracy
+claim for HRV** — treat it as exploratory until validated against a contact reference on your
+own data.
+
+**Depth is relative, not metric.** Larger means nearer, on an arbitrary scale that is not
+comparable between frames. There is no camera calibration or metric scale recovery.
+
+**3D pose is monocular-lifted, not triangulated**, runs offline from a saved 2D-pose file
+rather than streaming, and is single-subject: in a multi-person frame only the first subject
+receives 3D keypoints.
+
+**Kinematics are image-plane measurements.** Joint angles and range of motion come from pixel
+coordinates and velocities are in pixels per second, so they are **not comparable across
+subjects, camera distances, or resolutions**. Range of motion covers two geometrically
+distinct measurements per hip (one per anatomical plane), not four independent clinical
+movements — a single image-plane angle cannot separate flexion from extension without a
+signed convention.
+
+**Multi-person analysis needs a tracker.** Without one, instance ids are per-frame indices,
+so any cross-frame quantity (velocity, acceleration) would mix subjects together. Attach a
+`Tracker` to get persistent ids.
+
+**Privacy.** The library performs no anonymization. It processes identifiable faces and
+derives physiological signals from them; consent, retention, and data protection are the
+responsibility of the deploying party.
 
 ---
 
@@ -642,7 +757,8 @@ src/physiotrack/
 ```
 
 See [`examples/`](examples/) for runnable scripts covering each subsystem, and
-[`docs/API_REDESIGN.md`](docs/API_REDESIGN.md) for the full public-API specification.
+[`docs/paper/API_REDESIGN.md`](https://github.com/tharindu326/physiotrack/blob/main/docs/paper/API_REDESIGN.md)
+for the full public-API specification.
 
 ---
 
@@ -695,8 +811,36 @@ If you use Physiotrack in your research, please cite the relevant papers:
 ## Contributing
 
 Physiotrack is an open-source project and welcomes contributions: new models, documentation,
-bug fixes, or examples. Please open an issue or pull request on
+bug fixes, or examples. Start with [CONTRIBUTING.md](CONTRIBUTING.md), which covers the
+development setup, the Conventional Commits our releases are generated from, the
+Google-style docstring convention the documentation is built from, and the code standards.
+Then open an issue or pull request on
 [GitHub](https://github.com/tharindu326/physiotrack).
+
+<div align="center">
+
+[![Physiotrack contributors](https://contrib.rocks/image?repo=tharindu326/physiotrack)](https://github.com/tharindu326/physiotrack/graphs/contributors)
+
+</div>
+
+Every avatar is someone who has contributed code, documentation, or fixes — the grid updates
+itself from the GitHub API. If your name or avatar looks wrong, a commit used a different git
+identity; add yourself to [`.mailmap`](.mailmap) and it will be consolidated everywhere.
+
+### Reproducing the published numbers
+
+The scripts behind the figures and benchmarks live in
+[`examples/evaluation/`](examples/evaluation/), so every reported value can be regenerated
+rather than taken on trust:
+
+```bash
+python examples/evaluation/runtime_benchmark.py   # per-stage FPS / ms-per-frame, CPU and GPU
+python examples/evaluation/rppg_figure.py         # rPPG figure + the vitals it reports
+python examples/evaluation/pipeline_figure.py     # full-pipeline overlay figure
+```
+
+Each writes a JSON alongside its output recording the hardware, library version, and every
+measured value, so a number can be traced to a specific run.
 
 ---
 

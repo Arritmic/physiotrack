@@ -1,10 +1,19 @@
-from . import YoloPose, VitInference, SapiensPoseEstimation, Models, Detection
+import logging
+
+from ..detect import Detection
+from ..models import Models
+from ..modules import SapiensPoseEstimation, VitInference, YoloPose
 from ..results import Result, Instance, Keypoints
 import os
 import numpy as np
 
+from .._logging import get_logger
+from ..core.predictor import PredictorMixin
 
-class PoseBase:
+logger = get_logger(__name__)
+
+
+class PoseBase(PredictorMixin):
     """Shared implementation behind every 2D pose predictor preset.
 
     ``PoseBase`` wires a pose-estimation backend (ViTPose, YOLO-Pose or Sapiens,
@@ -91,22 +100,28 @@ class PoseBase:
 
         Note:
             The first time a validated model is loaded its weights are
-            auto-downloaded to the package's ``model_data`` directory.
+            auto-downloaded to the per-user weight cache (see
+            [`Models.resolve`][physiotrack.Models.resolve]).
         """
         if model is None:
             if self.default_model is None:
-                raise ValueError("Model must be provided either as parameter or class attribute")
+                raise ValueError(
+                    f"{type(self).__name__} needs a model: pass model=<a Models.Pose "
+                    f"member>, or use a preset such as Pose.Person() that supplies one. "
+                    f"Browse the options with Models.list(task='Pose')."
+                )
             model = self.default_model
         Models.validate_pose_model(model)
 
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'modules', 'model_data', model.value)
-        if not os.path.isfile(model_path):
-            Models.download_model(model)
+        model_path = Models.resolve(model)
 
         self.minfo = Models._get_model_info(model)
         self.architecture = self.minfo['enum_class'].upper()
         self.pose_framework = self.minfo['backend']
-        print(f'Initiating {self.pose_framework} {model.name} for the Pose estimation')
+        # `verbose` selects the level, so a quiet predictor stays quiet without
+        # muting the rest of the library.
+        logger.log(logging.INFO if verbose else logging.DEBUG,
+                   'Initiating %s %s for pose estimation', self.pose_framework, model.name)
 
         # Pose backend. Rendering is delegated to Result.plot(), so overlay/draw flags
         # are off here.
@@ -118,7 +133,10 @@ class PoseBase:
         elif self.pose_framework == 'Sapiens':
             self.pose_estimator = SapiensPoseEstimation(model, device)
         else:
-            raise ValueError("Invalid model type. Please check the configuration")
+            raise ValueError(
+                f"No pose backend for {model.name!r} (backend {self.pose_framework!r}). "
+                f"Supported backends are: ViTPose, YOLO, Sapiens."
+            )
 
         # Optional person detector used when boxes aren't supplied to predict().
         if self.detector_class is not None:
@@ -193,9 +211,10 @@ class PoseBase:
             cv2.imwrite("out.png", result.plot())
             ```
         """
-        if isinstance(source, (list, tuple)):
-            return self._predict_batch(list(source), boxes)
-        return self._predict_one(source, boxes)
+        frames, was_batch = self._as_frames(source)
+        if was_batch:
+            return self._predict_batch(frames, boxes)
+        return self._unwrap([self._predict_one(frames[0], boxes)], was_batch)
 
     def _predict_one(self, frame, boxes=None) -> Result:
         if boxes is None and self.pose_framework in ("ViTPose", "Sapiens"):
@@ -218,22 +237,6 @@ class PoseBase:
                     for frame, (_, frame_data) in zip(frames, outputs)]
         return [self._predict_one(f, b) for f, b in zip(frames, boxes_list)]
 
-    def __call__(self, source, boxes=None):
-        """Alias for [`predict`][physiotrack.Pose].
-
-        Lets a pose predictor be used as a callable, e.g. ``pose(frame)``.
-
-        Args:
-            source (np.ndarray | list[np.ndarray]): A single BGR frame
-                ``(H, W, 3)`` or a list of frames.
-            boxes (list | np.ndarray, optional): Optional person boxes; see
-                [`predict`][physiotrack.Pose]. Defaults to ``None``.
-
-        Returns:
-            Result | list[Result]: Same as [`predict`][physiotrack.Pose].
-        """
-        return self.predict(source, boxes)
-
 
 class Pose:
     """Namespace of ready-to-use 2D pose-estimation presets.
@@ -242,9 +245,9 @@ class Pose:
     the [`PoseBase`][physiotrack.Pose] machinery. Pick a preset by use
     case:
 
-    - [`Pose.Person`](#) — general whole-body pose with a generic person detector.
-    - [`Pose.VRStudent`](#) — whole-body pose paired with the VR-student detector.
-    - [`Pose.Custom`](#) — any supported pose model you name explicitly.
+    - [`Pose.Person`](#) â€” general whole-body pose with a generic person detector.
+    - [`Pose.VRStudent`](#) â€” whole-body pose paired with the VR-student detector.
+    - [`Pose.Custom`](#) â€” any supported pose model you name explicitly.
 
     Each preset returns a [`Result`][physiotrack.Result] with ``task="pose"`` whose
     instances carry [`Keypoints`][physiotrack.Keypoints]. See the individual preset
@@ -263,6 +266,22 @@ class Pose:
     See Also:
         [`Pose3D`][physiotrack.pose.pose3D.Pose3D]: lift 2D keypoints to 3D.
     """
+
+    def __new__(cls, *args, **kwargs):
+        """Refuse direct instantiation of the preset namespace.
+
+        Raises:
+            TypeError: Always. ``Pose`` groups the presets; it is not itself a
+                predictor, and instantiating it used to return an object with no
+                model attached, which failed later with a confusing error.
+        """
+        presets = [n for n in vars(cls) if not n.startswith("_")
+                   and isinstance(vars(cls)[n], type)]
+        raise TypeError(
+            f"Pose is a namespace of presets, not a predictor. Use one of: "
+            f"{', '.join(f'Pose.{p}()' for p in presets)} "
+            f"— for example Pose.Person()."
+        )
 
     class Custom(PoseBase):
         """Pose predictor for an explicitly chosen pose model.

@@ -11,6 +11,11 @@ from .utils.dataloader import WildDetDataset
 from functools import partial
 from .model.DSTformer import DSTformer
 
+from ..._checkpoints import strip_data_parallel_prefix
+from ..._logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class MotionBERTInference:
     def __init__(self, 
@@ -60,9 +65,16 @@ class MotionBERTInference:
         else:
             model_backbone = model_backbone.to(self.device)
         
-        print(f'Loading checkpoint: {self.checkpoint_path}')
+        logger.info("Loading MotionBERT checkpoint: %s", self.checkpoint_path)
         checkpoint = torch.load(self.checkpoint_path, map_location=lambda storage, loc: storage)
-        model_backbone.load_state_dict(checkpoint['model_pos'], strict=True)
+        # The released checkpoints were saved from a DataParallel-wrapped model, so their
+        # keys carry a "module." prefix that only matches when we happen to wrap too.
+        # Normalising it away makes the load work on CPU and GPU alike.
+        state = strip_data_parallel_prefix(checkpoint['model_pos'])
+        if isinstance(model_backbone, nn.DataParallel):
+            model_backbone.module.load_state_dict(state, strict=True)
+        else:
+            model_backbone.load_state_dict(state, strict=True)
         model_backbone.eval()
         
         return model_backbone
@@ -71,31 +83,65 @@ class MotionBERTInference:
         """Update dataloader parameters"""
         self.testloader_params.update(kwargs)
     
-    def _prepare_dataset(self, json_path, vid_path, pixel=False, focus=None, scale_range=None):
-        """Prepare dataset for inference"""
-        vid = imageio.get_reader(vid_path, 'ffmpeg')
-        self.fps_in = vid.get_meta_data()['fps']
-        vid_size = vid.get_meta_data()['size']
-        
+    def _prepare_dataset(self, source, vid_path=None, pixel=False, focus=None,
+                         scale_range=None, fps=None, frame_size=None):
+        """Prepare the clip dataset for inference.
+
+        Args:
+            source (np.ndarray | str | os.PathLike): Halpe keypoints ``(N, J, 3)`` or a
+                path to an AlphaPose/Halpe JSON.
+            vid_path (str, optional): Source video, read only to recover ``fps`` and
+                frame size when they are not supplied directly.
+            pixel (bool): Keep pixel coordinates (requires a known frame size).
+            focus (int, optional): Subject index filter, JSON input only.
+            scale_range (list, optional): Scale range when not in pixel mode.
+            fps (float, optional): Frame rate, when already known.
+            frame_size (tuple[int, int], optional): ``(width, height)``, when already
+                known.
+
+        Returns:
+            tuple: ``(dataset, fps, frame_size)``.
+
+        Raises:
+            ValueError: If ``pixel`` is requested without a frame size and without a
+                video to read one from.
+        """
+        # Only touch the video when something is actually missing: lifting a keypoint
+        # array should not require the original file to be present.
+        if (fps is None or frame_size is None) and vid_path is not None:
+            vid = imageio.get_reader(vid_path, 'ffmpeg')
+            meta = vid.get_meta_data()
+            fps = fps if fps is not None else meta['fps']
+            frame_size = frame_size if frame_size is not None else meta['size']
+
+        if pixel and frame_size is None:
+            raise ValueError(
+                "pixel=True needs the source frame size to convert normalised "
+                "coordinates back to pixels. Pass frame_size=(width, height), or a "
+                "vid_path to read it from."
+            )
+
+        self.fps_in = fps
+
         if pixel:
             # Keep relative scale with pixel coordinates
             wild_dataset = WildDetDataset(
-                json_path, 
-                clip_len=self.clip_len, 
-                vid_size=vid_size, 
-                scale_range=None, 
+                source,
+                clip_len=self.clip_len,
+                vid_size=frame_size,
+                scale_range=None,
                 focus=focus
             )
         else:
             # Scale to [-1,1] or custom scale range
             wild_dataset = WildDetDataset(
-                json_path, 
-                clip_len=self.clip_len, 
-                scale_range=scale_range or [1, 1], 
+                source,
+                clip_len=self.clip_len,
+                scale_range=scale_range or [1, 1],
                 focus=focus
             )
-        
-        return wild_dataset, self.fps_in, vid_size
+
+        return wild_dataset, fps, frame_size
     
     def _process_batch(self, batch_input, no_conf=None, flip=None, rootrel=None, gt_2d=None):
         """Process a single batch through the model"""
@@ -133,23 +179,41 @@ class MotionBERTInference:
         
         return predicted_3d_pos
     
-    def infer(self, 
-              json_path, 
-              vid_path, 
-              pixel=False, 
+    def infer(self,
+              source,
+              vid_path=None,
+              pixel=False,
               focus=None,
               scale_range=None,
               no_conf=None,
               flip=None,
               rootrel=None,
               gt_2d=None,
-              custom_testloader_params=None):
-        """Run inference on a video"""
-        
+              custom_testloader_params=None,
+              fps=None,
+              frame_size=None):
+        """Lift a 2D keypoint sequence to 3D.
+
+        Args:
+            source (np.ndarray | str | os.PathLike): Halpe keypoints ``(N, J, 3)`` or a
+                path to an AlphaPose/Halpe JSON.
+            vid_path (str, optional): Source video, read only to recover fps/frame size.
+            pixel (bool): Return pixel-space rather than normalised coordinates.
+            focus (int, optional): Subject index filter, JSON input only.
+            scale_range (list, optional): Scale range when not in pixel mode.
+            no_conf, flip, rootrel, gt_2d (bool, optional): Backend flags; ``None``
+                keeps the checkpoint's configured default.
+            custom_testloader_params (dict, optional): Override DataLoader params.
+            fps (float, optional): Frame rate, when already known.
+            frame_size (tuple[int, int], optional): ``(width, height)``, when known.
+
+        Returns:
+            np.ndarray: ``(N, 17, 3)`` poses in Human3.6M joint order.
+        """
         testloader_params = custom_testloader_params or self.testloader_params
-        
+
         wild_dataset, fps_in, vid_size = self._prepare_dataset(
-            json_path, vid_path, pixel, focus, scale_range
+            source, vid_path, pixel, focus, scale_range, fps, frame_size
         )
         test_loader = DataLoader(wild_dataset, **testloader_params)
         
@@ -176,22 +240,3 @@ class MotionBERTInference:
             results = results * (min(vid_size) / 2.0)
             results[:, :, :2] = results[:, :, :2] + np.array(vid_size) / 2.0
         return results
-    
-
-if __name__ == "__main__":
-    pose_inference = MotionBERTInference(
-        config_path="configs/MB_ft_h36m_global_lite.yaml",
-        checkpoint_path='checkpoint/FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin',
-        clip_len=243
-    )
-    
-    # Run inference
-    results = pose_inference.infer(
-        json_path='path/to/detection.json',
-        vid_path='path/to/video.mp4',
-        out_path='output/',
-        pixel=False,
-        focus=None,
-        render_video=True,
-        save_npy=True
-    )

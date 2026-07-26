@@ -2,8 +2,14 @@
 Display utilities for video output and screen management.
 """
 
+from typing import Optional, Tuple
+
 import cv2
 import numpy as np
+
+from .._logging import get_logger
+
+logger = get_logger(__name__)
 
 # For screen size detection
 try:
@@ -12,15 +18,16 @@ except ImportError:
     tk = None
 
 
-def get_screen_size(verbose=False):
-    """
-    Get screen size for resizing display window.
+def get_screen_size(verbose: bool = False) -> Tuple[int, int]:
+    """Get the usable screen size for sizing a display window.
 
     Args:
-        verbose: Whether to print screen size information
+        verbose (bool): Log the detected size at DEBUG level. Defaults to ``False``.
 
     Returns:
-        tuple: (screen_width, screen_height) in pixels
+        tuple[int, int]: ``(screen_width, screen_height)`` in pixels, at 90% of the
+            detected screen to leave room for the taskbar. Falls back to
+            ``(1920, 1080)`` when Tk is unavailable or detection fails.
     """
     try:
         if tk is not None:
@@ -39,7 +46,7 @@ def get_screen_size(verbose=False):
             screen_height = 1080
 
         if verbose:
-            print(f"Display window will fit to screen size: {screen_width}x{screen_height}")
+            logger.debug("Display window fits screen: %dx%d", screen_width, screen_height)
 
         return screen_width, screen_height
 
@@ -48,22 +55,27 @@ def get_screen_size(verbose=False):
         screen_width = 1920
         screen_height = 1080
         if verbose:
-            print(f"Could not detect screen size, using default: {screen_width}x{screen_height}")
+            logger.debug("Could not detect screen size; using default %dx%d",
+                     screen_width, screen_height)
 
         return screen_width, screen_height
 
 
-def resize_frame_for_display(frame, screen_width, screen_height):
-    """
-    Resize frame to fit screen while maintaining aspect ratio.
+def resize_frame_for_display(frame: np.ndarray,
+                             screen_width: Optional[int],
+                             screen_height: Optional[int]) -> np.ndarray:
+    """Resize a frame to fit the screen while preserving aspect ratio.
 
     Args:
-        frame: Input frame (numpy array)
-        screen_width: Maximum width for display
-        screen_height: Maximum height for display
+        frame (np.ndarray): Input frame, ``(H, W, 3)`` BGR.
+        screen_width (int, optional): Maximum display width in pixels. ``None``
+            disables resizing.
+        screen_height (int, optional): Maximum display height in pixels. ``None``
+            disables resizing.
 
     Returns:
-        numpy array: Resized frame
+        np.ndarray: The frame, downscaled to fit. Frames already smaller than the
+            screen are returned unchanged — this never upscales.
     """
     if screen_width is None or screen_height is None:
         return frame

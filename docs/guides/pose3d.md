@@ -16,36 +16,70 @@ and arrays have shape `(N, 17, 3)` — `N` frames, 17 joints, `(x, y, z)`.
 
 ## Quick start
 
-`Pose3D` consumes a 2D-pose JSON (as produced by running a
-[`Pose`][physiotrack.Pose] predictor over a video) plus the source video.
+`Pose3D.predict` takes 2D keypoints **in memory** and returns a
+[`Pose3DResult`][physiotrack.Pose3DResult], like every other predictor. Feed it the
+`VideoResults` from a 2D pass and the keypoints never touch the filesystem:
 
 ```python
 import physiotrack as pt
 
-View = pt.Models.Pose3D.Canonicalizer.View
+View = pt.CanonicalView
 
+# 1. 2D pass
+results = pt.Video(source="clip.mp4", pose=pt.Pose.Person()).run()
+
+# 2. lift to 3D
+pose3d = pt.Pose3D(
+    model=pt.Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite,
+    device="cuda",
+)
+poses = pose3d.predict(
+    results,
+    fps=30,
+    canonical_view=View.FRONT,     # optional: canonicalize during lifting
+)
+
+poses.poses.shape                  # (N, 17, 3)
+poses.by_name("left_wrist")        # (N, 3) trajectory of one joint
+poses[0].shape                     # (17, 3) one frame
+```
+
+`predict` also accepts a plain `(N, 17, 2)` / `(N, 17, 3)` COCO-17 array, so a
+sequence from any source can be lifted.
+
+!!! info "Lifting is sequence-level and single-subject"
+
+    A temporal lifter needs a window of `clip_len` 2D frames to produce each 3D frame,
+    so the whole sequence is passed at once — a single frame cannot be lifted in
+    isolation. When the input carries several subjects per frame, the first is used.
+    Frames with no detection contribute a zero-confidence pose so the output stays
+    aligned with the source video rather than silently shortening.
+
+!!! warning "Coordinates are relative, not metric"
+
+    Output is root-relative and unitless unless the estimator was built with
+    `pixel=True`. It is not comparable in scale between videos. `Pose3DResult.to_dict()`
+    records this so a downstream consumer cannot mistake it for millimetres.
+
+### Working from a JSON file instead
+
+When the 2D pass and the lifting pass are separate steps, use `predict_json`. It reads
+the 2D-pose JSON, lifts it, and returns the per-frame records augmented with 3D
+keypoints alongside the result — and, with `out_path`, writes the rendered `.mp4`, the
+`.npy` array, and a `*_with_3d_keypoints.json`:
+
+```python
 pose3d = pt.Pose3D(
     model=pt.Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite,
     device="cuda",
     render_video=True,     # write a 3D .mp4 when out_path is set
     save_npy=True,         # write the raw (N,17,3) array as .npy
 )
-
-frames_data, results_3d = pose3d.predict(
-    json_path="output/BV_S17_cut1_result.json",
-    vid_path="BV_S17_cut1.mp4",
-    out_path="output/",
-    canonical_view=View.FRONT,     # optional: canonicalize during lifting
+frames_data, poses = pose3d.predict_json(
+    "output/clip_result.json", "clip.mp4",
+    out_path="output/", canonical_view=View.FRONT,
 )
-
-print(results_3d.shape)            # (num_frames, 17, 3)
 ```
-
-`predict` returns a 2-tuple `(frames_data, results_3d)`: `frames_data` is the
-input detection data augmented with per-frame 3D keypoints, and `results_3d` is
-the raw `(N, 17, 3)` array in Human3.6M joint order. When `out_path` is set it
-also writes the rendered `.mp4`, the `.npy` array, and a
-`*_with_3d_keypoints.json`.
 
 ## Available models
 
@@ -69,11 +103,7 @@ The backend is inferred from the model enum.
         model=pt.Models.Pose3D.MotionBERT.mb_ft_h36m_global_lite,
         device="cuda", clip_len=243,
     )
-    frames_data, results_3d = pose3d.predict(
-        json_path="output/BV_S17_cut1_result.json",
-        vid_path="BV_S17_cut1.mp4",
-        out_path="output/",
-    )
+    poses = pose3d.predict(results, fps=30)
     ```
 
 === "DDHPose"
@@ -86,12 +116,8 @@ The backend is inferred from the model enum.
         device="cuda",
         num_proposals=10, sampling_timesteps=5,
     )
-    frames_data, results_3d = pose3d.predict(
-        json_path="output/BV_S17_cut1_result.json",
-        vid_path="BV_S17_cut1.mp4",
-        out_path="output/",
-        batch_size=8,
-    )
+    # DDHPose normalises pixel coordinates, so it needs the source frame size.
+    poses = pose3d.predict(results, fps=30, frame_size=(1920, 1080), batch_size=8)
     ```
 
 See the [Model Zoo](../model-zoo.md) for weights and download details.
@@ -107,7 +133,7 @@ See the [Model Zoo](../model-zoo.md) for weights and download details.
 
 Canonicalization reorients each 3D pose so the subject faces a fixed direction,
 removing global rotation. The four canonical views are the members of
-`pt.Models.Pose3D.Canonicalizer.View`: `FRONT`, `BACK`, `LEFT_SIDE`,
+`pt.CanonicalView`: `FRONT`, `BACK`, `LEFT_SIDE`,
 `RIGHT_SIDE`.
 
 - **GEOMETRIC** fits a torso plane from the shoulder + hip joints, aligns its
@@ -145,8 +171,8 @@ You can canonicalize three ways:
 === "During lifting"
 
     ```python
-    frames_data, results_3d = pose3d.predict(
-        json_path=json_path, vid_path=vid_path, out_path="output/",
+    poses = pose3d.predict(
+        results, fps=30,
         canonical_view=Canon.View.FRONT,
         canonical_model=Canon.Models.GEOMETRIC,
     )
@@ -156,7 +182,7 @@ You can canonicalize three ways:
 
     ```python
     canonical = pt.canonicalize_pose(
-        results_3d, model=Canon.Models.GEOMETRIC, view=Canon.View.FRONT,
+        poses.poses, model=Canon.Models.GEOMETRIC, view=Canon.View.FRONT,
     )
     ```
 

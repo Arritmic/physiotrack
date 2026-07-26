@@ -20,10 +20,18 @@ from typing import Optional
 
 from physiotrack.core.overlay import OverlayCanvas, alpha_composite
 from physiotrack.signals.ppg.estimator import HeartRateEstimator
+from ...core.panel import PanelMixin
 
 
-class EstimatorPanel:
+class EstimatorPanel(PanelMixin):
     """Base panel: wraps a HeartRateEstimator and composites a BGRA panel onto a frame."""
+
+    # Placement and compositing come from PanelMixin; these are this panel's
+    # own defaults, preserved exactly as they were before the consolidation.
+    PANEL_POSITION = 'bottom_right'
+    PANEL_MARGIN = 12
+    PANEL_BACKDROP = False
+
 
     def __init__(self,
                  method: str = "POS",
@@ -95,21 +103,3 @@ class EstimatorPanel:
     def render(self) -> np.ndarray:
         """Render the panel as a transparent BGRA image. Implemented by subclasses."""
         raise NotImplementedError
-
-    def attach_to_frame(self, frame: np.ndarray, position: str = "bottom_right",
-                        margin: int = 12, above_element_height: int = 0) -> np.ndarray:
-        """Alpha-composite this panel onto a frame corner."""
-        canvas = self.render()
-        h, w = frame.shape[:2]
-        ch, cw = canvas.shape[:2]
-        if cw > w - 2 * margin or ch > h - 2 * margin:
-            return frame
-        extra = margin if above_element_height > 0 else 0
-        y1 = (margin + above_element_height + extra) if "top" in position \
-            else (h - ch - margin - above_element_height - extra)
-        x1 = margin if "left" in position else w - cw - margin
-        y1 = int(np.clip(y1, 0, h - ch))
-        x1 = int(np.clip(x1, 0, w - cw))
-        out = frame.copy()
-        alpha_composite(out, canvas, x1, y1)
-        return out

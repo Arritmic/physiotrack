@@ -15,6 +15,11 @@ from .classes_and_palettes import (
     GOLIATH_KEYPOINTS
 )
 
+from ..._logging import get_logger
+from ..._paths import weights_dir
+
+logger = get_logger(__name__)
+
 
 class SapiensPoseEstimation:
     def __init__(self,
@@ -27,7 +32,7 @@ class SapiensPoseEstimation:
         # Load the model
         self.device = device
         self.dtype = dtype
-        model_folder = os.path.join(os.path.dirname(__file__), '..', 'model_data')
+        model_folder = str(weights_dir())
         model_path = os.path.join(model_folder, model.value)
         self.model = torch.jit.load(model_path).eval().to(self.device).to(dtype)
         self.preprocessor = transforms.Compose([transforms.ToPILImage(),
@@ -169,4 +174,5 @@ if __name__ == "__main__":
         start_time = time.perf_counter()
         result_img, keypoints = pose_estimator(img)
         cv2.imwrite(output_path, result_img)
-        print(f"Time taken: {time.perf_counter() - start_time:.4f} seconds")
+        # Per-inference timing: debug level, since this runs once per frame.
+        logger.debug("Sapiens pose inference took %.4f s", time.perf_counter() - start_time)

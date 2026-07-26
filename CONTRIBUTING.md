@@ -1,0 +1,241 @@
+# Contributing to PhysioTrack
+
+Thank you for considering a contribution. PhysioTrack is a research toolkit for
+contactless human sensing, and improvements to it benefit the computer-vision,
+biomechanics, and physiological-sensing communities alike. This guide explains how to
+get your change reviewed and merged.
+
+[![PhysioTrack contributors](https://contrib.rocks/image?repo=tharindu326/physiotrack)](https://github.com/tharindu326/physiotrack/graphs/contributors)
+
+Every avatar above is someone who has contributed code, documentation, or fixes. The
+grid is generated from the GitHub API, so it updates itself as people join — see the
+[contributor activity graph](https://github.com/tharindu326/physiotrack/graphs/contributors)
+for the full history.
+
+If your name or avatar looks wrong, it is almost certainly because a commit used a
+different git identity. Add yourself to [`.mailmap`](.mailmap) and it will be
+consolidated everywhere.
+
+## 🤝 Code of Conduct
+
+All contributors are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+Respect and professionalism are the baseline.
+
+## 🛠️ Development setup
+
+PhysioTrack requires **Python 3.10 or newer**. Install PyTorch first, choosing the
+build that matches your platform, then install the package in editable mode:
+
+```bash
+# CPU-only
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# or CUDA 12.8
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+pip install -e ".[test]"
+```
+
+Everything else resolves from `pyproject.toml`, which is the single source of truth
+for dependencies — there is no `requirements.txt`. Model weights are not bundled; they
+download on first use.
+
+Documentation is built with:
+
+```bash
+pip install -e ".[docs]"
+mkdocs serve
+```
+
+## 🚀 Contributing via pull requests
+
+1. **Fork** the repository to your own account.
+2. **Create a branch** with a descriptive name (`fix-hrv-band-power`, `docs-install-matrix`).
+3. **Make your changes**, following the code standards below.
+4. **Test locally** with `pytest`. Add tests for new behaviour, extending existing test
+   files rather than creating new ones.
+5. **Commit** using Conventional Commits (see below).
+6. **Open a pull request** against `main` with a clear title and a description that
+   explains what changed and why.
+
+### 📏 Scope and PR size
+
+Small, focused pull requests get reviewed faster and are far more likely to be merged.
+The larger a change, the longer the review.
+
+- **First-time contributors** should start with a well-scoped change: a bug fix, a
+  documentation improvement, a performance fix. Very large diffs are hard to review;
+  the exception is when the size comes from docstrings, documentation, or formatting
+  rather than substantive logic.
+- **Feature contributions** should be preceded by an issue that has been discussed and
+  agreed with the maintainers. This avoids sinking effort into work that will not be
+  merged, and lets us weigh the long-term maintenance cost up front.
+- **Refactors that align the codebase with the standards below are welcome** and may
+  legitimately be large — but say so in the description, and keep unrelated changes out.
+
+### 📝 Commit messages
+
+Releases are cut automatically by [semantic-release] from commit messages, so
+**[Conventional Commits] are required**:
+
+```
+feat(signals): add respiration rate from chest motion
+fix(pose): correct keypoint ordering for WholeBody
+docs(readme): clarify install steps
+```
+
+- `feat:` → minor version bump
+- `fix:` → patch version bump
+- `feat!:` or a `BREAKING CHANGE:` footer → major version bump
+- `docs:`, `test:`, `refactor:`, `chore:`, `ci:` → no release
+
+A commit that does not parse will not appear in the changelog. The version itself is
+derived from git tags by `setuptools-scm`; **never hand-edit a version number.**
+
+### ✅ CI must pass
+
+Every pull request runs the test suite on Python 3.10, 3.11, and 3.12. The suite must
+pass with **zero skips**. `neurokit2` is part of the `test` extra because the HRV and
+artefact-correction tests cross-check against it as a reference implementation — if it
+is missing, those tests skip silently and the suite passes while validating nothing.
+CI fails on any skip for exactly that reason.
+
+## ✍️ Google-style docstrings
+
+The documentation site is generated from docstrings with mkdocstrings, so **docstrings
+are the API documentation**. Every public module, class, and function needs one, and it
+must be updated in the same change as the code.
+
+Use [Google style][google], with types in parentheses after each argument name:
+
+```python
+def bandpass_filter(signal, low_hz, high_hz, fs, order=4):
+    """Apply a zero-phase Butterworth band-pass filter.
+
+    Args:
+        signal (np.ndarray): 1-D input signal.
+        low_hz (float): Lower cut-off frequency in Hz.
+        high_hz (float): Upper cut-off frequency in Hz.
+        fs (float): Sampling rate in Hz.
+        order (int): Filter order. Defaults to 4.
+
+    Returns:
+        np.ndarray: The filtered signal, same shape as ``signal``.
+
+    Raises:
+        ValueError: If the band is not within ``0 < low_hz < high_hz < fs / 2``.
+
+    Examples:
+        >>> filtered = bandpass_filter(bvp, 0.75, 4.0, fs=30)
+    """
+```
+
+Type hints instead of parenthesised types are also fine, as long as one or the other is
+present:
+
+```python
+def bvp_to_hr(bvp: np.ndarray, fps: float) -> tuple[np.ndarray, np.ndarray]:
+    """Per-window heart rate in bpm from a BVP signal.
+
+    Args:
+        bvp: Blood-volume-pulse signal.
+        fps: Sampling rate in frames per second.
+
+    Returns:
+        Heart rate per window in bpm, and the window centre times in seconds.
+    """
+```
+
+For short, self-evident helpers a single line is enough. It must be a complete
+sentence, start with a capital letter, and end with a period:
+
+```python
+def to_bpm(interval_ms: float) -> float:
+    """Convert an inter-beat interval in milliseconds to beats per minute."""
+```
+
+**Always document units and coordinate frames.** "Angle" is ambiguous; "angle in
+degrees, measured against the trunk axis" is not. This matters more here than in most
+projects because the outputs are physiological and kinematic quantities.
+
+## ✨ Code standards
+
+- **Fix root causes.** No workarounds layered over a symptom.
+- **Replace, don't accumulate.** When a new method supersedes an old one, remove the
+  old one. No compatibility shims, no fallbacks to superseded behaviour, and no flags
+  that toggle between old and new code paths.
+- **Leave no dead code** — no unused functions, modules, parameters, or branches, and
+  no commented-out blocks.
+- **Avoid duplication.** Reuse what exists; minimise unnecessary arguments.
+- **Simplify where you can.** Removing a special case is a real contribution.
+- **Consider compatibility.** Note breaking changes explicitly in the PR description
+  and mark the commit accordingly.
+- **Keep the README coherent.** It is a narrative, not a list of patches; when
+  behaviour changes, revise the surrounding prose so the document still reads as one
+  story.
+- **Signal-processing code must cite a reference and be cross-checked numerically**
+  against an independent implementation. Do not derive biomedical DSP from scratch —
+  a wrong HRV formula is far worse than a missing one, because it looks plausible.
+
+## 👀 Reviewing pull requests
+
+Reviewing is a genuine contribution. When you review:
+
+- Check that new behaviour is covered by tests.
+- Check that docstrings and documentation were updated alongside the code.
+- Consider the performance impact, especially in per-frame code paths.
+- Confirm CI is green.
+- Give specific, actionable feedback — and acknowledge the author's effort.
+
+## 🐞 Reporting bugs
+
+Good bug reports are valuable. When opening an issue:
+
+1. **Search existing issues** first.
+2. **Provide a minimum reproducible example** — the smallest self-contained snippet
+   that triggers the problem.
+3. **Describe your environment.** This matters unusually much for PhysioTrack, because
+   several real bugs have come from binary-compatibility mismatches between NumPy,
+   OpenCV, and PyTorch. Please paste the output of:
+
+   ```bash
+   python -c "import physiotrack, numpy, cv2, torch, sys; \
+   print('physiotrack', physiotrack.__version__); \
+   print('python    ', sys.version.split()[0]); \
+   print('numpy     ', numpy.__version__); \
+   print('opencv    ', cv2.__version__); \
+   print('torch     ', torch.__version__, 'cuda', torch.cuda.is_available())"
+   ```
+
+   Include your OS and, for GPU issues, the GPU model and driver/CUDA version.
+4. **State expected versus actual behaviour**, with the full traceback.
+
+For anything with security implications, follow [SECURITY.md](SECURITY.md) instead of
+opening a public issue.
+
+## 📜 Licensing
+
+PhysioTrack is released under **GPL-3.0-or-later** (see [LICENSE](LICENSE) and
+[COPYRIGHT](COPYRIGHT)). By contributing, you agree that your contribution is licensed
+under the same terms. We do not require a CLA.
+
+Two licensing points are worth understanding before you contribute:
+
+- PhysioTrack **vendors upstream source code and redistributes third-party model
+  weights**, each under its own terms. If your change adds a new backend, model, or
+  vendored file, you must record its licence and provenance in
+  [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) as part of the same PR.
+- The YOLO and RT-DETR backends depend on `ultralytics`, which is **AGPL-3.0** —
+  stronger copyleft than GPL-3.0. If you build on PhysioTrack, that obligation
+  propagates to your own project. See `THIRD_PARTY_LICENSES.md` for the open questions
+  we are still resolving here.
+
+## 🎉 Thank you
+
+Whether you are fixing a typo, tightening a filter, or adding a validation study, your
+contribution makes this toolkit more trustworthy for everyone who uses it to measure
+real people. We appreciate it.
+
+[semantic-release]: https://semantic-release.gitbook.io/
+[Conventional Commits]: https://www.conventionalcommits.org/
+[google]: https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings

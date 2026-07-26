@@ -1,19 +1,28 @@
 name: Release
 
-# Cut a semantic-release version (tag + GitHub release) on every push to main.
+# Cut a semantic-release version (tag + GitHub release) on every push to main,
+# then build and publish that tag to PyPI. The test suite gates the release: no
+# version is tagged unless it passes.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-
 jobs:
+  # Reuses .github/workflows/tests.yml rather than duplicating its setup.
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   release:
+    needs: tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      new_release_published: ${{ steps.semrel.outputs.new_release_published }}
+      new_release_version: ${{ steps.semrel.outputs.new_release_version }}
 
     steps:
       - name: Checkout (full history for tags)
@@ -36,7 +45,54 @@ jobs:
             @semantic-release/commit-analyzer@11
             @semantic-release/release-notes-generator@12
             @semantic-release/github@10
-            @semantic-release/git@10
             conventional-changelog-conventionalcommits@7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    # Only publish when semantic-release actually cut a new version.
+    needs: release
+    if: needs.release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/physiotrack/
+    permissions:
+      # Required for PyPI Trusted Publishing (OIDC); no API token is stored.
+      id-token: write
+
+    steps:
+      - name: Checkout the newly created tag
+        uses: actions/checkout@v6
+        with:
+          # setuptools-scm reads the version from tags, so fetch them and check out
+          # the tag semantic-release just pushed.
+          fetch-depth: 0
+          ref: v${{ needs.release.outputs.new_release_version }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Verify the built version matches the release tag
+        # Guards against setuptools-scm falling back and shipping the wrong version.
+        run: |
+          python -m pip install --upgrade twine
+          twine check dist/*
+          ls dist/
+          expected="${{ needs.release.outputs.new_release_version }}"
+          if ! ls dist/ | grep -q "physiotrack-${expected}"; then
+            echo "::error::Built artifacts do not match tag ${expected}:"
+            ls dist/
+            exit 1
+          fi
+
+      - name: Publish to PyPI
+        # Requires a Trusted Publisher for this repository and the `pypi`
+        # environment to be configured once at https://pypi.org/manage/account/publishing/
+        uses: pypa/gh-action-pypi-publish@release/v1

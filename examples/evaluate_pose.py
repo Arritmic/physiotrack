@@ -17,6 +17,7 @@ from tqdm import tqdm
 # sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from physiotrack import (
+    CanonicalView,
     Models,
     canonicalize_pose,
     evaluate_canonicalization,
@@ -89,7 +90,7 @@ try:
         batch_canonical_standard, batch_rotation_standard = canonicalize_pose(
             batch_input_standard,  # Standard format input
             model=Models.Pose3D.Canonicalizer.Models.GEOMETRIC,
-            view=Models.Pose3D.Canonicalizer.View.FRONT,
+            view=CanonicalView.FRONT,
             return_rotation=True
         )
         
@@ -163,7 +164,7 @@ try:
         batch_canonical, batch_rotation = canonicalize_pose(
             batch_input_3dpcnet,  # Already in 3DPCNet format
             model=Models.Pose3D.Canonicalizer.Models._3DPCNetS2,
-            view=Models.Pose3D.Canonicalizer.View.FRONT,
+            view=CanonicalView.FRONT,
             apply_transform=False,  # Don't transform since already in 3DPCNet format
             verbose=False,  # Suppress print messages
             return_rotation=True  # Get rotation matrices
@@ -218,7 +219,7 @@ try:
         batch_canonical, batch_rotation = canonicalize_pose(
             batch_input_3dpcnet,  # Already in 3DPCNet format
             model=Models.Pose3D.Canonicalizer.Models._3DPCNetS3,
-            view=Models.Pose3D.Canonicalizer.View.FRONT,
+            view=CanonicalView.FRONT,
             apply_transform=False,  # Don't transform since already in 3DPCNet format
             verbose=False,  # Suppress print messages
             return_rotation=True  # Get rotation matrices
@@ -275,7 +276,7 @@ try:
         batch_canonical, batch_rotation = canonicalize_pose(
             batch_input_3dpcnet,  # Already in 3DPCNet format
             model=Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byCam,
-            view=Models.Pose3D.Canonicalizer.View.FRONT,
+            view=CanonicalView.FRONT,
             apply_transform=False,  # Don't transform since already in 3DPCNet format
             verbose=False,  # Suppress print messages
             return_rotation=True  # Get rotation matrices
@@ -327,7 +328,7 @@ try:
         batch_canonical, batch_rotation = canonicalize_pose(
             batch_input_3dpcnet,  # Already in 3DPCNet format
             model=Models.Pose3D.Canonicalizer.Models._3DPCNetTC48_byAction,
-            view=Models.Pose3D.Canonicalizer.View.FRONT,
+            view=CanonicalView.FRONT,
             apply_transform=False,  # Don't transform since already in 3DPCNet format
             verbose=False,  # Suppress print messages
             return_rotation=True  # Get rotation matrices

@@ -9,13 +9,17 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import io
 
+from ..._logging import get_logger
+
+logger = get_logger(__name__)
+
 
 # Plot values in opencv program
 class RealTimePlotter:
     """Scrolling real-time line plot for debugging/inspecting streamed signals.
 
     Maintains a fixed-length sliding window of the most recent samples for one or more
-    signals and re-renders it on each [`plot`][physiotrack.signals.RealTimePlotter.plot]
+    signals and re-renders it on each [`push`][physiotrack.signals.RealTimePlotter.push]
     call, returning an image you can display or composite. Two rendering backends are
     supported via ``plotting_method``: ``"MPL"`` (Matplotlib, drawn to an Agg canvas and
     returned as an RGBA array) and ``"OCV"`` (a lightweight OpenCV line drawing).
@@ -43,7 +47,7 @@ class RealTimePlotter:
             number_of_signals=1, plotting_method="MPL", title="signal",
         )
         for sample in stream:                 # a scalar per frame
-            img = plotter.plot(sample)         # RGBA array
+            img = plotter.push(sample)         # RGBA array
             cv2.imshow("signal", img)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
@@ -149,7 +153,7 @@ class RealTimePlotter:
 
             self.x = np.linspace(0, self.number_of_seconds_x_axis, self.samples_number_x_axis)
             if canvas is None:
-                print("          >> [RealTimePlotter] Creating new figure with id = ", self.index)
+                logger.debug("RealTimePlotter: creating figure id=%s", self.index)
                 self.fig = plt.figure(self.index, figsize=(self.width/self.dpi, self.height/self.dpi), dpi=self.dpi)
                 self.canvas = FigureCanvasAgg(self.fig)
             else:
@@ -158,8 +162,12 @@ class RealTimePlotter:
         else:
             self.plot_image = np.ones((self.height, self.width, 3)) * 255  # For OpenCV option
 
-    def plot(self, values, label='plot'):
+    def push(self, values, label='plot'):
         """Push the current frame's sample(s), re-render and return the plot image.
+
+        Named ``push`` rather than ``plot`` because it *appends a sample*: everywhere else
+        in the library ``plot()`` renders an existing result and mutates nothing. Calling
+        this twice with the same value advances the window twice.
 
         Normalizes the value(s) by ``max_values_y_axis``, appends them to the sliding
         window (dropping the oldest once full), then re-renders via
@@ -216,7 +224,7 @@ class RealTimePlotter:
         For ``"OCV"`` this draws the line trace and calls ``cv2.imshow(label, ...)``.
         For ``"MPL"`` it redraws the Matplotlib figure and stores the resulting RGBA
         array in ``self.plot_image``. Usually called for you by
-        [`plot`][physiotrack.signals.RealTimePlotter.plot].
+        [`push`][physiotrack.signals.RealTimePlotter.push].
 
         Args:
             label (str): Window/label name (used by the OpenCV backend's ``imshow``).
