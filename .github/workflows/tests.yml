@@ -1,11 +1,16 @@
 name: Tests
 
-# Runs the test suite on every push and pull request. Also exposed as a reusable
-# workflow (`workflow_call`) so the release pipeline gates on it instead of
-# duplicating this setup.
+# Runs the test suite on pull requests, and is exposed as a reusable workflow
+# (`workflow_call`) so the release pipeline gates on it instead of duplicating
+# this setup.
+#
+# Deliberately NOT triggered by pushes to main: the Release workflow already calls
+# this one for every such push. With both active, two runs land in the
+# `tests-refs/heads/main` concurrency group and one is cancelled --
+# "Canceling since a higher priority waiting request ... exists" -- so every merge
+# to main showed a failed Tests run even though the tests had passed inside
+# Release. A red X that always means nothing is worse than no check at all.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_call:
   workflow_dispatch:
