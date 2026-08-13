@@ -280,7 +280,7 @@ rr_rsa   = est.respiration_rate("rsa")
 
 # Motion-derived: reuse the per-frame pose records (no face, no extra inference)
 from physiotrack.signals import respiration_from_motion
-records = pt.Video(source="in.mp4", pose=pt.Pose.Person()).run()   # per-frame detections
+records = pt.Video(source="in.mp4", pose=pt.Pose.Person()).run()   # VideoResults of frames
 resp_wave, rr_motion = respiration_from_motion(records, original_fps=30.0)
 ```
 
@@ -298,8 +298,8 @@ choose `respiration_source="pulse"` or `"motion"` — see the
 
 ## Motion features, Joint Angles & ROM
 
-From per-frame pose records (the `detections` list produced by
-[`Video`][physiotrack.Video] / `Result.to_dict()`), the motion tools build keypoint
+From per-frame pose instances (the `instances` list in
+[`Video`][physiotrack.Video] / `Result.to_dict()` output), the motion tools build keypoint
 trajectories, derive velocity/acceleration, and measure anatomical joint angles and clinical
 ROM.
 
@@ -322,7 +322,8 @@ from physiotrack.signals import (
     resample_dataframe_by_interpolation,
 )
 
-# `data` = detections from Video.run(...) / Result.to_dict(); `pose` is your Pose estimator
+# `data` = frame/instance records from Video.run(...) or Result.to_dict()["instances"]
+# `pose` is your Pose estimator
 data = add_pelvic_centroid(data, pose.architecture)          # id 135 = hip midpoint
 kp_df = extract_keypoints_sequence(data, candidate_key_points=list(range(17)) + [135])
 rel = get_relative_coordinates(kp_df, reference_point_id=135)  # pelvis-centered (translation-invariant)
@@ -503,4 +504,4 @@ See `examples/motion.py` for a full 2D-vs-3D comparison and the
     - [Signal metrics](../api/signals/evaluate.md)
     - [Plotting overlays](../api/signals/plotting.md)
 - Related guides: [Pose](pose.md) · [Segmentation](segmentation.md) · [3D Pose](pose3d.md) · [Video pipeline](video.md)
-- [Result objects](../api/results.md) — the `detections` / `keypoints` structures the motion tools consume.
+- [Result objects](../api/results.md) — the `instances` / `keypoints` structures the motion tools consume.

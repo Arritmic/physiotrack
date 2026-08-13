@@ -61,7 +61,9 @@ cached.
 
     Face detection, VR-face crops, and 6-DoF yaw/pitch/roll head pose.
 
-    [:octicons-arrow-right-24: Face guide](face.md)
+    [:octicons-arrow-right-24: Face guide](face.md) ·
+    [Runnable examples](face-examples.md) ·
+    [Validation](face-validation.md)
 
 - :material-vector-polyline:{ .lg .middle } **Tracking**
 
