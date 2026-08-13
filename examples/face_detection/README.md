@@ -19,6 +19,26 @@ python examples/face_detection/detect_faces.py --input path/to/photo.jpg
 python examples/face_detection/detect_faces.py --input path/to/image_folder --model nano
 ```
 
+To compare repeated inference with the same model and input on CPU and CUDA:
+
+```bash
+python examples/face_detection/compare_cpu_gpu.py
+python examples/face_detection/compare_cpu_gpu.py --model nano --repeats 20
+```
+
+The comparison requires a CUDA-enabled PyTorch installation. It warms up each
+device separately, synchronizes CUDA around every measurement, saves CPU/GPU and
+side-by-side overlays, and reports timing plus box agreement in
+`results/cpu_vs_gpu/comparison.json`. These numbers describe only the tested
+hardware, software stack, model, image, and settings; they are not universal
+CPU/GPU performance claims.
+
+![CPU and CUDA face-detection comparison](../../docs/images/side_by_side.jpg)
+
+The displayed image is a documentation copy from one run. Re-running the script
+writes a new, ignored `results/cpu_vs_gpu/side_by_side.jpg`; copy it deliberately to
+`docs/images/side_by_side.jpg` if the documented benchmark should be updated.
+
 The default output is `examples/face_detection/results/`:
 
 ```text
@@ -37,6 +57,12 @@ PhysioTrack serialization under `result`; its `instances` list contains one
 
 See the [documentation walkthrough](../../docs/guides/face-examples.md) for the
 complete schemas and an explanation of how to interpret the output.
+
+The documentation keeps copies of two illustrative outputs in
+[`docs/images/`](../../docs/images/): the
+[annotated exercise scene](../../docs/images/exercise_class_pov.jpg) and the
+[CPU/CUDA comparison](../../docs/images/side_by_side.jpg). All files below
+`results/` remain ignored because they are reproducible run artifacts.
 
 ## Demonstration, not a benchmark
 

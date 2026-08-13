@@ -35,8 +35,8 @@ incompatible model. See the [Model Zoo](../model-zoo.md) for every variant.
 | --- | --- | --- | --- |
 | [`Detection.Person`][physiotrack.Detection.Person] | YOLO | `[0]` (person) | People only; class filter is pinned to person. |
 | [`Detection.Face`][physiotrack.Detection.Face] | YOLO | face | Face bounding boxes. |
-| [`Detection.VR`][physiotrack.Detection.VR] | YOLO | VR objects | VR-headset object detection. |
-| [`Detection.VRStudent`][physiotrack.Detection.VRStudent] | YOLO | VR student | VR-student detection. |
+| [`Detection.VR`][physiotrack.Detection.VR] | YOLO | `VR-head` | VR-headset boxes; use `Segmentation.VRHead` when masks are needed. |
+| [`Detection.VRStudent`][physiotrack.Detection.VRStudent] | YOLO | `VR-person` | Full-person boxes for people wearing a VR headset. |
 | [`Detection.Custom`][physiotrack.Detection.Custom] | YOLO | any | Run any validated `Models.Detection.*` variant. |
 
 ### Two face-detector entry points
@@ -52,6 +52,26 @@ box/confidence structure; the difference is the semantic task label:
 
 The dedicated [face examples](face-examples.md) use `pt.Face()` so serialized output
 clearly identifies a facial task.
+
+### VR objects and people
+
+These presets answer different questions. `Detection.VR` locates the headset region,
+`Detection.VRStudent` locates the full body of a VR-equipped person, and
+`Detection.Person` locates people regardless of whether they wear a headset. Run the
+[VR detection example](https://github.com/tharindu326/physiotrack/tree/main/examples/vr_detection)
+to compare all three on the same synthetic lab scene.
+
+Only a medium VR-head checkpoint (`yolo11m_VR_head.pt`) is currently published.
+Large checkpoints are available for VR-person and generic-person detection. The
+example's `--model-size largest` mode therefore uses medium for VR-head and large for
+the other two, and reports every exact filename in its panels and JSON output.
+
+![VR-person and generic-person comparison](../images/comparison_person_vrperson.jpg)
+
+*Focused output from the bundled synthetic scene. The large VR-person checkpoint
+(top) retains two full people using headsets; the large generic-person checkpoint
+(bottom) retains twelve people regardless of headset use. These counts describe
+different detection tasks and are not accuracy scores.*
 
 ```python
 from physiotrack import Detection, Models
@@ -137,6 +157,7 @@ See [Result objects](../api/results.md) for every field and rendering toggle.
 
 ## See also
 
+- [VR-head and VR-person example](https://github.com/tharindu326/physiotrack/tree/main/examples/vr_detection) — compare VR regions, VR-equipped people, and all people.
 - [`Detection` API reference](../api/detection.md) — full class and preset docs.
 - [Result objects](../api/results.md) — `boxes`, `Instance`, `to_dict`, `plot`.
 - [Model Zoo](../model-zoo.md) — available detection backbones.

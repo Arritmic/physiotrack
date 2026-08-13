@@ -350,11 +350,16 @@ Runnable face examples with bundled synthetic media:
 
 ```bash
 python examples/face_detection/detect_faces.py
+python examples/face_detection/compare_cpu_gpu.py  # requires CUDA
 python examples/face_tracking/track_faces.py
+python examples/vr_detection/detect_vr_people.py
 ```
 
-They save annotated images/video plus CSV and JSON records and explain every
-field in the [face examples guide](https://tharindu326.github.io/physiotrack/guides/face-examples/).
+They save annotated images/video plus CSV and JSON records. The
+[face examples guide](https://tharindu326.github.io/physiotrack/guides/face-examples/)
+explains the face outputs, while the
+[detection guide](https://tharindu326.github.io/physiotrack/guides/detection/)
+distinguishes VR-head, VR-person, and generic-person boxes.
 
 ---
 

@@ -128,7 +128,7 @@ result = pose.predict(frame)
 
 ## Detection
 
-15 checkpoints across YOLO and RT-DETR. See the [Detection guide](guides/detection.md).
+14 checkpoints across YOLO and RT-DETR. See the [Detection guide](guides/detection.md).
 
 | Access path | Backend | Weight file | Notes |
 |---|---|---|---|
@@ -139,8 +139,7 @@ result = pose.predict(frame)
 | `Models.Detection.YOLO.FACE.m_face` | YOLO | `yolov11m-face.pt` | YOLO11-m face |
 | `Models.Detection.YOLO.FACE.l_face` | YOLO | `yolov11l-face.pt` | YOLO11-l face |
 | `Models.Detection.YOLO.VRFACE.l_vrface` | YOLO | `yolov12l-face.pt` | YOLO12-l VR face |
-| `Models.Detection.YOLO.VR.m_vr` | YOLO | `yolo11m_vr.pt` | YOLO11-m VR-headset objects |
-| `Models.Detection.YOLO.VR.l_vr` | YOLO | `yolo11l_vr.pt` | YOLO11-l VR-headset objects |
+| `Models.Detection.YOLO.VR.m_vr` | YOLO | `yolo11m_VR_head.pt` | Only published VR-head size; masks are discarded by the detection API |
 | `Models.Detection.YOLO.VRSTUDENT.m_vrstudent` | YOLO | `yolo11m_VRstudent.pt` | YOLO11-m VR-student |
 | `Models.Detection.YOLO.VRSTUDENT.l_vrstudent` | YOLO | `yolo11l_VRstudent.pt` | YOLO11-l VR-student |
 | `Models.Detection.RTDETR.PERSON.l_person` | RT-DETR | `rtdetr-l.pt` | RT-DETR-l person (stock, ultralytics) |
