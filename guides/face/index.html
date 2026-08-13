@@ -2311,9 +2311,9 @@ physiological signals such as rPPG heart rate are covered in the
 <h2 id="runnable-detection-and-tracking-examples">Runnable detection and tracking examples<a class="headerlink" href="#runnable-detection-and-tracking-examples" title="Permanent link">&para;</a></h2>
 <p>The repository includes synthetic media and command-line examples that run without
 editing file paths. The image example saves annotated PNGs, per-image JSON, a CSV
-summary and run metadata. The video example saves temporary face tracks as an MP4,
-JSONL, CSV and summary JSON. Every rendered frame states the face count and exact
-detector checkpoint.</p>
+summary and run metadata. The video example runs face detection and tracking
+through the core <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Video&lt;/span&gt;" href="../../api/video/#physiotrack.Video"><code>Video</code></a> pipeline and saves an annotated MP4,
+per-frame JSON, and a per-track CSV.</p>
 <p>See <a href="../face-examples/">Face Detection &amp; Tracking Examples</a> for commands, output
 schemas, and interpretation. These are qualitative teaching examples; use the
 <a href="../face-validation/">Face Detection &amp; Tracking Validation</a> guide before making

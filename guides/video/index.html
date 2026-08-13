@@ -2396,7 +2396,7 @@ and <code>instances</code> (list), plus optional pipeline fields:</p>
 <tr>
 <td><code>instances</code></td>
 <td>always</td>
-<td>Per-subject fields; pose pipelines include keypoints and metadata. Empty when no subject-producing stage is attached.</td>
+<td>Per-subject fields from the richest attached stage: pose instances with keypoints, else tracked instances with persistent <code>id</code>s, else bare detections. Empty when no detection, tracking, or pose stage is attached.</td>
 </tr>
 <tr>
 <td><code>track_box</code></td>
