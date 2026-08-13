@@ -9,6 +9,8 @@ examples/output
 # dataset / generated evaluation outputs
 examples/CVSSP3D/
 examples/cananon_evaluation_outputs/
+examples/face_detection/results/
+examples/face_tracking/results/
 docs/paper/
 # built MkDocs site (published to the gh-pages branch by CI, not tracked on main)
 site/
@@ -31,6 +33,8 @@ main.py
 *.wav
 *.json
 !.releaserc.json
+# The short, synthetic tracking clip is an intentional example input.
+!examples/face_tracking/data/students_face_tracking.mp4
 
 # data / arrays
 *.npz
@@ -56,5 +60,3 @@ main.py
 
 # other
 *.ovpn
-
-

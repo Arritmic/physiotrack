@@ -282,11 +282,13 @@ class Detection:
         model = Models.Detection.YOLO.VRSTUDENT.m_vrstudent
 
     class Face(ValidatedDetector):
-        """Face detector.
+        """Face detector in the generic detection namespace.
 
-        Wraps ``Models.Detection.YOLO.FACE.m_face``. See
-        [`ValidatedDetector`][physiotrack.Detection] for
-        constructor arguments.
+        Wraps ``Models.Detection.YOLO.FACE.m_face`` and returns a
+        [`Result`][physiotrack.Result] with ``task="detect"``. Top-level
+        [`Face`][physiotrack.Face] uses the same default checkpoint but returns
+        ``task="face"``; prefer it when these boxes feed a facial pipeline. See
+        [`ValidatedDetector`][physiotrack.Detection] for constructor arguments.
         """
         expected_subclass = "Face"
         model = Models.Detection.YOLO.FACE.m_face

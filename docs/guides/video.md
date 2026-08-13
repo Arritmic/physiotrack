@@ -167,8 +167,9 @@ video.run(output_video="out.mp4")
 ### `run()`
 
 [`run`][physiotrack.Video.run] processes the whole source and returns a
-`list[dict]`, one dict per processed frame. It optionally writes an annotated H.264
-(`avc1`) MP4 and a JSON dump.
+[`VideoResults`][physiotrack.VideoResults], a typed sequence with one
+[`FrameResult`][physiotrack.FrameResult] per processed frame. It optionally writes an
+annotated MP4 (H.264 when available, otherwise MPEG-4) and a JSON dump.
 
 ```python
 results = video.run(
@@ -177,14 +178,15 @@ results = video.run(
 )
 ```
 
-Each per-frame dict always carries `frame_id` (int) and `timestamp` (float
-seconds), plus, when the relevant stage is enabled:
+Each `FrameResult` is iterable over its typed `Instance` objects and carries metadata.
+Its serialized dictionary always has `frame_id` (int), `timestamp` (float seconds),
+and `instances` (list), plus optional pipeline fields:
 
 | Key | Present when | Contents |
 | --- | --- | --- |
 | `frame_id` | always | Frame index (int). |
 | `timestamp` | always | Seconds from start (float). |
-| `detections` | a pose estimator is attached | Per-person pose results (keypoints + metadata). |
+| `instances` | always | Per-subject fields; pose pipelines include keypoints and metadata. Empty when no subject-producing stage is attached. |
 | `track_box` | a tracker is attached and has a locked box | The tracked subject box `[x1, y1, x2, y2]`. |
 | `face_orientation` | face + face-orientation are attached | List of head-pose dicts (`bbox`, `pose` = yaw/pitch/roll). |
 
@@ -196,7 +198,7 @@ You can also pass a `progress_callback(frame_id, total_frames, pose_results)` to
 [`batch_run`][physiotrack.Video.batch_run] reuses this pipeline's configuration
 across several input files, writing `<name>_processed.mp4` / `<name>_result.json`
 into an output directory and returning a `dict` mapping each file stem to its
-per-frame results:
+[`VideoResults`][physiotrack.VideoResults] sequence:
 
 ```python
 results = video.batch_run(
