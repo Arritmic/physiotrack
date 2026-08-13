@@ -250,26 +250,24 @@ recommended for real-time use).
 ## Installation
 
 **Requires Python 3.10 or newer.** Install the PyTorch build that matches your platform
-first, then the package:
+first, then the package. The command below is CPU-only; for CUDA, ROCm, or Apple
+Silicon use the official [PyTorch selector](https://pytorch.org/get-started/locally/).
 
 ```bash
 git clone https://github.com/tharindu326/physiotrack.git
 cd physiotrack
 
-# CPU-only
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-# ...or CUDA 12.8
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-pip install -e .
+python -m pip install -e .
 ```
 
 Everything else resolves from `pyproject.toml`. Optional extras:
 
 ```bash
-pip install -e ".[test]"     # test suite, including the NeuroKit2 reference implementation
-pip install -e ".[docs]"     # MkDocs toolchain
-pip install -e ".[pose3d]"   # smplx, for 3D mesh rendering in Pose3D
+python -m pip install -e ".[test]"     # test suite + NeuroKit2 reference checks
+python -m pip install -e ".[docs]"     # MkDocs toolchain
+python -m pip install -e ".[pose3d]"   # smplx, for Pose3D mesh rendering
 ```
 
 | | Supported |
@@ -304,9 +302,14 @@ export PHYSIOTRACK_HOME=/shared/physiotrack   # share one cache across envs or c
 > `python -c "import physiotrack; physiotrack.migrate_weight_cache()"` once to move existing
 > checkpoints into the cache instead of re-downloading them. Add `dry_run=True` to preview.
 
-> **Windows / H.264:** OpenCV wheels often ship without an H.264 encoder. PhysioTrack detects
-> this and falls back to MPEG-4 with a warning, so exports never fail silently — but for H.264
-> output run `python install_openh264.py` once to place the OpenH264 runtime library.
+> **Conda development:** `conda env create -f environment-dev.yml`, activate
+> `physiotrack-dev`, install the appropriate PyTorch build, then run
+> `python -m pip install -e ".[test,docs]"`. PyTorch stays a separate step because
+> CPU/CUDA/ROCm selection is machine-specific.
+
+> **Video codecs:** The `Video` pipeline tries H.264 first and falls back to MPEG-4 with a
+> warning. If neither encoder is available, install an OpenCV build with the codecs your
+> platform requires. See the [complete installation guide](https://tharindu326.github.io/physiotrack/getting-started/installation/).
 
 ### Testing
 
@@ -329,7 +332,7 @@ silently and leave the strongest correctness claim unverified.
 import cv2
 import physiotrack as pt
 
-frame = cv2.imread("examples/IMG_0121.mp4")  # or any BGR frame you have
+frame = cv2.imread("examples/face_detection/data/selfie/two_person_selfie.jpg")
 
 # Detect people
 det    = pt.Detection.Person(conf=0.25, device=0)
@@ -342,6 +345,16 @@ people = pose.predict(frame)
 wrist  = people[0].keypoints.by_name("left_wrist")
 print(wrist.x, wrist.y, wrist.confidence)
 ```
+
+Runnable face examples with bundled synthetic media:
+
+```bash
+python examples/face_detection/detect_faces.py
+python examples/face_tracking/track_faces.py --max-frames 120
+```
+
+They save annotated images/video plus CSV and JSON/JSONL records and explain every
+field in the [face examples guide](https://tharindu326.github.io/physiotrack/guides/face-examples/).
 
 ---
 
