@@ -646,6 +646,11 @@ class Result:
 
             restored = pt.Result.from_dict(data)
             ```
+
+        Note:
+            Serialized subjects always live under ``"instances"`` for detection,
+            pose, segmentation, face, and tracking results. Older examples that
+            index ``"detections"`` or ``"tracks"`` do not match the current API.
         """
         out: Dict[str, Any] = {
             "task": self.task,

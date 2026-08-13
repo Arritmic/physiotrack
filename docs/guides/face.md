@@ -88,7 +88,7 @@ for inst in result:                 # each face is an Instance
     x1, y1, x2, y2 = inst.box       # (4,) face box
 
 result.boxes        # (N, 4) all face boxes
-result.to_dict()    # JSON-friendly dict; orientation is stored under "pose"
+result.to_dict()    # JSON-friendly dict; orientation stays under "orientation"
 ```
 
 See [Result objects](../api/results.md) for the full container API.
@@ -130,6 +130,19 @@ cv2.imwrite("face_orientation_output_manual.png", vis)
     physiological signals such as rPPG heart rate are covered in the
     [Signals guide](signals.md), not here.
 
+## Runnable detection and tracking examples
+
+The repository includes synthetic media and command-line examples that run without
+editing file paths. The image example saves annotated PNGs, per-image JSON, a CSV
+summary and run metadata. The video example runs face detection and tracking
+through the core [`Video`][physiotrack.Video] pipeline and saves an annotated MP4,
+per-frame JSON, and a per-track CSV.
+
+See [Face Detection & Tracking Examples](face-examples.md) for commands, output
+schemas, and interpretation. These are qualitative teaching examples; use the
+[Face Detection & Tracking Validation](face-validation.md) guide before making
+accuracy claims.
+
 ## See also
 
 - [`Face`][physiotrack.Face] · [`VRFace`][physiotrack.VRFace] · [`FaceOrientation`][physiotrack.FaceOrientation] — API reference.
@@ -137,3 +150,5 @@ cv2.imwrite("face_orientation_output_manual.png", vis)
 - [Result objects](../api/results.md) — `Result`, `Instance`, the `orientation` dict.
 - [Signals guide](signals.md) — face parsing and rPPG heart rate.
 - [Model Zoo](../model-zoo.md) — face detector and head-pose weights.
+- [Face examples](face-examples.md) — runnable image/video demos and output schemas.
+- [Face validation](face-validation.md) — datasets, manifests, and reporting boundaries.

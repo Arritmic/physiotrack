@@ -1097,13 +1097,14 @@ class Video:
     def run(self,
             output_video: Optional[Union[str, Path]] = None,
             output_json: Optional[Union[str, Path]] = None,
-            progress_callback: Optional[callable] = None) -> List[Dict[str, Any]]:
+            progress_callback: Optional[callable] = None) -> VideoResults:
         """Process the whole video and return per-frame results.
 
         Reads the source frame-by-frame (subsampling to ``fps`` if set), runs every
         configured stage in batches -- detection, pose, tracking, segmentation, face
         orientation, depth -- composites the enabled overlays and side panels, and
-        optionally writes an annotated H.264 (``avc1``) video and a JSON dump.
+        optionally writes an annotated video (H.264 when available, otherwise
+        MPEG-4 with a warning) and a JSON dump.
         Blocks until the source is exhausted (or the user presses ``q`` when
         ``show=True``).
 
@@ -1119,11 +1120,14 @@ class Video:
         Returns:
             VideoResults: One [`FrameResult`][physiotrack.FrameResult] per processed
                 frame. Each exposes its subjects as
-                [`Instance`][physiotrack.Instance] objects with named keypoints — so the
-                object model survives video processing — plus ``meta`` (frame index,
-                timestamp, source fps) and, when the relevant stage is enabled,
-                ``vitals``, ``face_orientation`` and ``track_box``. The sequence
-                serializes with
+                [`Instance`][physiotrack.Instance] objects — so the object model
+                survives video processing — plus ``meta`` (frame index, timestamp,
+                source fps) and, when the relevant stage is enabled, ``vitals``,
+                ``face_orientation`` and ``track_box``. The subjects come from the
+                richest attached stage: pose instances with named keypoints
+                (``task="pose"``), else tracked instances with persistent ``id``s
+                (``task="track"``), else bare detections (``task="detect"``). The
+                sequence serializes with
                 [`to_json`][physiotrack.VideoResults.to_json] and is accepted directly by
                 the ``physiotrack.signals`` sequence functions.
 
@@ -1145,8 +1149,9 @@ class Video:
             ```
 
         Note:
-            The output video is encoded with the H.264 (``avc1``) codec; its frame
-            rate is ``fps`` when set, otherwise the source fps.
+            The writer tries H.264 (``avc1``) first and falls back to MPEG-4
+            (``mp4v``) with a warning. Its frame rate is ``fps`` when set,
+            otherwise the source fps.
         """
         
         pbar = None
@@ -1251,9 +1256,11 @@ class Video:
                 online_targets_batch = []
                 boxes_batch = []
                 track_ids_batch = []
+                track_instances_batch = []
 
                 for frame, all_detections in zip(frames_with_detections, all_detections_batch):
                     boxes, track_ids, online_targets = None, None, []
+                    track_instances = []
 
                     if len(all_detections) > 0:
                         detections = np.vstack(all_detections)
@@ -1262,6 +1269,7 @@ class Video:
                             track_result = self.tracker.track(frame, detections)
                             frame = track_result.rendered
                             online_targets = track_result.raw
+                            track_instances = track_result.instances
 
                             tracked = [(inst.box, inst.id) for inst in track_result.instances
                                        if inst.box is not None]
@@ -1284,6 +1292,7 @@ class Video:
                     online_targets_batch.append(online_targets)
                     boxes_batch.append(boxes)
                     track_ids_batch.append(track_ids)
+                    track_instances_batch.append(track_instances)
 
                 # Step 3: Batch pose estimation (if applicable)
                 pose_results_batch = []
@@ -1424,12 +1433,29 @@ class Video:
 
                     # Instances come back from the pose backend as serialized dicts, so
                     # rebuild them into the object model: the frame result must expose
-                    # Instance/Keypoints objects, not raw dicts.
+                    # Instance/Keypoints objects, not raw dicts. Detector/tracker-only
+                    # pipelines (no pose) export their subjects too — the tracker's
+                    # instances already carry persistent ids, and bare detections carry
+                    # box/confidence/class — so a face-tracking or detection-only run
+                    # produces per-frame results instead of empty frames.
                     architecture = getattr(self.pose_estimator, 'architecture', None)
-                    frame_instances = [
-                        Instance.from_dict(det, architecture or "WHOLEBODY")
-                        for det in (pose_results or [])
-                    ] if self.pose_estimator is not None else []
+                    if self.pose_estimator is not None:
+                        frame_task = 'pose'
+                        frame_instances = [
+                            Instance.from_dict(det, architecture or "WHOLEBODY")
+                            for det in (pose_results or [])
+                        ]
+                    elif self.tracker is not None:
+                        frame_task = 'track'
+                        frame_instances = list(track_instances_batch[idx])
+                    else:
+                        frame_task = 'detect'
+                        frame_instances = [
+                            Instance(box=np.array(row[:4], dtype=np.float32),
+                                     confidence=float(row[4]), cls=int(row[5]))
+                            for det_rows in all_detections_batch[idx]
+                            for row in det_rows
+                        ]
 
                     frame_meta = ResultMeta(
                         frame_index=metadata['frame_id'],
@@ -1458,7 +1484,7 @@ class Video:
                         result=Result(
                             orig_img=result_frame,
                             instances=frame_instances,
-                            task='pose' if self.pose_estimator is not None else 'detect',
+                            task=frame_task,
                             architecture=architecture,
                             meta=frame_meta,
                         ),

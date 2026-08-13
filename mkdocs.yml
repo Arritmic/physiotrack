@@ -168,6 +168,8 @@ nav:
       - Segmentation: guides/segmentation.md
       - Depth: guides/depth.md
       - Face & Head Orientation: guides/face.md
+      - Face Detection & Tracking Examples: guides/face-examples.md
+      - Face Detection & Tracking Validation: guides/face-validation.md
       - Tracking: guides/tracking.md
       - Video Pipeline: guides/video.md
       - Signals (rPPG · Motion · ROM): guides/signals.md
