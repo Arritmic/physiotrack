@@ -306,11 +306,14 @@ class Detection:
         model = Models.Detection.YOLO.PERSON.m_person
 
     class VR(ValidatedDetector):
-        """VR-headset object detector.
+        """VR-head detector.
 
-        Wraps ``Models.Detection.YOLO.VR.m_vr``. See
-        [`ValidatedDetector`][physiotrack.Detection] for
-        constructor arguments.
+        Wraps ``Models.Detection.YOLO.VR.m_vr``. The checkpoint also predicts
+        segmentation masks, but this detection entry point intentionally returns
+        only the VR-head boxes. This is currently the only published VR-head
+        checkpoint; there is no large variant. Use ``Segmentation.VRHead`` when masks
+        are needed. See [`ValidatedDetector`][physiotrack.Detection] for constructor
+        arguments.
         """
         expected_subclass = "VR"
         model = Models.Detection.YOLO.VR.m_vr

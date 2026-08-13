@@ -49,6 +49,12 @@ panel containing:
 - `Detector`: the exact checkpoint filename, such as `yolov11m-face.pt`;
 - `Device` and elapsed inference time for this call.
 
+![Face detections in the synthetic point-of-view exercise scene](../images/exercise_class_pov.jpg)
+
+*Example output from the bundled point-of-view scene: seven retained face boxes,
+confidence labels, and the run-context panel. This is a qualitative illustration,
+not a ground-truth accuracy result.*
+
 ### Detection output
 
 ```text
@@ -92,6 +98,36 @@ The example is the outer experiment record; `result` is exactly
 y2]` pixels. `run.json` records the thresholds, warm-up count, model setup time,
 aggregate counts/timing, PhysioTrack/OpenCV/PyTorch versions, CUDA visibility, and
 GPU name so the run can be interpreted later.
+
+### Compare CPU and GPU
+
+The companion benchmark runs the same image, weights, thresholds, and entry point on
+both devices:
+
+```bash
+python examples/face_detection/compare_cpu_gpu.py
+python examples/face_detection/compare_cpu_gpu.py --model nano --repeats 20
+```
+
+It requires CUDA. Each device receives separate warm-up runs; CUDA is synchronized
+around every measured `predict()` call so queued kernels are included in the elapsed
+time. The output directory `examples/face_detection/results/cpu_vs_gpu/` contains:
+
+| Output | Contents |
+| --- | --- |
+| `cpu.png`, `gpu.png` | final annotated result and mean timing for each device |
+| `side_by_side.png`, `side_by_side.jpg` | the two annotated results on one canvas; JPEG is the compact documentation preview |
+| `comparison.json` | raw timings, summary statistics, speed-up, GPU memory, runtime metadata, and greedy box-IoU agreement |
+
+![CPU and CUDA face-detection comparison](../images/side_by_side.jpg)
+
+*Example run with `yolov11m-face.pt`: CPU (left) and CUDA (right) retained the
+same seven face boxes. The displayed mean timings of 152.2 ms and 15.1 ms belong only to the
+machine and configuration used for this run; reproduce the benchmark on your own
+hardware before drawing performance conclusions.*
+
+The reported speed-up is local evidence, not a portable benchmark: GPU model, CPU,
+PyTorch/CUDA versions, image size, thermal state, and repeat count all affect it.
 
 ## Track faces in a video
 

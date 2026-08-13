@@ -11,6 +11,7 @@ examples/CVSSP3D/
 examples/cananon_evaluation_outputs/
 examples/face_detection/results/
 examples/face_tracking/results/
+examples/vr_detection/results/
 docs/paper/
 # built MkDocs site (published to the gh-pages branch by CI, not tracked on main)
 site/

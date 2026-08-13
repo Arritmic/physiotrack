@@ -7,6 +7,7 @@ import importlib.util
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 import physiotrack as pt
 from physiotrack.core.overlay import draw_info_panel
@@ -76,6 +77,70 @@ def test_face_detection_example_finds_the_bundled_scene_images():
         "selfie/two_person_selfie.jpg",
         "vr/vr_training_lab.jpg",
     ]
+
+
+def test_cpu_gpu_example_matches_same_boxes_and_empty_results():
+    example = load_example("examples/face_detection/compare_cpu_gpu.py")
+
+    def result(boxes, confidences):
+        return pt.Result(
+            orig_img=np.zeros((8, 8, 3), dtype=np.uint8),
+            task="face",
+            instances=[
+                pt.Instance(box=np.array(box, dtype=np.float32), confidence=confidence)
+                for box, confidence in zip(boxes, confidences)
+            ],
+        )
+
+    cpu = result([[0, 0, 10, 10], [20, 20, 30, 30]], [0.9, 0.8])
+    gpu = result([[1, 1, 11, 11], [50, 50, 60, 60]], [0.85, 0.7])
+    agreement = example.match_predictions(cpu, gpu, minimum_iou=0.5)
+
+    assert agreement["matched_detections"] == 1
+    assert agreement["unmatched_cpu"] == 1
+    assert agreement["unmatched_gpu"] == 1
+    assert agreement["matches"][0]["absolute_confidence_difference"] == pytest.approx(0.05)
+    assert example.box_iou_matrix(np.empty((0, 4)), np.empty((0, 4))).shape == (0, 0)
+
+
+def test_vr_detection_example_defines_distinct_detector_questions():
+    example = load_example("examples/vr_detection/detect_vr_people.py")
+
+    assert set(example.DETECTORS) == {"vr_head", "vr_person", "person"}
+    assert pt.Models.Detection.YOLO.VR.m_vr.value == "yolo11m_VR_head.pt"
+    assert "l_vr" not in pt.Models.Detection.YOLO.VR.__members__
+    assert example.DEFAULT_INPUT == (
+        ROOT / "examples/face_detection/data/vr/vr_training_lab.jpg"
+    )
+    assert example.select_models(["vr_head"], "medium") == {
+        "vr_head": pt.Models.Detection.YOLO.VR.m_vr
+    }
+    largest = example.select_models(list(example.DETECTORS), "largest")
+    assert largest == {
+        "vr_head": pt.Models.Detection.YOLO.VR.m_vr,
+        "vr_person": pt.Models.Detection.YOLO.VRSTUDENT.l_vrstudent,
+        "person": pt.Models.Detection.YOLO.PERSON.l_person,
+    }
+    with pytest.raises(ValueError, match="No large checkpoint.*vr_head"):
+        example.select_models(["vr_head"], "large")
+    result = pt.Result(
+        orig_img=np.zeros((8, 8, 3), dtype=np.uint8),
+        task="detect",
+        instances=[
+            pt.Instance(cls=0, cls_name="VR-person"),
+            pt.Instance(cls=0, cls_name="VR-person"),
+        ],
+    )
+
+    assert example.class_counts(result) == {"VR-person": 2}
+    lines = example.panel_lines("vr_person", result, 12.5, "test.pt", "cpu")
+    assert "VR-person: 2" in lines
+    assert "Detector: test.pt" in lines
+
+    first = np.zeros((20, 40, 3), dtype=np.uint8)
+    second = np.zeros((10, 20, 3), dtype=np.uint8)
+    stacked = example.stack_views([first, second], width=20)
+    assert stacked.shape == (20, 20, 3)
 
 
 def test_video_exports_tracked_instances_without_a_pose_estimator():
