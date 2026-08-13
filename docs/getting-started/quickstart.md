@@ -38,6 +38,11 @@ for inst in result:
 See the [Detection guide](../guides/detection.md) and the
 [`Detection`][physiotrack.Detection] API for all presets and options.
 
+For a complete face-specific version with bundled selfie, POV, crowd and VR scenes,
+run `python examples/face_detection/detect_faces.py`. The
+[face examples guide](../guides/face-examples.md) explains its annotated PNG, CSV,
+JSON and run-metadata outputs.
+
 ## 2. Pose on the same image
 
 `Pose.Person()` auto-detects people first (no boxes needed), then estimates
@@ -141,3 +146,4 @@ See the [Pose guide](../guides/pose.md) and the [`Pose`][physiotrack.Pose] API.
   [Signals](../guides/signals.md).
 - **Reading the output** → [Result objects](../api/results.md).
 - **Pick different weights** → [Model Zoo](../model-zoo.md).
+- **Run face detection/tracking examples** → [Face Examples](../guides/face-examples.md).
