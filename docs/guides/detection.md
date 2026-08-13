@@ -39,6 +39,20 @@ incompatible model. See the [Model Zoo](../model-zoo.md) for every variant.
 | [`Detection.VRStudent`][physiotrack.Detection.VRStudent] | YOLO | VR student | VR-student detection. |
 | [`Detection.Custom`][physiotrack.Detection.Custom] | YOLO | any | Run any validated `Models.Detection.*` variant. |
 
+### Two face-detector entry points
+
+PhysioTrack also exposes a top-level [`Face`][physiotrack.Face] preset. Both face
+entry points use `Models.Detection.YOLO.FACE.m_face` by default and return the same
+box/confidence structure; the difference is the semantic task label:
+
+| Entry point | Result task | Prefer it when… |
+| --- | --- | --- |
+| `pt.Face()` | `"face"` | face boxes feed head orientation, face parsing, rPPG, or face tracking |
+| `pt.Detection.Face()` | `"detect"` | face boxes are one detector choice inside a generic object-detection pipeline |
+
+The dedicated [face examples](face-examples.md) use `pt.Face()` so serialized output
+clearly identifies a facial task.
+
 ```python
 from physiotrack import Detection, Models
 
@@ -86,7 +100,7 @@ for inst in result:                      # iterate detections
     x1, y1, x2, y2 = inst.box            # (4,) pixel box
     print(inst.cls, inst.cls_name, inst.confidence)
 
-data = result.to_dict()  # JSON-friendly dict: {"task": "detect", "detections": [...]}
+data = result.to_dict()  # JSON-friendly: {"task": "detect", "instances": [...]}
 ```
 
 Render an annotated copy with [`Result.plot`][physiotrack.Result.plot] — the source
@@ -111,9 +125,11 @@ See [Result objects](../api/results.md) for every field and rendering toggle.
     ```
 
 !!! tip "Feed a tracker or pose model"
-    A detector's boxes are the standard input to downstream stages. Serialize with
-    `result.to_dict()` for the [Tracker](tracking.md), or let [Pose](pose.md)
-    auto-detect people for you.
+    A detector's boxes are the standard input to downstream stages. The
+    [Tracker](tracking.md) needs an `(N, 6)` NumPy array of
+    `[x1, y1, x2, y2, confidence, class]`, not the dictionary returned by
+    `result.to_dict()`. Build it from the result instances as shown in the tracking
+    guide, or let [Pose](pose.md) auto-detect people for you.
 
 !!! warning "Class ids depend on the model"
     `classes` filters by the backbone's own class map. `Detection.Person` already

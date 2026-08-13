@@ -1097,13 +1097,14 @@ class Video:
     def run(self,
             output_video: Optional[Union[str, Path]] = None,
             output_json: Optional[Union[str, Path]] = None,
-            progress_callback: Optional[callable] = None) -> List[Dict[str, Any]]:
+            progress_callback: Optional[callable] = None) -> VideoResults:
         """Process the whole video and return per-frame results.
 
         Reads the source frame-by-frame (subsampling to ``fps`` if set), runs every
         configured stage in batches -- detection, pose, tracking, segmentation, face
         orientation, depth -- composites the enabled overlays and side panels, and
-        optionally writes an annotated H.264 (``avc1``) video and a JSON dump.
+        optionally writes an annotated video (H.264 when available, otherwise
+        MPEG-4 with a warning) and a JSON dump.
         Blocks until the source is exhausted (or the user presses ``q`` when
         ``show=True``).
 
@@ -1145,8 +1146,9 @@ class Video:
             ```
 
         Note:
-            The output video is encoded with the H.264 (``avc1``) codec; its frame
-            rate is ``fps`` when set, otherwise the source fps.
+            The writer tries H.264 (``avc1``) first and falls back to MPEG-4
+            (``mp4v``) with a warning. Its frame rate is ``fps`` when set,
+            otherwise the source fps.
         """
         
         pbar = None

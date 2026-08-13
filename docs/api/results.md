@@ -17,6 +17,18 @@ dictionaries: [`Video.run()`][physiotrack.Video.run] returns a
 which still exposes its subjects as `Instance` objects. Every result type carries a
 [`ResultMeta`](#resultmeta) and round-trips through `to_dict()` / `from_dict()`.
 
+## Serialized vocabulary
+
+[`Result.to_dict()`][physiotrack.Result.to_dict] and
+[`TrackResult.to_dict()`][physiotrack.TrackResult.to_dict] both store subjects under
+`"instances"`. A serialized instance uses the same names as the Python object:
+`box`, `confidence`, `cls`, `cls_name`, and—when present—`id`, `keypoints`, `mask`,
+or `orientation`. Older examples that use top-level `"detections"` / `"tracks"` or
+rename `orientation` to `"pose"` do not match the current API.
+
+The [face examples guide](../guides/face-examples.md) shows how this core result
+schema is embedded alongside experiment metadata in JSON, JSONL, and CSV outputs.
+
 ## Result
 
 ::: physiotrack.Result
