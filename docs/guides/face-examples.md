@@ -7,7 +7,7 @@ what did it return, and how can those results be inspected outside Python?
 | Example | Input | Main outputs |
 | --- | --- | --- |
 | [`examples/face_detection`](https://github.com/tharindu326/physiotrack/tree/main/examples/face_detection) | four scene images | annotated PNGs, per-image JSON, `summary.csv`, `run.json` |
-| [`examples/face_tracking`](https://github.com/tharindu326/physiotrack/tree/main/examples/face_tracking) | one 10-second clip | annotated MP4, per-frame JSONL, track CSV, summary JSON |
+| [`examples/face_tracking`](https://github.com/tharindu326/physiotrack/tree/main/examples/face_tracking) | one 10-second clip | annotated MP4, per-frame JSON, track CSV |
 
 The generated `results/` directories are ignored by Git. Run the scripts locally,
 inspect their outputs, and commit only deliberate documentation assets—not an entire
@@ -101,21 +101,29 @@ Run the complete bundled clip:
 python examples/face_tracking/track_faces.py
 ```
 
-For a quick smoke check, process only the first 120 frames; add `--show` only when
-a desktop window is available:
+Add `--show` only when a desktop window is available:
 
 ```bash
-python examples/face_tracking/track_faces.py --device cuda --max-frames 120
+python examples/face_tracking/track_faces.py --device cuda
 python examples/face_tracking/track_faces.py --input path/to/video.mp4 --show
 ```
 
-This is **tracking by detection**. For each frame the script:
+This is **tracking by detection**, and it is plain composition of two predictors
+through the core [`Video`][physiotrack.Video] pipeline — the same pattern as
+`examples/pose_video.py` and `examples/tracker_aided_pose_video.py`:
 
-1. calls [`Face.predict`][physiotrack.Face.predict];
-2. converts every face to a row `[x1, y1, x2, y2, confidence, class]`;
-3. advances one stateful [`Tracker`][physiotrack.Tracker];
-4. draws track IDs/trails and the model/count panel;
-5. writes visual, structured, and tabular results.
+```python
+detector = pt.Face(model=..., conf=..., iou=..., device=...)
+tracker  = pt.Tracker(pt.TrackerConfig(tracker_type="ocsort", classes=[0]))
+video    = pt.Video(source=..., detector=detector, tracker=tracker, output_dir=...)
+results  = video.run(output_video, output_json)
+```
+
+`Video` runs the face detector per frame, feeds the boxes to the stateful tracker,
+draws IDs and trails, writes the annotated video (H.264 when available, MPEG-4
+otherwise), and returns one [`FrameResult`][physiotrack.FrameResult] per frame whose
+instances carry persistent track `id`s (`task="track"`). The script then derives a
+per-track CSV from those results in a few lines.
 
 The face count and active-track count can differ. A new detector box may need a few
 frames before a tracker reports it, and a tracker may temporarily retain an object
@@ -125,27 +133,25 @@ through a missed detection.
 
 | Output | Contents |
 | --- | --- |
-| `*_tracked.mp4` | boxes, temporary IDs, trails, per-frame counts, detector model and tracker; source audio is not copied |
-| `*_frames.jsonl` | one JSON object per frame, safe to stream without loading the whole video |
+| `*_tracked.mp4` | boxes, temporary IDs, and trails; source audio is not copied |
+| `*_result.json` | the serialized [`VideoResults`][physiotrack.VideoResults] — one record per frame with `frame_id`, `timestamp`, and tracked `instances` |
 | `*_tracks.csv` | one row per active track per frame: time, ID, box, confidence and class |
-| `*_summary.json` | source metadata, configuration, output paths, timings, face-count aggregates and all observed temporary IDs |
 
-One JSONL record has this shape:
+One JSON frame record has this shape:
 
 ```json
 {
-  "frame_index": 42,
-  "timestamp_seconds": 1.75,
-  "faces_detected": 2,
-  "active_track_ids": [1, 2],
-  "face_result": {"task": "face", "instances": []},
-  "track_result": {"task": "track", "instances": []}
+  "frame_id": 42,
+  "timestamp": 1.75,
+  "instances": [
+    {"box": [100.0, 120.0, 180.0, 220.0], "confidence": 0.94, "cls": 0, "id": 1}
+  ]
 }
 ```
 
-The shortened empty lists above only show the schema. Real records include one
-serialized instance per detection or active track. Tracking instances additionally
-carry an `id`. Both result types deliberately use the same `instances` key.
+This is the same per-frame schema every `Video` pipeline produces (see the
+[Video guide](video.md)), so the output feeds any tooling that already consumes
+PhysioTrack results.
 
 !!! warning "A track ID is not identity recognition"
     An ID is a temporary association inside one tracker run. It can change after a

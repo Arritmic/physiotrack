@@ -27,7 +27,7 @@ or `orientation`. Older examples that use top-level `"detections"` / `"tracks"` 
 rename `orientation` to `"pose"` do not match the current API.
 
 The [face examples guide](../guides/face-examples.md) shows how this core result
-schema is embedded alongside experiment metadata in JSON, JSONL, and CSV outputs.
+schema is embedded alongside experiment metadata in JSON and CSV outputs.
 
 ## Result
 

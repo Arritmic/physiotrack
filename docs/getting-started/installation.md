@@ -160,8 +160,7 @@ Installing the FFmpeg command-line program does not automatically change the cod
 compiled into `opencv-python`; use an OpenCV build appropriate for the platform when
 you require a specific encoder.
 
-The standalone face-tracking example writes `mp4v` directly for portability and does
-not copy source audio into its annotated output.
+Annotated outputs never copy source audio.
 
 ## Common problems
 

@@ -186,7 +186,7 @@ and `instances` (list), plus optional pipeline fields:
 | --- | --- | --- |
 | `frame_id` | always | Frame index (int). |
 | `timestamp` | always | Seconds from start (float). |
-| `instances` | always | Per-subject fields; pose pipelines include keypoints and metadata. Empty when no subject-producing stage is attached. |
+| `instances` | always | Per-subject fields from the richest attached stage: pose instances with keypoints, else tracked instances with persistent `id`s, else bare detections. Empty when no detection, tracking, or pose stage is attached. |
 | `track_box` | a tracker is attached and has a locked box | The tracked subject box `[x1, y1, x2, y2]`. |
 | `face_orientation` | face + face-orientation are attached | List of head-pose dicts (`bbox`, `pose` = yaw/pitch/roll). |
 

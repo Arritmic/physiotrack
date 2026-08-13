@@ -134,9 +134,9 @@ cv2.imwrite("face_orientation_output_manual.png", vis)
 
 The repository includes synthetic media and command-line examples that run without
 editing file paths. The image example saves annotated PNGs, per-image JSON, a CSV
-summary and run metadata. The video example saves temporary face tracks as an MP4,
-JSONL, CSV and summary JSON. Every rendered frame states the face count and exact
-detector checkpoint.
+summary and run metadata. The video example runs face detection and tracking
+through the core [`Video`][physiotrack.Video] pipeline and saves an annotated MP4,
+per-frame JSON, and a per-track CSV.
 
 See [Face Detection & Tracking Examples](face-examples.md) for commands, output
 schemas, and interpretation. These are qualitative teaching examples; use the

@@ -20,6 +20,7 @@ import cv2
 import numpy as np
 import physiotrack as pt
 import torch
+from physiotrack.core.overlay import draw_info_panel
 from physiotrack.face import Face
 
 
@@ -123,51 +124,8 @@ def timed_predict(detector: Face, image: np.ndarray, device: str):
     return result, (time.perf_counter() - started) * 1000.0
 
 
-def add_info_panel(image: np.ndarray, lines: list[str]) -> np.ndarray:
-    """Draw a readable, size-adaptive information panel in the top-left corner."""
-    output = image.copy()
-    height, width = output.shape[:2]
-    font_scale = float(np.clip(min(width, height) / 1050.0, 0.55, 1.15))
-    thickness = max(1, int(round(font_scale * 2)))
-    margin = max(10, int(round(14 * font_scale)))
-    line_gap = max(7, int(round(9 * font_scale)))
-    sizes = [
-        cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)[0]
-        for line in lines
-    ]
-    panel_width = min(width, max(size[0] for size in sizes) + 2 * margin)
-    panel_height = min(
-        height,
-        sum(size[1] for size in sizes) + line_gap * (len(lines) - 1) + 2 * margin,
-    )
-
-    overlay = output.copy()
-    cv2.rectangle(overlay, (0, 0), (panel_width, panel_height), (20, 20, 20), -1)
-    output[:panel_height, :panel_width] = cv2.addWeighted(
-        overlay[:panel_height, :panel_width],
-        0.78,
-        output[:panel_height, :panel_width],
-        0.22,
-        0,
-    )
-
-    y = margin + sizes[0][1]
-    for line, (_, text_height) in zip(lines, sizes):
-        cv2.putText(
-            output,
-            line,
-            (margin, y),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            font_scale,
-            (255, 255, 255),
-            thickness,
-            cv2.LINE_AA,
-        )
-        y += text_height + line_gap
-    return output
-
-
 def runtime_info() -> dict:
+    has_gpu = torch.cuda.is_available() and torch.cuda.device_count() > 0
     return {
         "python": sys.version.split()[0],
         "platform": platform.platform(),
@@ -176,7 +134,7 @@ def runtime_info() -> dict:
         "torch": torch.__version__,
         "cuda_available": torch.cuda.is_available(),
         "cuda_runtime": torch.version.cuda,
-        "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+        "gpu": torch.cuda.get_device_name(0) if has_gpu else None,
     }
 
 
@@ -226,7 +184,7 @@ def main() -> None:
             ]
 
             annotated = result.plot(conf=True, color=(0, 220, 0), thickness=2)
-            annotated = add_info_panel(
+            annotated = draw_info_panel(
                 annotated,
                 [
                     f"Faces detected: {len(result)}",

@@ -350,10 +350,10 @@ Runnable face examples with bundled synthetic media:
 
 ```bash
 python examples/face_detection/detect_faces.py
-python examples/face_tracking/track_faces.py --max-frames 120
+python examples/face_tracking/track_faces.py
 ```
 
-They save annotated images/video plus CSV and JSON/JSONL records and explain every
+They save annotated images/video plus CSV and JSON records and explain every
 field in the [face examples guide](https://tharindu326.github.io/physiotrack/guides/face-examples/).
 
 ---

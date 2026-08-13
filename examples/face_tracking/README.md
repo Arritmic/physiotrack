@@ -1,9 +1,11 @@
 # Face tracking example
 
-This example detects faces in each video frame with [`physiotrack.Face`](../../docs/guides/face.md)
-and associates the boxes over time with a [`physiotrack.Tracker`](../../docs/guides/tracking.md).
-The annotated video shows face boxes, temporary track IDs and trails, plus a corner
-panel with the per-frame face count, active-track count, detector model, and tracker.
+This example detects faces in each video frame with [`physiotrack.Face`](../../docs/guides/face.md),
+associates the boxes over time with a [`physiotrack.Tracker`](../../docs/guides/tracking.md),
+and runs both through the core [`physiotrack.Video`](../../docs/guides/video.md)
+pipeline — the same composition pattern as `examples/pose_video.py` and
+`examples/tracker_aided_pose_video.py`. The annotated video shows face boxes,
+temporary track IDs, and trails.
 
 From the repository root:
 
@@ -11,10 +13,10 @@ From the repository root:
 python examples/face_tracking/track_faces.py
 ```
 
-For a quick CUDA smoke run or a different video:
+For a CUDA run or a different video:
 
 ```bash
-python examples/face_tracking/track_faces.py --device cuda --max-frames 120
+python examples/face_tracking/track_faces.py --device cuda
 python examples/face_tracking/track_faces.py --input path/to/video.mp4 --device cuda
 ```
 
@@ -24,16 +26,15 @@ window is shown. The default output is `examples/face_tracking/results/`:
 ```text
 results/
 ├── students_face_tracking_tracked.mp4
-├── students_face_tracking_frames.jsonl
-├── students_face_tracking_tracks.csv
-└── students_face_tracking_summary.json
+├── students_face_tracking_result.json
+└── students_face_tracking_tracks.csv
 ```
 
-The JSONL file has one self-contained JSON object per frame, including the face
-detector `Result`, tracker `TrackResult`, counts, timestamp, and active IDs. The CSV
-has one row per active track per frame, which is convenient for trajectory analysis.
-The summary JSON records input metadata, configuration, aggregate timing and every
-temporary ID observed. OpenCV writes the annotated video without copying source audio.
+The JSON file is the pipeline's serialized `VideoResults`: one record per frame with
+`frame_id`, `timestamp`, and the tracked `instances` (each carrying `box`,
+`confidence`, `cls`, and a persistent `id`). The CSV has one row per active track
+per frame, which is convenient for trajectory analysis. The video writer prefers
+H.264 and falls back to MPEG-4 with a warning; source audio is not copied.
 
 See the [documentation walkthrough](../../docs/guides/face-examples.md) for field
 tables and interpretation guidance.
