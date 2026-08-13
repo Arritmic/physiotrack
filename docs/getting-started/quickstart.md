@@ -43,6 +43,11 @@ run `python examples/face_detection/detect_faces.py`. The
 [face examples guide](../guides/face-examples.md) explains its annotated PNG, CSV,
 JSON and run-metadata outputs.
 
+For a VR scene, run `python examples/vr_detection/detect_vr_people.py` to compare
+VR-head boxes, full VR-person boxes, and generic person boxes on exactly the same
+image. See the [VR objects and people](../guides/detection.md#vr-objects-and-people)
+section for why their counts differ.
+
 ## 2. Pose on the same image
 
 `Pose.Person()` auto-detects people first (no boxes needed), then estimates
@@ -147,3 +152,5 @@ See the [Pose guide](../guides/pose.md) and the [`Pose`][physiotrack.Pose] API.
 - **Reading the output** → [Result objects](../api/results.md).
 - **Pick different weights** → [Model Zoo](../model-zoo.md).
 - **Run face detection/tracking examples** → [Face Examples](../guides/face-examples.md).
+- **Compare VR-head, VR-person, and person detection** →
+  [Detection](../guides/detection.md#vr-objects-and-people).

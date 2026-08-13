@@ -21,7 +21,8 @@ cached.
 
     Person, face, and VR object boxes with confidence and class labels.
 
-    [:octicons-arrow-right-24: Detection guide](detection.md)
+    [:octicons-arrow-right-24: Detection guide](detection.md) ·
+    [VR example](https://github.com/tharindu326/physiotrack/tree/main/examples/vr_detection)
 
 - :material-run-fast:{ .lg .middle } **Pose Estimation (2D)**
 

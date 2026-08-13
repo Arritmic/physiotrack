@@ -122,8 +122,7 @@ class Models:
                 l_vrface = "yolov12l-face.pt"
 
             class VR(Enum):
-                m_vr = "yolo11m_vr.pt"
-                l_vr = "yolo11l_vr.pt"
+                m_vr = "yolo11m_VR_head.pt"
 
             class VRSTUDENT(Enum):
                 m_vrstudent = "yolo11m_VRstudent.pt"
